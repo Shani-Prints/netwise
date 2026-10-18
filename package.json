@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "data:generate": "tsx scripts/excel-to-json.ts",
     "calc:explain": "tsx scripts/explain-calc.ts",
+    "calc:show": "tsx scripts/show-explanation.ts",
     "data:load-usage": "tsx scripts/load-usage-values.ts"
   },
   "dependencies": {

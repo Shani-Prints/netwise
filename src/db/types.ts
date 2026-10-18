@@ -16,7 +16,8 @@ export const SalaryInputsSchema = z.object({
   bonus: z.number().min(0).optional(),
   pensionPct: z.number().min(0).max(100).optional(),
   studyFundPct: z.number().min(0).max(100).optional(),
-  creditPoints: z.number().min(0).max(20).optional(),
+  // sanity bound only (not a rule); real credit-point totals are far below this
+  creditPoints: z.number().min(0).max(50).optional(),
 });
 export type SalaryInputs = z.infer<typeof SalaryInputsSchema>;
 

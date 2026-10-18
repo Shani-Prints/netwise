@@ -4,6 +4,9 @@ export const GROUP_CODES = ['א', 'ב', 'ג', 'ד'] as const;
 export const GroupCodeSchema = z.enum(GROUP_CODES);
 export type GroupCode = z.infer<typeof GroupCodeSchema>;
 
+/** The dataset's word for an electric drive; used when an older rules file has no electricDriveLabel. */
+export const DEFAULT_ELECTRIC_DRIVE_LABEL = 'חשמלי';
+
 const rate = z.number().min(0).max(1);
 const money = z.number().min(0);
 
@@ -63,6 +66,8 @@ export const RulesSchema = z.object({
     source: z.string(),
     key: z.array(z.string()),
     driveField: z.record(z.string(), z.string()),
+    /** Which driveField value means "electric". Optional so older rules files still load. */
+    electricDriveLabel: z.string().min(1).default(DEFAULT_ELECTRIC_DRIVE_LABEL),
   }),
 });
 

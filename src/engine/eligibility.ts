@@ -31,10 +31,17 @@ export function checkEligibility(
     if (profile.childrenUnder23 < rules.familyTrack.minChildren) {
       return no({
         code: 'family_track_not_enough_children',
-        params: { children: profile.childrenUnder23, required: rules.familyTrack.minChildren },
+        params: {
+          children: profile.childrenUnder23,
+          required: rules.familyTrack.minChildren,
+          childMaxAge: rules.familyTrack.childMaxAge,
+        },
       });
     }
-    return yes({ code: 'family_track', params: { children: profile.childrenUnder23 } });
+    return yes({
+      code: 'family_track',
+      params: { children: profile.childrenUnder23, childMaxAge: rules.familyTrack.childMaxAge },
+    });
   }
 
   const order = rules.groupOrder;

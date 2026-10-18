@@ -4,8 +4,10 @@ import { carLabel, getCatalogCar, getOccupation, toCarSpec } from '../data/catal
 import { getUsageIndex, lookupUsageValue, type UsageIndex } from '../data/usageValues';
 import type { ConversationState, OptionRef, ProfileRecord } from '../db/types';
 import {
+  calculateScenario,
   compareScenarios,
   displayDifference,
+  findMissingFields,
   roundShekel,
   type CarSpec,
   type Components,
@@ -107,18 +109,10 @@ function resolveToday(
   return { kind: 'car', car, employeeParticipation: state.currentParticipation };
 }
 
-/**
- * Builds the comparison "today vs one alternative" from saved conversation state + profile.
- * Participation of the new car: a representative's answer wins; otherwise the catalogue default is used and the
- * result is flagged as an assumption pending confirmation. The LLM never supplies any number here.
- */
-export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
-  const rules = args.rules ?? loadRules();
-  const usage = args.usage ?? getUsageIndex();
-  const { profile, state, alternative } = args;
+/** Saved profile -> engine profile. Missing values stay undefined so the engine reports them as missing. */
+function profileInputOf(profile: ProfileRecord | null): Partial<EmployeeProfile> {
   const s = profile?.salaryInputs ?? {};
-
-  const profileInput: Partial<EmployeeProfile> = {
+  return {
     group: profile?.groupCode,
     occupation: profile?.occupation,
     base: s.base,
@@ -129,6 +123,50 @@ export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
     creditPoints: s.creditPoints,
     childrenUnder23: profile?.childrenCount,
   };
+}
+
+export interface TodayOnly {
+  status: 'ok' | 'missing';
+  today?: ScenarioView;
+  missingFields: string[];
+  missingText: string[];
+}
+
+/**
+ * What can already be computed without any alternative: the employee's net for today's situation.
+ * Used while a representative question is open. Returns missing (never a number) if today's inputs are incomplete.
+ */
+export function buildTodayOnly(args: Omit<BuildComparisonArgs, 'alternative'>): TodayOnly {
+  const rules = args.rules ?? loadRules();
+  const usage = args.usage ?? getUsageIndex();
+  const { profile, state } = args;
+  const profileInput = profileInputOf(profile);
+  const occupation = profile?.occupation ? getOccupation(profile.occupation) : undefined;
+  const today = resolveToday(state, profile?.groupCode, rules, usage);
+  // An alternative of kind "none" needs nothing, so only profile / occupation / today inputs can be reported missing.
+  const missing = findMissingFields({ profile: profileInput, occupation, today, alternative: { kind: 'none' } });
+  if (missing.length > 0 || !occupation || !today) {
+    const fields = missing.length > 0 ? missing : ['currentCar'];
+    return {
+      status: 'missing',
+      missingFields: fields,
+      missingText: [...new Set(fields.map((f) => missingFieldLabel(f, rules.familyTrack.childMaxAge)))],
+    };
+  }
+  const scenario = calculateScenario(profileInput as EmployeeProfile, occupation, today, rules);
+  return { status: 'ok', today: toScenarioView(scenario), missingFields: [], missingText: [] };
+}
+
+/**
+ * Builds the comparison "today vs one alternative" from saved conversation state + profile.
+ * Participation of the new car: a representative's answer wins; otherwise the catalogue default is used and the
+ * result is flagged as an assumption pending confirmation. The LLM never supplies any number here.
+ */
+export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
+  const rules = args.rules ?? loadRules();
+  const usage = args.usage ?? getUsageIndex();
+  const { profile, state, alternative } = args;
+  const profileInput = profileInputOf(profile);
 
   let altOption: ScenarioOption | undefined;
   let altLabel = WAIVER_LABEL;

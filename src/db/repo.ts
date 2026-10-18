@@ -16,6 +16,8 @@ import type {
  */
 export interface Repo {
   getUser(id: string): Promise<User | null>;
+  /** Creates the user if absent (idempotent); never overwrites an existing row. */
+  createUser(user: User): Promise<User>;
   listUsers(): Promise<User[]>;
 
   getProfile(userId: string): Promise<ProfileRecord | null>;
@@ -46,7 +48,7 @@ declare global {
   var __netwiseRepo: Repo | undefined;
 }
 
-/** Supabase when configured, otherwise a process-local in-memory store seeded with the fictional demo users. */
+/** Supabase when configured, otherwise an EMPTY process-local in-memory store (data is lost on restart). */
 export async function getRepo(): Promise<Repo> {
   if (globalThis.__netwiseRepo) return globalThis.__netwiseRepo;
   let repo: Repo;

@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { demoProfiles, demoUsers } from '../lib/demoUsers';
 import type { Repo } from './repo';
 import type { CalcRecord, Conversation, Message, ProfileRecord, RepQuestion, User } from './types';
 
-/** In-memory Repo for local demos and tests. Data lives for the life of the server process only. */
-export function createMemoryRepo(): Repo {
-  const users = new Map<string, User>(demoUsers().map((u) => [u.id, u]));
-  const profiles = new Map<string, ProfileRecord>(demoProfiles().map((p) => [p.userId, p]));
+export interface MemoryRepoSeed {
+  users?: User[];
+  profiles?: ProfileRecord[];
+}
+
+/**
+ * In-memory Repo for local demos and tests. Data lives for the life of the server process only.
+ * Starts EMPTY: the app never seeds anyone. Tests and scripts may pass a seed explicitly.
+ */
+export function createMemoryRepo(seed: MemoryRepoSeed = {}): Repo {
+  const users = new Map<string, User>((seed.users ?? []).map((u) => [u.id, u]));
+  const profiles = new Map<string, ProfileRecord>((seed.profiles ?? []).map((p) => [p.userId, p]));
   const conversations = new Map<string, Conversation>();
   const messages: Message[] = [];
   const questions = new Map<string, RepQuestion>();
@@ -16,6 +23,10 @@ export function createMemoryRepo(): Repo {
   return {
     async getUser(id) {
       return clone(users.get(id) ?? null);
+    },
+    async createUser(user) {
+      if (!users.has(user.id)) users.set(user.id, clone(user));
+      return clone(users.get(user.id)!);
     },
     async listUsers() {
       return clone([...users.values()]);

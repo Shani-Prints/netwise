@@ -61,6 +61,18 @@ export function createSupabaseRepo(url: string, serviceRoleKey: string): Repo {
       const r = must(await db.from('users').select('*').eq('id', id).maybeSingle(), 'getUser');
       return r ? toUser(r) : null;
     },
+    async createUser(user) {
+      // Insert-if-absent: an existing row is never overwritten.
+      must(
+        await db
+          .from('users')
+          .upsert({ id: user.id, role: user.role, display_name: user.displayName }, { onConflict: 'id', ignoreDuplicates: true }),
+        'createUser',
+      );
+      const r = must(await db.from('users').select('*').eq('id', user.id).maybeSingle(), 'createUser.read');
+      if (!r) throw new Error('supabase createUser: row not found after insert');
+      return toUser(r);
+    },
     async listUsers() {
       return mustRows(await db.from('users').select('*').order('created_at'), 'listUsers').map(toUser);
     },

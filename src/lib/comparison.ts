@@ -18,6 +18,7 @@ import {
   type ScenarioResult,
 } from '../engine';
 import { eligibilityText, explainResult, fmt, missingFieldLabel } from './explain';
+import { participationFromRepresentative } from './flags';
 import type { ComponentsView, ComparisonView, ScenarioView } from './view';
 
 export type ParticipationSource = 'representative' | 'catalog_default' | 'not_applicable';
@@ -28,6 +29,8 @@ export interface BuildComparisonArgs {
   alternative: OptionRef;
   rules?: Rules;
   usage?: UsageIndex;
+  /** Overrides PARTICIPATION_FROM_REPRESENTATIVE (tests). Default: read the env flag. */
+  participationFromRepresentative?: boolean;
 }
 
 export interface BuiltComparison {
@@ -35,9 +38,15 @@ export interface BuiltComparison {
   /** Raw engine result (server side only; the view carries the rounded numbers). */
   result: ComparisonResult;
   input: ComparisonInput;
-  /** Where the alternative car's employee participation came from. */
+  /**
+   * Where the new car's employee participation came from: the catalogue default (demo data) unless a representative
+   * has explicitly answered.
+   */
   participationSource: ParticipationSource;
-  /** True while the participation is only the catalogue default, i.e. a representative should confirm it. */
+  /**
+   * True only in representative mode (PARTICIPATION_FROM_REPRESENTATIVE=true) while the participation is still the
+   * catalogue default: the service then opens a representative question. Always false in the default mode.
+   */
   needsRepresentative: boolean;
 }
 
@@ -197,11 +206,15 @@ export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
   const childMaxAge = rules.familyTrack.childMaxAge;
   const explanation = explainResult(result, altLabel, childMaxAge);
 
-  const needsRepresentative = source === 'catalog_default';
+  const repMode = args.participationFromRepresentative ?? participationFromRepresentative();
+  const needsRepresentative = repMode && source === 'catalog_default';
   const assumptions: string[] = [];
-  if (result.status === 'ok' && needsRepresentative) {
+  if (result.status === 'ok' && source === 'catalog_default') {
+    const amount = fmt(result.alternative.components.participation);
     assumptions.push(
-      `השתתפות העובד ברכב החדש (${fmt(result.alternative.components.participation)} ₪) היא ברירת המחדל של הקטלוג וטרם אושרה על ידי נציג התחבורה.`,
+      repMode
+        ? `השתתפות העובד ברכב החדש (${amount} ₪) היא ברירת המחדל של הקטלוג וטרם אושרה על ידי נציג התחבורה.`
+        : `השתתפות העובד ברכב החדש (${amount} ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).`,
     );
   }
 

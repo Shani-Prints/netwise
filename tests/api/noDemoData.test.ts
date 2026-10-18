@@ -40,6 +40,7 @@ describe('the 6 sample employees are test data only', () => {
   it('no route offers a demo or employee login shortcut', () => {
     const routes = walk(path.join(process.cwd(), 'src', 'app', 'api')).map((f) => path.relative(process.cwd(), f).split(path.sep).join('/'));
     expect(routes.sort()).toEqual([
+      'src/app/api/chat/route.ts',
       'src/app/api/employee/state/route.ts',
       'src/app/api/rep/answer/route.ts',
       'src/app/api/rep/questions/route.ts',

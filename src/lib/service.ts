@@ -218,8 +218,10 @@ function withPending(view: ComparisonView, alt: OptionRef, questions: RepQuestio
 }
 
 /**
- * Recomputes the comparison for the chosen alternative with the real engine, opens the representative question if the
- * participation is still only a catalogue default, and persists state (+ an audit record) in the conversation.
+ * Recomputes the comparison for the chosen alternative with the real engine and persists state (+ an audit record).
+ * The new car's participation is the catalogue default unless a representative has answered. By default the
+ * representative is NOT asked: a question exists only when explicitly asked (askRepresentativeParticipation).
+ * With PARTICIPATION_FROM_REPRESENTATIVE=true the question is opened automatically while only the default exists.
  */
 async function commitComparison(
   repo: Repo,
@@ -233,6 +235,7 @@ async function commitComparison(
   }
   const built = buildComparison({ profile, state, alternative: state.alternative });
   if (built.view.status === 'ok' && built.needsRepresentative && state.alternative.kind === 'car') {
+    // only reachable in representative mode (needsRepresentative is always false by default)
     await ensureRepQuestion(repo, conversationId, state.alternative.carId, profile.groupCode);
   }
   const open = await repo.listRepQuestions({ conversationId, status: 'open' });
@@ -494,4 +497,33 @@ export async function answerRepQuestion(
   // The employee's conversation gets a system notice now; the value is applied when they next load / write.
   await repo.addMessage(q.conversationId, 'system', REP_ANSWER_NOTICE);
   return toRepQuestionView(saved);
+}
+
+// ---------------------------------------------------------------- agent support
+
+export interface AskRepresentativeResult {
+  status: 'asked' | 'already_open' | 'already_answered';
+  questionId?: string;
+}
+
+/**
+ * Used by the agent's ask_representative tool. Opens (once) the participation question for a catalogue car.
+ * The question text comes from a template; nothing the model or the employee wrote reaches the representative.
+ */
+export async function askRepresentativeParticipation(
+  repo: Repo,
+  actor: Actor,
+  carId: string,
+): Promise<AskRepresentativeResult> {
+  requireEmployee(actor);
+  if (!getCatalogCar(carId)) throw new ServiceError(422, 'unknown_car');
+  return withLock(actor.userId, async () => {
+    const turn = await prepare(repo, actor);
+    if (turn.conv.state.repAnswers[carId] !== undefined) return { status: 'already_answered' };
+    const open = await repo.listRepQuestions({ conversationId: turn.conv.id, status: 'open' });
+    const existing = openQuestionFor(open, carId);
+    if (existing) return { status: 'already_open', questionId: existing.id };
+    const q = await ensureRepQuestion(repo, turn.conv.id, carId, turn.profile.groupCode);
+    return q ? { status: 'asked', questionId: q.id } : { status: 'already_open' };
+  });
 }

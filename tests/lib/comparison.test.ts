@@ -79,16 +79,16 @@ describe('electric vehicle with gross-up (E-001: -> BYD Atto 3)', () => {
     expect(b.view.explanation[1]).toContain('החזר חשמל: 250 ₪ נטו בדיוק (מגולם, כ-440 ₪ ברוטו)');
     expect(b.view.explanation[1]).toContain('שווי השימוש משתנה מ-4,070 ל-3,130 ₪');
   });
-  it('flags the catalogue-default participation as an assumption until a representative answers', () => {
+  it('takes the new car\'s participation from the catalogue default (demo data) and says so, without involving anyone', () => {
     expect(b.participationSource).toBe('catalog_default');
-    expect(b.needsRepresentative).toBe(true);
-    expect(b.view.assumptions).toHaveLength(1);
-    expect(b.view.assumptions[0]).toContain('300 ₪');
+    expect(b.view.alternative!.components.participation).toBe(300);
+    expect(b.view.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).']);
+    expect(b.view.pendingQuestionId).toBeUndefined();
+    expect(JSON.stringify(b.view.assumptions)).not.toContain('נציג');
   });
-  it('uses the representative answer when there is one and drops the assumption', () => {
+  it('uses the representative answer when one was explicitly obtained, and drops the assumption', () => {
     const r = build('E-001', car('CAR-10'), { repAnswers: { 'CAR-10': 350 } });
     expect(r.participationSource).toBe('representative');
-    expect(r.needsRepresentative).toBe(false);
     expect(r.view.assumptions).toEqual([]);
     expect(r.view.alternative!.components.participation).toBe(350);
     expect(r.view.alternative!.components.net).toBe(11643); // 11,692.82 - 50 extra participation
@@ -107,7 +107,6 @@ describe('waiver', () => {
     expect(b.view.explanation[1]).toContain('מתבטלת השתתפות העובד ברכב (350 ₪)');
     expect(b.view.explanation[1]).toContain('נוספת אחזקת רכב חייבת במס של 2,000 ₪');
     expect(b.participationSource).toBe('not_applicable');
-    expect(b.needsRepresentative).toBe(false);
     expect(b.view.assumptions).toEqual([]);
   });
   it('E-003 gives up the maintenance (today is a waiver) and takes an EV', () => {

@@ -1,8 +1,8 @@
 import { createMemoryRepo } from '../../src/db/memoryRepo';
-import { setRepo, type Repo } from '../../src/db/repo';
+import { getRepo, setRepo, type Repo } from '../../src/db/repo';
 import * as H from '../../src/lib/handlers';
 import { SESSION_COOKIE, verifySessionToken } from '../../src/lib/session';
-import type { Actor } from '../../src/lib/service';
+import { askRepresentativeParticipation, type Actor } from '../../src/lib/service';
 
 export const SECRET = 'unit-test-secret-0123456789abcdef';
 export const REP_CODE = 'rep-code-for-tests';
@@ -114,12 +114,25 @@ export const PROFILE = {
 
 export const ATTO3 = { kind: 'car', carId: 'CAR-10' } as const;
 
-/** An employee who has entered their data and chosen the EV: a representative question is now open. */
+/**
+ * Explicitly asks the representative about the employee participation in a catalogue car. This is exactly what the
+ * agent's ask_representative tool does. The app NEVER does it by itself: by default the new car's participation is the
+ * catalogue default (demo data) and no representative is involved.
+ */
+export async function askRepresentative(client: Client, carId: string) {
+  return askRepresentativeParticipation(await getRepo(), client.actor(), carId);
+}
+
+/**
+ * An employee who entered their data, chose the EV, and for whom a representative question was explicitly opened.
+ * `reply` is the employee's state with that question pending.
+ */
 export async function pendingEmployee(profile: Record<string, unknown> = PROFILE): Promise<{ client: Client; reply: Reply }> {
   const client = new Client();
   await client.updateProfile(profile);
-  const reply = await client.select(ATTO3);
-  return { client, reply };
+  await client.select(ATTO3);
+  await askRepresentative(client, 'CAR-10');
+  return { client, reply: await client.state() };
 }
 
 export async function loggedInRep(): Promise<Client> {

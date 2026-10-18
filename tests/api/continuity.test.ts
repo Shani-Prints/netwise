@@ -1,7 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setRepo, type Repo } from '../../src/db/repo';
 import { prepareEmployeeTurn } from '../../src/lib/service';
-import { ATTO3, Client, freshRepo, loggedInRep, pendingEmployee, PROFILE, restoreEnv, setupEnv, type Json } from './harness';
+import {
+  askRepresentative,
+  ATTO3,
+  Client,
+  freshRepo,
+  loggedInRep,
+  pendingEmployee,
+  PROFILE,
+  restoreEnv,
+  setupEnv,
+  type Json,
+} from './harness';
 
 let repo: Repo;
 
@@ -36,9 +47,9 @@ describe('conversation continuity around a representative question', () => {
     const cmp = chosen.body.comparison;
     expect(cmp.status).toBe('ok');
     expect(cmp.pendingQuestionId).toBe(chosen.body.questions[0].id);
-    expect(cmp.alternative.components.participation).toBe(300); // catalogue default, explicitly an assumption
+    expect(cmp.alternative.components.participation).toBe(300); // catalogue default until the representative answers
     expect(cmp.assumptions).toHaveLength(1);
-    expect(cmp.assumptions[0]).toContain('טרם אושרה על ידי נציג התחבורה');
+    expect(cmp.assumptions[0]).toContain('נלקחה מברירת המחדל בקטלוג');
     expect(chosen.body.updates).toEqual({ newAnswers: false, updatedFields: [] });
     expect(chosen.body.repAnswers).toEqual({});
 
@@ -113,17 +124,42 @@ describe('conversation continuity around a representative question', () => {
     expect(edited.body.questions).toHaveLength(1);
   });
 
-  it('choosing a different car opens a new question for that car only; earlier answers stay', async () => {
+  it('choosing a different car opens nothing by itself; an explicit ask is per car and earlier answers stay', async () => {
     const { client: e } = await pendingEmployee();
     const rep = await loggedInRep();
     await rep.repAnswer((await rep.repQuestions()).body.questions[0].id, '350');
     const other = await e.select({ kind: 'car', carId: 'CAR-11' }); // Kia EV3, group ג
     expect(other.body.repAnswers).toEqual({ 'CAR-10': 350 });
-    expect(other.body.questions).toHaveLength(2);
-    expect(other.body.comparison.alternative.components.participation).toBe(300);
-    expect(other.body.comparison.pendingQuestionId).toBeDefined();
+    expect(other.body.questions).toHaveLength(1); // only the old, answered one: choosing a car asks nobody
+    expect(other.body.awaitingRepresentative).toBe(false);
+    expect(other.body.comparison.alternative.components.participation).toBe(300); // catalogue default
+    expect(other.body.comparison.pendingQuestionId).toBeUndefined();
+
+    expect(await askRepresentative(e, 'CAR-11')).toMatchObject({ status: 'asked' });
+    expect(await askRepresentative(e, 'CAR-11')).toMatchObject({ status: 'already_open' }); // never duplicated
+    expect(await askRepresentative(e, 'CAR-10')).toEqual({ status: 'already_answered' }); // never asked twice
+    const asked = await e.state();
+    expect(asked.body.questions).toHaveLength(2);
+    expect(asked.body.comparison.pendingQuestionId).toBeDefined();
+
     const back = await e.select(ATTO3);
     expect(back.body.comparison.alternative.components.participation).toBe(350);
+  });
+
+  it('by default nobody is asked: the catalogue default is used and the representative has nothing to do', async () => {
+    const e = new Client();
+    await e.updateProfile(PROFILE);
+    const r = await e.select(ATTO3);
+    expect(r.body.comparison.status).toBe('ok');
+    expect(r.body.comparison.alternative.components.participation).toBe(300); // catalogue default (demo data)
+    expect(r.body.comparison.alternative.components.net).toBe(11693);
+    expect(r.body.comparison.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).']);
+    expect(r.body.comparison.pendingQuestionId).toBeUndefined();
+    expect(r.body.questions).toEqual([]);
+    expect(r.body.awaitingRepresentative).toBe(false);
+    expect((await repo.listRepQuestions()).length).toBe(0);
+    const rep = await loggedInRep();
+    expect((await rep.repQuestions()).body).toEqual({ questions: [] });
   });
 
   it('a waiver needs no representative: no question is opened', async () => {
@@ -135,28 +171,32 @@ describe('conversation continuity around a representative question', () => {
     expect(r.body.awaitingRepresentative).toBe(false);
   });
 
-  it('no question is opened while the data is incomplete or the car is not allowed', async () => {
+  it('no question is ever opened by the app itself, at any point of the flow', async () => {
     const e = new Client();
     const early = await e.select(ATTO3); // nothing known about the employee yet
     expect(early.body.comparison.status).toBe('missing');
     expect(early.body.comparison.missingFields).toContain('base');
-    expect(early.body.questions).toEqual([]);
     expect(early.body.todayOnly.status).toBe('missing');
     expect(JSON.stringify(early.body.comparison)).not.toMatch(/"net"/);
 
-    // The EV was already chosen; once the data is complete the comparison becomes computable, so the question opens now.
+    // Once the data is complete the comparison is computable, with the catalogue default. Still nobody is asked.
     const completed = await e.updateProfile(PROFILE);
     expect(completed.body.comparison.status).toBe('ok');
-    expect(completed.body.questions).toHaveLength(1);
-    for (let i = 0; i < 3; i++) expect((await e.state()).body.questions).toHaveLength(1); // reading never creates more
-    expect((await e.select(ATTO3)).body.questions).toHaveLength(1); // choosing again does not duplicate it
-    expect((await repo.listRepQuestions()).length).toBe(1);
+    expect(completed.body.comparison.alternative.components.participation).toBe(300);
+    for (let i = 0; i < 3; i++) expect((await e.state()).body.questions).toEqual([]);
+    expect((await e.select(ATTO3)).body.questions).toEqual([]);
+    expect((await repo.listRepQuestions()).length).toBe(0);
 
     const higher = new Client();
     await higher.updateProfile(PROFILE);
     const denied = await higher.select({ kind: 'car', carId: 'CAR-14' }); // group ד car for a group ג employee
     expect(denied.body.comparison.status).toBe('ineligible');
     expect(denied.body.questions).toEqual([]);
+
+    // Only an explicit ask (the agent's ask_representative tool) opens one, once, and only for a catalogue car.
+    expect(await askRepresentative(e, 'CAR-10')).toMatchObject({ status: 'asked' });
+    expect((await e.state()).body.questions).toHaveLength(1);
+    await expect(askRepresentative(e, 'CAR-99')).rejects.toMatchObject({ status: 422 });
   });
 
   it('concurrent loads apply an answer exactly once', async () => {

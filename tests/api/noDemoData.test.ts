@@ -42,6 +42,7 @@ describe('the 6 sample employees are test data only', () => {
     expect(routes.sort()).toEqual([
       'src/app/api/chat/route.ts',
       'src/app/api/employee/state/route.ts',
+      'src/app/api/health/route.ts',
       'src/app/api/rep/answer/route.ts',
       'src/app/api/rep/questions/route.ts',
       'src/app/api/session/rep/route.ts',

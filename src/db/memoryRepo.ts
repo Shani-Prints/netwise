@@ -41,6 +41,8 @@ export function createMemoryRepo(seed: MemoryRepoSeed = {}): Repo {
       return clone([...conversations.values()].find((c) => c.userId === userId) ?? null);
     },
     async createConversation(userId, state) {
+      const existing = [...conversations.values()].find((x) => x.userId === userId); // mirrors the unique (user_id) index
+      if (existing) return clone(existing);
       const c: Conversation = { id: randomUUID(), userId, status: 'active', state: clone(state) };
       conversations.set(c.id, c);
       return clone(c);
@@ -95,6 +97,9 @@ export function createMemoryRepo(seed: MemoryRepoSeed = {}): Repo {
     },
     async saveCalcResult(rec) {
       calcs.push(clone(rec));
+    },
+    async ping() {
+      // nothing to reach: the store lives in this process
     },
   };
 }

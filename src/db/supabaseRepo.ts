@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from './adminClient';
 import { ConversationStateSchema, SalaryInputsSchema } from './types';
 import type { Repo } from './repo';
 import type { Conversation, Message, ProfileRecord, RepQuestion, User } from './types';
@@ -54,12 +55,18 @@ const toQuestion = (r: Row): RepQuestion => ({
  * manual checklist in README before relying on it.
  */
 export function createSupabaseRepo(url: string, serviceRoleKey: string): Repo {
-  const db: SupabaseClient = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  // Same client options as before (service role, no session persistence) plus the Node 20 WebSocket transport.
+  const db: SupabaseClient = createAdminClient(url, serviceRoleKey);
 
   return {
     async getUser(id) {
       const r = must(await db.from('users').select('*').eq('id', id).maybeSingle(), 'getUser');
       return r ? toUser(r) : null;
+    },
+    async ping() {
+      // Harmless read: a head-only count on the small users table. No rows are created and none are returned.
+      const { error } = await db.from('users').select('*', { count: 'exact', head: true });
+      if (error) throw new Error(`supabase ping failed: ${error.message}`);
     },
     async createUser(user) {
       // Insert-if-absent: an existing row is never overwritten.
@@ -108,8 +115,13 @@ export function createSupabaseRepo(url: string, serviceRoleKey: string): Repo {
       return r ? toConversation(r) : null;
     },
     async createConversation(userId, state) {
-      const r = must(await db.from('conversations').insert({ user_id: userId, state }).select('*').single(), 'createConversation');
-      return toConversation(r);
+      const res = await db.from('conversations').insert({ user_id: userId, state }).select('*').single();
+      if (res.error?.code === '23505') {
+        // unique (user_id), migration 0003: another request created it first, so return that one
+        const existing = must(await db.from('conversations').select('*').eq('user_id', userId).maybeSingle(), 'createConversation');
+        if (existing) return toConversation(existing);
+      }
+      return toConversation(mustOne(res, 'createConversation'));
     },
     async getConversation(id) {
       const r = must(await db.from('conversations').select('*').eq('id', id).maybeSingle(), 'getConversation');

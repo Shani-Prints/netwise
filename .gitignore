@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+coverage
+.env
+.env.local
+.env*.local
+# any other env variant (.env.production, .env.development, ...); the template stays tracked
+.env.*
+!.env.example
+# local Claude Code settings (machine-specific, not project content)
+.claude/
+# files `next dev` regenerates on every run
+AGENTS.md
+CLAUDE.md
+.data
+*.tsbuildinfo
+next-env.d.ts
+.vercel

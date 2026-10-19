@@ -1,8 +1,10 @@
 import { generateText, stepCountIs, type ModelMessage } from 'ai';
+import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
 import { prepareEmployeeTurn, type Actor, type TurnContext } from '../lib/service';
-import { guardResponse, type GuardReason } from './guard';
+import { runEligibilityCheck } from './eligibilityCheck';
+import { guardLogCode, guardResponse, type GuardReason } from './guard';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
 import { newCollector, createTools, type TurnCollector } from './tools';
@@ -23,27 +25,83 @@ export interface AgentTurnArgs {
   showProvisional: boolean;
   /** PARTICIPATION_FROM_REPRESENTATIVE. Default: read the env flag (false). Selects the prompt policy. */
   participationFromRepresentative?: boolean;
+  /** The employee's message of this turn. Used only to let the SERVER resolve a named car when the model gave no usable answer. */
+  userMessage?: string;
   fallback?: FallbackOptions;
 }
+
+/** How the final text was produced when it is not the model's own text. */
+export type AnswerVia = 'deterministic' | 'server_eligibility' | 'neutral_fallback';
 
 export interface AgentTurnResult {
   assistantText: string;
   collector: TurnCollector;
   context: TurnContext;
   provider: string;
-  /** Set when the guard replaced the model text with the deterministic explanation. */
+  /** Set when the model text was not used as is. */
   guardReason?: GuardReason | 'empty';
+  /** Short reason codes that were logged (guard:unknown_number, guard:no_tool_result, empty_answer, tool_error ...). */
+  logCodes: string[];
+  via?: AnswerVia;
+  /** True when the engine's Hebrew refusal reason had to be appended to an otherwise acceptable model text. */
+  reasonAppended: boolean;
 }
 
-/** Deterministic Hebrew text built only from tool results (which come from src/lib/explain.ts). */
+interface IneligibleFact {
+  label: string;
+  reason: string;
+}
+
+/** Every "ineligible" verdict of this turn, with the engine's Hebrew reason (from check_eligibility or calculate_comparison). */
+export function ineligibleFacts(collector: TurnCollector): IneligibleFact[] {
+  const out: IneligibleFact[] = [];
+  const seen = new Set<string>();
+  for (const r of collector.results) {
+    const o = r.output as { status?: string; alternativeLabel?: string; text?: string; eligibilityText?: string } | null;
+    if (!o || o.status !== 'ineligible') continue;
+    const reason = r.tool === 'check_eligibility' ? o.text : r.tool === 'calculate_comparison' ? o.eligibilityText : undefined;
+    if (!reason) continue;
+    const key = `${o.alternativeLabel ?? ''}|${reason}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ label: o.alternativeLabel ?? '', reason });
+  }
+  return out;
+}
+
+/** Deterministic Hebrew text built only from tool results (which come from src/lib/explain.ts and the rules engine). */
 export function deterministicText(collector: TurnCollector): string {
-  if (collector.lastView) return collector.lastView.explanation.join('\n');
+  const parts: string[] = [];
+  // A refusal always wins: it is the one thing the employee must not miss.
+  for (const f of ineligibleFacts(collector)) parts.push(`אין זכאות לחלופה "${f.label}".\n${f.reason}.`);
+  if (collector.lastView && collector.lastView.status !== 'ineligible') parts.push(collector.lastView.explanation.join('\n'));
+  if (parts.length > 0) return parts.join('\n');
+
   for (const r of [...collector.results].reverse()) {
-    const o = r.output as { missingText?: string[]; text?: string; status?: string } | null;
+    const o = r.output as { missingText?: string[]; text?: string; status?: string; alternativeLabel?: string } | null;
     if (o?.missingText && o.missingText.length > 0) return `חסר לי מידע כדי להמשיך: ${o.missingText.join(', ')}.`;
-    if (r.tool === 'check_eligibility' && o?.text) return `${o.text}.`;
+    if (r.tool === 'check_eligibility' && o?.text) {
+      return o.status === 'eligible' && o.alternativeLabel
+        ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אם תרצה, אחשב כמה זה ישנה בנטו.`
+        : `${o.text}.`;
+    }
   }
   return NEUTRAL_FALLBACK_HE;
+}
+
+const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+/**
+ * If a tool said "ineligible" this turn, the final answer must carry the engine's Hebrew reason. Model text that already
+ * quotes it is left alone; otherwise the reason is appended (never replaced), so nothing the model said is lost.
+ */
+export function ensureIneligibleReason(text: string, collector: TurnCollector): { text: string; appended: boolean } {
+  const facts = ineligibleFacts(collector);
+  const flat = squash(text);
+  const missing = facts.filter((f) => !flat.includes(squash(f.reason)));
+  if (missing.length === 0) return { text, appended: false };
+  const lines = missing.map((f) => (facts.length > 1 && f.label ? `"${f.label}": ${f.reason}.` : `${f.reason}.`));
+  return { text: [text, ...lines].filter(Boolean).join('\n'), appended: true };
 }
 
 async function history(repo: Repo, conversationId: string): Promise<ModelMessage[]> {
@@ -55,6 +113,43 @@ async function history(repo: Repo, conversationId: string): Promise<ModelMessage
   );
   while (msgs[0] && msgs[0].role !== 'user') msgs.shift();
   return msgs;
+}
+
+/**
+ * The model gave nothing usable and no tool left a deterministic answer. If the employee's message names ONE catalogue car,
+ * the server runs the same eligibility check the tool would have run and records it like a tool result.
+ */
+async function serverEligibility(args: AgentTurnArgs, collector: TurnCollector): Promise<boolean> {
+  if (!args.userMessage) return false;
+  const match = matchCatalogCar(args.userMessage);
+  if (match.status !== 'found') return false;
+  const output = await runEligibilityCheck(args.repo, args.actor, { kind: 'car', carId: match.car.id });
+  collector.results.push({ tool: 'check_eligibility', output });
+  return true;
+}
+
+/**
+ * Logs every failed tool call of the turn by tool name and error code only. Two kinds exist: errors our tool returned
+ * (unknown car...) and calls the AI SDK rejected before our tool ran (arguments that fail the input schema).
+ */
+function logToolErrors(collector: TurnCollector, sdkRejected: string[]): number {
+  let n = 0;
+  for (const r of collector.results) {
+    const o = r.output as { status?: string; error?: string } | null;
+    if (o?.status !== 'error') continue;
+    n++;
+    console.warn(`[netwise] chat: tool_error (tool=${r.tool}, error=${o.error ?? 'unknown'})`);
+  }
+  for (const tool of sdkRejected) {
+    n++;
+    console.warn(`[netwise] chat: tool_error (tool=${tool}, error=invalid_tool_call)`);
+  }
+  return n;
+}
+
+/** Names of tools whose call the AI SDK turned into a tool-error part (e.g. input failed the schema, unknown tool name). */
+function sdkToolErrors(steps: readonly { content: readonly { type: string; toolName?: string }[] }[]): string[] {
+  return steps.flatMap((s) => s.content.filter((p) => p.type === 'tool-error').map((p) => p.toolName ?? 'unknown'));
 }
 
 /** One employee turn: model + tools with provider fallback, then the response guard. Throws AllProvidersFailedError. */
@@ -83,23 +178,66 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
         temperature: 0.2,
         timeout: CALL_TIMEOUT_MS,
       });
-      return { text: result.text, collector, ctx, stateBlock };
+      return { text: result.text, collector, ctx, stateBlock, rejectedTools: sdkToolErrors(result.steps) };
     },
     args.fallback,
   );
 
+  const { collector } = value;
+  const toolErrors = logToolErrors(collector, value.rejectedTools);
+  const codes: string[] = [];
   const text = value.text.trim();
   let assistantText = text;
   let guardReason: AgentTurnResult['guardReason'];
+  let via: AnswerVia | undefined;
+
   if (text === '') {
     guardReason = 'empty';
-    assistantText = deterministicText(value.collector);
+    codes.push('empty_answer');
+    assistantText = '';
   } else {
-    const g = guardResponse(text, value.collector, [value.stateBlock]);
+    const g = guardResponse(text, collector, [value.stateBlock]);
     if (!g.ok) {
       guardReason = g.reason;
-      assistantText = deterministicText(value.collector);
+      codes.push(guardLogCode(g));
+      assistantText = '';
     }
   }
-  return { assistantText, collector: value.collector, context: value.ctx, provider, guardReason };
+
+  if (assistantText === '') {
+    // 1. whatever the tools already established (a refusal reason, an explanation, what is missing)
+    assistantText = deterministicText(collector);
+    via = 'deterministic';
+    // 2. nothing from the tools: let the SERVER check the car the employee named, with the same engine and rules
+    if (assistantText === NEUTRAL_FALLBACK_HE) {
+      try {
+        if (await serverEligibility(args, collector)) {
+          assistantText = deterministicText(collector);
+          via = 'server_eligibility';
+        }
+      } catch (err) {
+        console.error(`[netwise] chat: server eligibility check failed (${err instanceof Error ? err.name : 'unknown'})`);
+      }
+    }
+    // 3. truly nothing deterministic to say
+    if (assistantText === NEUTRAL_FALLBACK_HE) {
+      via = 'neutral_fallback';
+      if (toolErrors > 0) codes.push('tool_error');
+    }
+    console.warn(`[netwise] chat: answer replaced (reason=${codes.join('+')}, via=${via}, provider=${provider})`);
+  }
+
+  const ensured = ensureIneligibleReason(assistantText, collector);
+  if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
+
+  return {
+    assistantText: ensured.text,
+    collector,
+    context: value.ctx,
+    provider,
+    guardReason,
+    logCodes: codes,
+    via,
+    reasonAppended: ensured.appended,
+  };
 }

@@ -1,12 +1,11 @@
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { loadRules } from '../config/rules';
-import { allowedCars, carLabel, getCatalogCar, getOccupation, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
+import { allowedCars, carLabel, getCatalogCar, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
 import { getUsageIndex, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
-import { checkEligibility, type EmployeeProfile } from '../engine';
-import { eligibilityText, missingFieldLabel } from '../lib/explain';
+import { missingFieldLabel } from '../lib/explain';
 import { ProfileFieldsSchema } from '../lib/schemas';
 import {
   askRepresentativeParticipation,
@@ -17,6 +16,7 @@ import {
   type Actor,
 } from '../lib/service';
 import type { ComparisonView } from '../lib/view';
+import { runEligibilityCheck } from './eligibilityCheck';
 import { applyProvisionalPolicy } from './provisional';
 import {
   AskRepOutputSchema,
@@ -241,37 +241,7 @@ export function createTools(ctx: ToolContext): ToolSet {
     async (a) => {
       const ref = toOptionRef(a.alternative);
       if (!ref) return unknownAlternative();
-      const { profile } = await prepareEmployeeTurn(repo, actor);
-      const car = ref.kind === 'car' ? getCatalogCar(ref.carId) : undefined;
-      const label = ref.kind === 'waiver' ? 'ויתור על רכב' : car ? carLabel(car) : a.alternative;
-      const need: string[] = [];
-      if (!profile.occupation) need.push('occupation');
-      if (!profile.groupCode) need.push('group');
-      if (car?.group === 'family' && profile.childrenCount === undefined) need.push('childrenUnder23');
-      const occupation = profile.occupation ? getOccupation(profile.occupation) : undefined;
-      if (need.length > 0 || !occupation || !profile.groupCode) {
-        return {
-          status: 'missing_fields' as const,
-          alternativeLabel: label,
-          text: 'לא ניתן לקבוע זכאות עד להשלמת המידע החסר',
-          missingFields: need,
-          missingText: need.map((f) => missingFieldLabel(f, rules.familyTrack.childMaxAge)),
-        };
-      }
-      const option = ref.kind === 'waiver' ? ({ kind: 'waiver' } as const) : { kind: 'car' as const, car: toCarSpec(car!, getUsageIndex()) };
-      const e = checkEligibility(
-        { group: profile.groupCode, occupation: occupation.name, childrenUnder23: profile.childrenCount ?? 0 } as EmployeeProfile,
-        occupation,
-        option,
-        rules,
-      );
-      return {
-        status: e.eligible ? ('eligible' as const) : ('ineligible' as const),
-        alternativeLabel: label,
-        text: eligibilityText(e),
-        missingFields: [],
-        missingText: [],
-      };
+      return runEligibilityCheck(repo, actor, ref); // shared with the server's own check (src/agent/agent.ts)
     },
   );
 

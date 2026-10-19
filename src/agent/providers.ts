@@ -1,7 +1,7 @@
 import { createGoogle } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { APICallError, type LanguageModel } from 'ai';
+import { AISDKError, APICallError, type LanguageModel } from 'ai';
 
 export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים ששמרת נשמרו; נסו שוב בעוד רגע.';
 
@@ -61,16 +61,62 @@ export interface FallbackOptions {
 const statusOf = (err: unknown): number | undefined =>
   APICallError.isInstance(err) ? err.statusCode : (err as { statusCode?: number } | null)?.statusCode;
 
+const NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EPIPE',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_SOCKET',
+]);
+
+/** Timeouts, aborted requests and connection failures (also when wrapped in `cause`). */
+function isNetworkError(err: unknown, depth = 0): boolean {
+  if (!err || typeof err !== 'object' || depth > 3) return false;
+  const e = err as { name?: string; code?: string; message?: string; cause?: unknown };
+  if (e.name === 'AbortError' || e.name === 'TimeoutError') return true;
+  if (e.code && NETWORK_CODES.has(e.code)) return true;
+  if (e.name === 'TypeError' && /fetch failed|network|terminated/i.test(e.message ?? '')) return true;
+  return isNetworkError(e.cause, depth + 1);
+}
+
+const retryableStatus = (s: number) => s === 429 || s === 408 || s >= 500;
+
+/**
+ * What kind of failure is this?
+ *  - retryable: the provider or the network is having a moment (429, 408, 5xx, timeout, connection error): back off and retry
+ *  - provider:  this provider cannot answer (bad key, bad request, malformed or empty model output): try the NEXT provider
+ *  - bug:       anything else (a TypeError in our own code, a failed assertion...). Retrying cannot help and calling it
+ *               "busy" would hide it, so it is rethrown immediately and surfaces as an error log + a 500.
+ */
+export type ErrorClass = 'retryable' | 'provider' | 'bug';
+
+export function classifyError(err: unknown): ErrorClass {
+  if (APICallError.isInstance(err)) {
+    if (err.statusCode === undefined) return 'retryable'; // the call never got an HTTP response
+    return retryableStatus(err.statusCode) ? 'retryable' : 'provider';
+  }
+  const s = (err as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof s === 'number') return retryableStatus(s) ? 'retryable' : 'provider';
+  if (isNetworkError(err)) return 'retryable';
+  if (AISDKError.isInstance(err)) return 'provider';
+  return 'bug';
+}
+
 /** 429, 5xx, network errors and timeouts are worth retrying; other 4xx (bad request, bad key) are not. */
 export function isRetryable(err: unknown): boolean {
-  const s = statusOf(err);
-  if (s === undefined) return true;
-  return s === 429 || s === 408 || s >= 500;
+  return classifyError(err) === 'retryable';
 }
 
 /**
  * Runs `attempt` on each provider in order. Retryable failures back off exponentially (few retries), then the next
- * provider is tried. Throws AllProvidersFailedError when none succeeds. Never logs prompts or payloads.
+ * provider is tried. Throws AllProvidersFailedError when none succeeds (after ONE summary log line with the reason code
+ * all_providers_failed). A failure that is not a provider/network error is a bug: it is logged and rethrown at once.
+ * Never logs prompts, payloads or keys.
  */
 export async function withFallback<T>(
   providers: ProviderEntry[],
@@ -87,11 +133,19 @@ export async function withFallback<T>(
         console.info(`[netwise] provider ${p.name} answered (try ${i + 1})`);
         return { value, provider: p.name };
       } catch (err) {
+        const kind = classifyError(err);
+        if (kind === 'bug') {
+          console.error(
+            `[netwise] provider ${p.name} failed with an internal error (${err instanceof Error ? err.name : 'unknown'}); not retried`,
+          );
+          throw err;
+        }
         console.error(`[netwise] provider ${p.name} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
-        if (!isRetryable(err) || i === retries) break;
+        if (kind !== 'retryable' || i === retries) break;
         await sleep(base * 2 ** i + Math.floor(Math.random() * base * 0.2));
       }
     }
   }
+  console.error(`[netwise] chat: all_providers_failed (tried: ${providers.map((p) => p.name).join(', ') || 'none'})`);
   throw new AllProvidersFailedError();
 }

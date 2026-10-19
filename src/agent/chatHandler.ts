@@ -103,7 +103,10 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
     if (!conv) throw new ServiceError(500, 'no_conversation');
 
     const providers = deps.providers ?? buildProviders(env);
-    if (providers.length === 0) return fail(503, BUSY_MESSAGE_HE);
+    if (providers.length === 0) {
+      console.error('[netwise] chat: no_provider_configured'); // no key set for any provider in LLM_PROVIDER_ORDER
+      return fail(503, BUSY_MESSAGE_HE);
+    }
 
     await repo.addMessage(conv.id, 'user', message); // saved first: never lost if every provider fails
 
@@ -118,6 +121,7 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
         providers,
         showProvisional: show,
         participationFromRepresentative: participationFromRepresentative(env),
+        userMessage: message,
         fallback: deps.fallback,
       });
     } catch (err) {

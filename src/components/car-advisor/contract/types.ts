@@ -8,7 +8,7 @@ export type OptionKey = 'current' | 'electric' | 'none';
 export type NotifyChannel = 'push' | 'email' | 'sms';
 export type Confidence = 'high' | 'medium' | 'low';
 
-/** One table cell. `placeholder` means the amount is not known yet and is shown as a marked placeholder. */
+/** One table cell. A money cell with a null amount is shown as a marked placeholder (for example "₪[__]"). */
 export type Cell =
   | { kind: 'money'; amount: number | null; signHint?: 'positive' | 'negative' }
   | { kind: 'not-applicable' }

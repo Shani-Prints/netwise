@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { ChatWidget } from '../../../components/car-advisor';
 import { he } from '../../../components/car-advisor/content/he';
@@ -67,66 +68,143 @@ const ANSWER_MESSAGES: ChatMessage[] = [
   { id: 'gallery-answer', kind: 'answer', answer: answerFixture },
 ];
 
-/** Dev-only gallery: every state of the widget next to each other, plus the launcher and a hostile-host check. */
+const SECTION_TITLE_STYLE = { font: '700 18px system-ui', margin: '0 0 16px' } as const;
+const ROW_STYLE = { display: 'flex', flexWrap: 'wrap', gap: 32, alignItems: 'flex-start' } as const;
+const LINK_STYLE = { color: '#02709e', textDecoration: 'underline' } as const;
+
+/** Full-page tools are shown in frames. Frames are fine here because this page is dev-only. */
+function PageFrame({
+  title,
+  src,
+  width,
+  height,
+}: {
+  title: string;
+  src: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <iframe
+      title={title}
+      src={src}
+      style={{ display: 'block', width, height, border: '1px solid #c8d4dc', background: '#fff' }}
+    />
+  );
+}
+
+/** Dev-only gallery: every state of the widget, the launcher, a hostile-host check and the rep console pages. */
 export function ScreensGallery() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, padding: 24, alignItems: 'flex-start' }}>
-      <Panel title="Screen 1: ask (widget, 380x600)">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} />
-        </div>
-      </Panel>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 40, padding: 24 }}>
+      <header>
+        <h1 style={{ font: '700 24px system-ui', margin: '0 0 8px' }}>
+          Car advisor screens (development only)
+        </h1>
+        <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 20, font: '15px system-ui' }}>
+          <Link href="/" style={LINK_STYLE}>
+            / live floating chat
+          </Link>
+          <Link href="/rep" style={LINK_STYLE}>
+            /rep ticket list
+          </Link>
+          <Link href="/rep/ticket-demo-1" style={LINK_STYLE}>
+            /rep/ticket-demo-1 single ticket
+          </Link>
+        </nav>
+      </header>
 
-      <Panel title="Screen 2: answer">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} initialMessages={ANSWER_MESSAGES} />
-        </div>
-      </Panel>
+      <section>
+        <h2 style={SECTION_TITLE_STYLE}>Chat widget states (380x600)</h2>
+        <div style={ROW_STYLE}>
+          <Panel title="Screen 1: ask">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} />
+            </div>
+          </Panel>
 
-      <Panel title="Screen 3: no answer, hand-off to a rep">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} initialMessages={HANDOFF_MESSAGES} />
-        </div>
-      </Panel>
+          <Panel title="Screen 2: answer">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={ANSWER_MESSAGES} />
+            </div>
+          </Panel>
 
-      <Panel title="Screen 4: confirmation">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} initialMessages={CONFIRMATION_MESSAGES} />
-        </div>
-      </Panel>
+          <Panel title="Screen 3: no answer, hand-off to a rep">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={HANDOFF_MESSAGES} />
+            </div>
+          </Panel>
 
-      <Panel title="Screen 6: notification banner (window open)">
-        <div style={WINDOW_BOX}>
-          <ChatWidget
-            onClose={noop}
-            initialMessages={RETURNED_MESSAGES}
-            initialBanner={notificationFixture}
-          />
-        </div>
-      </Panel>
+          <Panel title="Screen 4: confirmation">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={CONFIRMATION_MESSAGES} />
+            </div>
+          </Panel>
 
-      <Panel title="Screen 7: answer returned in the chat">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} initialMessages={RETURNED_MESSAGES} />
-        </div>
-      </Panel>
+          <Panel title="Screen 6: notification banner (window open)">
+            <div style={WINDOW_BOX}>
+              <ChatWidget
+                onClose={noop}
+                initialMessages={RETURNED_MESSAGES}
+                initialBanner={notificationFixture}
+              />
+            </div>
+          </Panel>
 
-      <Panel title="Launcher: closed, unread badge, preview bubble">
-        <ScopeRoot
-          style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', width: 300 }}
-        >
-          <Launcher expanded={launcherOpen} unread={false} onClick={() => setLauncherOpen(!launcherOpen)} />
-          <Launcher expanded={false} unread onClick={noop} />
-          <PreviewBubble text={he.notification.title} onOpen={noop} />
-        </ScopeRoot>
-      </Panel>
-
-      <Panel title="Hostile host (same widget inside aggressive host CSS)" className="hostile-host">
-        <div style={WINDOW_BOX}>
-          <ChatWidget onClose={noop} />
+          <Panel title="Screen 7: answer returned in the chat">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={RETURNED_MESSAGES} />
+            </div>
+          </Panel>
         </div>
-      </Panel>
+      </section>
+
+      <section>
+        <h2 style={SECTION_TITLE_STYLE}>Launcher and host isolation</h2>
+        <div style={ROW_STYLE}>
+          <Panel title="Screen 6, window closed: launcher, unread badge, preview bubble">
+            <ScopeRoot
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                alignItems: 'flex-start',
+                width: 300,
+              }}
+            >
+              <Launcher
+                expanded={launcherOpen}
+                unread={false}
+                onClick={() => setLauncherOpen(!launcherOpen)}
+              />
+              <Launcher expanded={false} unread onClick={noop} />
+              <PreviewBubble text={he.notification.title} onOpen={noop} />
+            </ScopeRoot>
+          </Panel>
+
+          <Panel title="Hostile host (same widget inside aggressive host CSS)" className="hostile-host">
+            <div style={WINDOW_BOX}>
+              <ChatWidget onClose={noop} />
+            </div>
+          </Panel>
+        </div>
+      </section>
+
+      <section>
+        <h2 style={SECTION_TITLE_STYLE}>Screen 5: rep console (normal full pages, shown in frames)</h2>
+        <div style={ROW_STYLE}>
+          <Panel title="/rep list, wide">
+            <PageFrame title="Rep console list" src="/rep" width={760} height={420} />
+          </Panel>
+          <Panel title="/rep/ticket-demo-1 single ticket, wide">
+            <PageFrame title="Rep console ticket, wide" src="/rep/ticket-demo-1" width={1000} height={560} />
+          </Panel>
+          <Panel title="/rep/ticket-demo-1 single ticket, mobile (390)">
+            <PageFrame title="Rep console ticket, mobile" src="/rep/ticket-demo-1" width={390} height={844} />
+          </Panel>
+        </div>
+      </section>
     </div>
   );
 }

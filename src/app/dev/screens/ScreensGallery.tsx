@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { ChatWidget } from '../../../components/car-advisor';
 import { he } from '../../../components/car-advisor/content/he';
+import { answerFixture } from '../../../components/car-advisor/contract/fixtures';
 import { Launcher } from '../../../components/car-advisor/Launcher';
 import { PreviewBubble } from '../../../components/car-advisor/PreviewBubble';
 import { ScopeRoot } from '../../../components/car-advisor/ScopeRoot';
+import type { ChatMessage } from '../../../components/car-advisor/useChatController';
 import './hostile-host.css';
 
 /** Explicit display so the box keeps its size even inside the hostile host wrapper. */
@@ -22,6 +24,11 @@ function Panel({ title, children, className }: { title: string; children: React.
 
 function noop() {}
 
+const ANSWER_MESSAGES: ChatMessage[] = [
+  { id: 'gallery-user', kind: 'user', text: answerFixture.questionText },
+  { id: 'gallery-answer', kind: 'answer', answer: answerFixture },
+];
+
 /** Dev-only gallery: every state of the widget next to each other, plus the launcher and a hostile-host check. */
 export function ScreensGallery() {
   const [launcherOpen, setLauncherOpen] = useState(false);
@@ -30,6 +37,12 @@ export function ScreensGallery() {
       <Panel title="Screen 1: ask (widget, 380x600)">
         <div style={WINDOW_BOX}>
           <ChatWidget onClose={noop} />
+        </div>
+      </Panel>
+
+      <Panel title="Screen 2: answer">
+        <div style={WINDOW_BOX}>
+          <ChatWidget onClose={noop} initialMessages={ANSWER_MESSAGES} />
         </div>
       </Panel>
 

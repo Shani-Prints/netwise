@@ -93,6 +93,10 @@
 [data-car-advisor][data-car-advisor] .close:hover {
   background: var(--ca-tint);
 }
+[data-car-advisor][data-car-advisor] .banner {
+  flex: none;
+  padding: 10px 12px 0;
+}
 [data-car-advisor][data-car-advisor] .messages {
   display: flex;
   flex: 1 1 auto;

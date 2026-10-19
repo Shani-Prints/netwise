@@ -6,18 +6,35 @@ import {
   repTicketFixtures,
   returnedAnswerFixture,
 } from './fixtures';
-import type { AskResult, RepReplyInput, RepTicketDetail, CarAdvisorClient } from './types';
+import type { AskResult, CarAdvisorClient, RepReplyInput, RepTicketDetail } from './types';
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+export interface MockClientOptions {
+  /**
+   * Simulates a rep answering a ticket this long after it was sent (milliseconds), so the whole flow can be tried
+   * locally. `null` disables the simulation: a ticket then stays open until the rep console answers it.
+   * Default: 6000.
+   */
+  repReplyDelayMs?: number | null;
+}
+
 /**
  * Mock client. Returns fixtures after a short delay.
- * It keeps state in memory only and never logs or persists question text.
+ * It keeps state in memory only. It never logs anything, never stores the rep's answer text (only the ticket
+ * status changes), and the returned answer is always the placeholder fixture.
  * TODO: replace with a client that calls the real API layer; the CarAdvisorClient interface stays the same.
  * TODO: rep-only access is not enforced here; the real API must enforce it on the server.
  */
-export function createMockClient(): CarAdvisorClient {
+export function createMockClient(options: MockClientOptions = {}): CarAdvisorClient {
+  const repReplyDelayMs = options.repReplyDelayMs === undefined ? 6000 : options.repReplyDelayMs;
   const tickets: RepTicketDetail[] = repTicketFixtures.map((t) => ({ ...t }));
+  let created = 0;
+
+  const markAnswered = (ticketId: string) => {
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (ticket) ticket.status = 'answered';
+  };
 
   return {
     async ask(question): Promise<AskResult> {
@@ -34,14 +51,27 @@ export function createMockClient(): CarAdvisorClient {
       return { ...handoffFixture, questionText: question };
     },
 
-    async sendToRep(_question, channel) {
+    async sendToRep(question, channel) {
       await delay(400);
-      return { ...confirmationFixture, channel };
+      created += 1;
+      const ticket: RepTicketDetail = {
+        id: `ticket-new-${created}`,
+        ticketNumber: `[#${repTicketFixtures.length + created}]`,
+        questionText: question,
+        status: 'waiting',
+        slaLevel: 'ok',
+        checked: handoffFixture.checked.map((c) => ({ ...c })),
+      };
+      tickets.push(ticket);
+      if (repReplyDelayMs !== null) setTimeout(() => markAnswered(ticket.id), repReplyDelayMs);
+      return { ...confirmationFixture, ticketId: ticket.id, ticketNumber: ticket.ticketNumber, channel };
     },
 
-    async getReturnedAnswer() {
-      await delay(300);
-      return returnedAnswerFixture;
+    async getReturnedAnswer(ticketId) {
+      await delay(150);
+      const ticket = tickets.find((t) => t.id === ticketId);
+      if (!ticket || ticket.status !== 'answered') return null;
+      return { ...returnedAnswerFixture, questionText: ticket.questionText };
     },
 
     async listRepTickets() {
@@ -58,8 +88,7 @@ export function createMockClient(): CarAdvisorClient {
     // The answer text is deliberately not stored or logged by the mock: only the ticket status changes.
     async replyAsRep({ ticketId }: RepReplyInput) {
       await delay(400);
-      const ticket = tickets.find((t) => t.id === ticketId);
-      if (ticket) ticket.status = 'answered';
+      markAnswered(ticketId);
     },
 
     async requestMoreInfo(ticketId) {

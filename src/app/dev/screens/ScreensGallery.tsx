@@ -7,6 +7,8 @@ import {
   answerFixture,
   confirmationFixture,
   handoffFixture,
+  notificationFixture,
+  returnedAnswerFixture,
 } from '../../../components/car-advisor/contract/fixtures';
 import { Launcher } from '../../../components/car-advisor/Launcher';
 import { PreviewBubble } from '../../../components/car-advisor/PreviewBubble';
@@ -55,6 +57,11 @@ const CONFIRMATION_MESSAGES: ChatMessage[] = [
   { id: 'gallery-confirmation', kind: 'confirmation', confirmation: confirmationFixture },
 ];
 
+const RETURNED_MESSAGES: ChatMessage[] = [
+  ...CONFIRMATION_MESSAGES,
+  { id: 'gallery-returned', kind: 'returned', ticketId: 'ticket-fixture', returned: returnedAnswerFixture },
+];
+
 const ANSWER_MESSAGES: ChatMessage[] = [
   { id: 'gallery-user', kind: 'user', text: answerFixture.questionText },
   { id: 'gallery-answer', kind: 'answer', answer: answerFixture },
@@ -86,6 +93,22 @@ export function ScreensGallery() {
       <Panel title="Screen 4: confirmation">
         <div style={WINDOW_BOX}>
           <ChatWidget onClose={noop} initialMessages={CONFIRMATION_MESSAGES} />
+        </div>
+      </Panel>
+
+      <Panel title="Screen 6: notification banner (window open)">
+        <div style={WINDOW_BOX}>
+          <ChatWidget
+            onClose={noop}
+            initialMessages={RETURNED_MESSAGES}
+            initialBanner={notificationFixture}
+          />
+        </div>
+      </Panel>
+
+      <Panel title="Screen 7: answer returned in the chat">
+        <div style={WINDOW_BOX}>
+          <ChatWidget onClose={noop} initialMessages={RETURNED_MESSAGES} />
         </div>
       </Panel>
 

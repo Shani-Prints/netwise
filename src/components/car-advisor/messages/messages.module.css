@@ -109,6 +109,38 @@
   color: var(--ca-muted);
 }
 
+/* Returned rep answer (screen 7) */
+[data-car-advisor][data-car-advisor] .hint {
+  font-size: 12px;
+  text-align: center;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .figures {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .figureRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .figureStrong {
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .divider {
+  height: 1px;
+  margin: 12px 0;
+  border: 0;
+  background: var(--ca-line);
+}
+[data-car-advisor][data-car-advisor] .approved {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ca-action);
+}
+
 [data-car-advisor][data-car-advisor] .actions {
   display: flex;
   gap: 8px;

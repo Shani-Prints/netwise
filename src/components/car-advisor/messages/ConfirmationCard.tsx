@@ -1,6 +1,5 @@
 import { he } from '../content/he';
 import type { TicketConfirmationView } from '../contract/types';
-import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { CheckIcon } from '../ui/Icons';
 import { StepList } from '../ui/StepList';
@@ -8,11 +7,10 @@ import styles from './messages.module.css';
 
 interface ConfirmationCardProps {
   confirmation: TicketConfirmationView;
-  onBackToChat: () => void;
 }
 
 /** Screen 4: the ticket was received. Ticket number and a three-step timeline. */
-export function ConfirmationCard({ confirmation, onBackToChat }: ConfirmationCardProps) {
+export function ConfirmationCard({ confirmation }: ConfirmationCardProps) {
   return (
     <div className={styles.answer}>
       <div className={styles.confirmationHead}>
@@ -35,10 +33,6 @@ export function ConfirmationCard({ confirmation, onBackToChat }: ConfirmationCar
           ]}
         />
       </Card>
-
-      <Button variant="secondary" fullWidth onClick={onBackToChat}>
-        {he.confirmation.backToChat}
-      </Button>
     </div>
   );
 }

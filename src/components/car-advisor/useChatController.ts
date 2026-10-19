@@ -1,13 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fill } from './content/fill';
+import { he } from './content/he';
 import type {
   AnswerView,
   CarAdvisorClient,
   HandoffView,
+  NotificationView,
   NotifyChannel,
+  ReturnedAnswerView,
   TicketConfirmationView,
 } from './contract/types';
 
-/** One item in the messages area. The returned rep answer arrives in a later step. */
+/** One item in the messages area. */
 export type ChatMessage =
   | { id: string; kind: 'user'; text: string }
   | { id: string; kind: 'answer'; answer: AnswerView }
@@ -19,17 +23,30 @@ export type ChatMessage =
       sending: boolean;
       sent: boolean;
     }
-  | { id: string; kind: 'confirmation'; confirmation: TicketConfirmationView };
+  | { id: string; kind: 'confirmation'; confirmation: TicketConfirmationView }
+  | { id: string; kind: 'returned'; ticketId: string; returned: ReturnedAnswerView };
 
 let messageCounter = 0;
 /** Ids are only used as React keys and for lookups inside one chat; they never leave the browser. */
 const newId = () => `message-${++messageCounter}`;
 
+/** How often the widget asks the client whether a rep has answered an open ticket. */
+const POLL_INTERVAL_MS = 2000;
+const NOTIFICATION_QUESTION_MAX = 60;
+
+const shorten = (text: string) =>
+  text.length > NOTIFICATION_QUESTION_MAX ? `${text.slice(0, NOTIFICATION_QUESTION_MAX).trimEnd()}…` : text;
+
 /**
  * In-memory chat state. Nothing is persisted: no localStorage, sessionStorage or cookies, and no logging of text.
  * `initialMessages` lets the dev gallery render a conversation in a given state.
+ * `onReplyArrived` is called once when a rep's answer comes back; the widget decides how to show the notification.
  */
-export function useChatController(client: CarAdvisorClient, initialMessages: ChatMessage[] = []) {
+export function useChatController(
+  client: CarAdvisorClient,
+  initialMessages: ChatMessage[] = [],
+  onReplyArrived?: (notification: NotificationView) => void,
+) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -112,6 +129,52 @@ export function useChatController(client: CarAdvisorClient, initialMessages: Cha
     },
     [client, messages, append, patchHandoff],
   );
+
+  // Open tickets: confirmations that do not have a returned answer yet. Polling continues while the window is
+  // closed, because the widget stays mounted.
+  const pendingKey = messages
+    .flatMap((m) =>
+      m.kind === 'confirmation' &&
+      !messages.some((r) => r.kind === 'returned' && r.ticketId === m.confirmation.ticketId)
+        ? [m.confirmation.ticketId]
+        : [],
+    )
+    .join('|');
+
+  const delivered = useRef(new Set<string>());
+  const onReplyArrivedRef = useRef(onReplyArrived);
+  useEffect(() => {
+    onReplyArrivedRef.current = onReplyArrived;
+  }, [onReplyArrived]);
+
+  useEffect(() => {
+    if (!pendingKey) return;
+    const ticketIds = pendingKey.split('|');
+    let cancelled = false;
+    const timer = setInterval(() => {
+      for (const ticketId of ticketIds) {
+        void client
+          .getReturnedAnswer(ticketId)
+          .then((returned) => {
+            if (cancelled || !returned || delivered.current.has(ticketId)) return;
+            delivered.current.add(ticketId);
+            append({ id: newId(), kind: 'returned', ticketId, returned });
+            onReplyArrivedRef.current?.({
+              title: he.notification.title,
+              body: fill(he.notification.body, { question: shorten(returned.questionText) }),
+              timeLabel: he.notification.timeNow,
+            });
+          })
+          .catch(() => {
+            // A failed poll is retried on the next tick.
+          });
+      }
+    }, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [pendingKey, client, append]);
 
   return { messages, draft, setDraft, busy, hasAsked, submit, talkToRep, changeChannel, sendToRep };
 }

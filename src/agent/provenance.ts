@@ -1,3 +1,5 @@
+import { editDistance, fold, plene, variantsOf } from '../data/fuzzy';
+
 /**
  * Provenance check for save_employee_data: a numeric value may be saved only if the EMPLOYEE wrote it in this
  * conversation. The model can therefore never save a number the employee did not state (an invented pension %, a
@@ -154,9 +156,69 @@ export function statedNumbers(messages: string[]): Set<number> {
   return out;
 }
 
-/** True when the employee said "none" for this field in words ("אין לי ילדים", "בלי בונוס"). */
+// ---- "none" said in words, with the many ways people say it ---------------------------------------------------------------
+
+/** The word the employee uses for each optional pay component (full / defective spelling and plural are the same after plene()). */
+const KEYWORDS: Partial<Record<ProvenanceField, string[]>> = {
+  commissions: ['עמלת', 'עמלה', 'עמלות', 'עמלתי'],
+  bonus: ['בנס', 'בנסמ', 'בנוס'],
+  pensionPct: ['פנסה', 'פנסית'],
+  studyFundPct: ['השתלמת'],
+  creditPoints: ['נקדת'],
+  childrenUnder23: ['ילדמ', 'ילד'],
+  currentParticipation: ['השתתפת'],
+};
+const NEGATORS = ['אין', 'ואין', 'ולא', 'אינני', 'ללא', 'בלי', 'אפס', 'לא'].map(fold);
+/** Words that end a negation on the way to the keyword: another statement ("יש", "אבל") begins. */
+const BOUNDARY = ['יש', 'ויש', 'אבל', 'אך', 'אולם', 'כן'].map(fold);
+/** "I don't know / I have no idea": not a statement that the value is zero. */
+const DONT_KNOW = ['מידע', 'מושג', 'יודע', 'יודעת', 'יודעים', 'זוכר', 'זוכרת', 'בטוח', 'בטוחה', 'ברור', 'פרטים', 'נתון'].map(fold);
+const NOT_APPLICABLE_NEXT = ['רלוונטי', 'רלוונטית', 'קיים', 'קיימת', 'קיימים', 'קיימות', 'יש'].map(fold);
+
+const isOneOf = (token: string, set: string[]): boolean => variantsOf(token).some((v) => set.includes(v.text));
+const isKeyword = (token: string, kws: string[]): boolean =>
+  variantsOf(token).some((v) => {
+    const w = plene(v.text);
+    return kws.some((k) => w === k || (w.length >= 4 && k.length >= 4 && editDistance(w, k) <= 1));
+  });
+
+const saysDontKnow = (sentence: string): boolean => fold(sentence).split(' ').some((w) => isOneOf(w, DONT_KNOW));
+const hasValueAfterKeyword = (sentence: string, kws: string[]): boolean => {
+  const t = fold(sentence).split(' ').filter(Boolean);
+  return t.some((w, i) => isKeyword(w, kws) && /^[1-9][0-9]*$/.test(t[i + 1] ?? ''));
+};
+
+/** One sentence: is there a keyword of this field that is negated ("אין לי בונוס", "לא מקבלת בונוסים ועמלות", "עמלות - אפס")? */
+function negatedKeyword(sentence: string, kws: string[]): boolean {
+  const t = fold(sentence).split(' ').filter(Boolean);
+  for (let i = 0; i < t.length; i++) {
+    if (!isKeyword(t[i]!, kws)) continue;
+    if (/^[1-9][0-9]*$/.test(t[i + 1] ?? '')) continue; // a non-zero number right after it: the value is given, not zero
+    for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+      const w = t[j]!;
+      if (isOneOf(w, [fold('יש')]) && isOneOf(t[j - 1] ?? '', NEGATORS)) return true; // "לא יש לי X" = I do not have X
+      if (isOneOf(w, BOUNDARY) || isOneOf(w, DONT_KNOW) || /^[1-9][0-9]*$/.test(w)) break;
+      if (isOneOf(w, NEGATORS)) return true;
+    }
+    for (let k = i + 1; k <= Math.min(t.length - 1, i + 2); k++) {
+      const w = t[k]!;
+      if (w === '0' || isOneOf(w, [fold('אפס'), fold('אין')])) return true;
+      if (isOneOf(w, [fold('לא')]) && isOneOf(t[k + 1] ?? '', NOT_APPLICABLE_NEXT)) return true;
+    }
+  }
+  return false;
+}
+
+/** True when the employee said "none" for this field in words ("אין לי ילדים", "בלי בונוס", "לא מקבלת בונוסים ועמלות"). */
 export function statedZero(messages: string[], field: ProvenanceField): boolean {
-  return messages.some((m) => ZERO_PHRASES[field].test(clean(m)));
+  const kws = KEYWORDS[field];
+  return messages.some((m) =>
+    m.split(/[.!?;\n]+/).some((s) => {
+      if (kws !== undefined && negatedKeyword(s, kws)) return true;
+      // the older phrase pattern, unless the sentence says she does not know, or gives a value for the same word
+      return ZERO_PHRASES[field].test(clean(s)) && !(kws !== undefined && (saysDontKnow(s) || hasValueAfterKeyword(s, kws)));
+    }),
+  );
 }
 
 /**

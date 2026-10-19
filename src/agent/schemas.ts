@@ -9,6 +9,8 @@ export const ToolErrorSchema = z.object({
   error: z.string(),
   issues: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
   /** Set when the SERVER sent (or queued) a question to the representative because of this value. */
+  /** A pick-list taken from a table (occupations) when the employee's words fit several rows. */
+  options: z.array(z.string()).optional(),
   representative: z.enum(['question_sent', 'waiting', 'needs_reference', 'already_answered', 'cap_reached']).optional(),
 });
 export type ToolError = z.infer<typeof ToolErrorSchema>;

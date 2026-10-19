@@ -1,0 +1,93 @@
+/* Messages of the REAL chat (connected to the server). Same convention as the rest: doubled scope attribute. */
+[data-car-advisor][data-car-advisor] .assistantBubble {
+  align-self: flex-end;
+  max-width: 92%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-end-end-radius: 4px;
+  background: var(--ca-tint);
+  color: var(--ca-ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+[data-car-advisor][data-car-advisor] .systemNotice {
+  align-self: stretch;
+  padding: 8px 12px;
+  border: 1px dashed var(--ca-line);
+  border-radius: 12px;
+  background: var(--ca-surface);
+  color: var(--ca-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+[data-car-advisor][data-car-advisor] .noticeLabel {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-car-advisor][data-car-advisor] .panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .panelTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .panelSub {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .headCell {
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .difference {
+  font-size: 16px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .todayOnly {
+  font-size: 15px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+[data-car-advisor][data-car-advisor] .lineText {
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .listTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .bullets {
+  margin: 4px 0 0;
+  padding-inline-start: 18px;
+}
+[data-car-advisor][data-car-advisor] .bullets li {
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .waiting {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ca-action);
+}
+[data-car-advisor][data-car-advisor] .small {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .errorLine {
+  align-self: stretch;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fdecea;
+  color: var(--ca-danger-text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}

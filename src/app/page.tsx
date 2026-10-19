@@ -1,11 +1,11 @@
-import { FloatingChat } from '../components/car-advisor';
+import { RealFloatingChat } from '../components/car-advisor';
 
-/** Empty neutral page for local development of the floating chat. */
+/** Neutral host page with the floating chat connected to the real API (same origin, session cookie). */
 export default function HomePage() {
   return (
     <>
       <main style={{ minHeight: '100dvh' }} />
-      <FloatingChat />
+      <RealFloatingChat />
     </>
   );
 }

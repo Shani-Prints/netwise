@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetChatRateLimit } from '../../src/agent/chatHandler';
 import { getRepo } from '../../src/db/repo';
 import { ConversationStateSchema } from '../../src/db/types';
-import { REP_ANSWER_REJECTED_NOTICE } from '../../src/lib/service';
+import type { UnknowableField } from '../../src/lib/repQuestions';
+import { REP_ANSWER_REJECTED_NOTICE, reportUnknownFields } from '../../src/lib/service';
 import {
   ANSWER_BOUNDS,
   CONTEXT_WHITELIST,
@@ -154,9 +155,9 @@ describe('trigger (iv): the employee says she does not know a field (structured 
     const e = new Client();
     await e.session();
     const all = ['pensionPct', 'studyFundPct', 'creditPoints', 'group', 'base', 'commissions', 'bonus', 'childrenUnder23'];
-    const m = fake(call('mark_field_unknown', { fields: all }), say('בסדר.'));
-    await chat(e, 'אני לא יודע שום דבר', { providers: [provider(m)] });
-    expect(JSON.stringify(m.doGenerateCalls[1]?.prompt)).toContain('cap_reached');
+    // the service enforces the cap whatever is reported (through the bot tool only what was asked is accepted: see below)
+    const reply = await reportUnknownFields(await getRepo(), e.actor(), all as UnknowableField[]);
+    expect(reply.results.map((r) => r.outcome)).toContain('cap_reached');
     await giveReference(e);
     expect(await repView()).toHaveLength(MAX_OPEN_QUESTIONS);
   });

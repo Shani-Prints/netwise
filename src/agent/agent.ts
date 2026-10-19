@@ -3,8 +3,8 @@ import { loadRules } from '../config/rules';
 import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
 import { missingFieldLabel } from '../lib/explain';
-import { FIELD_NAME_HE, labelForCase, isRepKind } from '../lib/repQuestions';
-import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, repQuestionSentText } from '../lib/repTemplates';
+import { employeeLabelFor, FIELD_NAME_HE, isRepKind } from '../lib/repQuestions';
+import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
 import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_ASK, askNextLabels } from './askNext';
@@ -176,7 +176,8 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
     out = out === '' ? extra : `${out}\n${extra}`;
   };
   for (const issue of issues) {
-    if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates));
+    if (issue.pick) add(pickCarText(issue.candidates));
+    else if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates));
     else add(altNotOnListText(optionLines));
   }
   const alternativeIssue = issues.some((i) => i.role === 'alternative');
@@ -187,14 +188,30 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
   return out;
 }
 
+/**
+ * An occupation the employee wrote that fits several rows of the occupations table: the pick-list comes from the table (via the
+ * tool result), whatever the model wrote.
+ */
+export function ensureOccupationGuidance(text: string, collector: TurnCollector): string {
+  for (const r of collector.results) {
+    const o = r.output as { error?: string; options?: string[] } | null;
+    if (o?.error !== 'occupation_ambiguous' || !o.options || o.options.length === 0) continue;
+    if (o.options.every((name) => text.includes(name))) continue;
+    const sentence = pickOccupationText(o.options);
+    text = text === '' || text === NEUTRAL_FALLBACK_HE ? sentence : `${text}
+${sentence}`;
+  }
+  return text;
+}
+
 /** Labels of the representative questions the SERVER opened in this turn (before the model ran, or through a tool). */
 function questionsOpenedThisTurn(collector: TurnCollector, atStart: { kind: string; field: string }[]): string[] {
   const labels: string[] = [];
   const add = (l: string) => {
     if (!labels.includes(l)) labels.push(l);
   };
-  for (const s of atStart) add(isRepKind(s.kind) ? labelForCase(s.kind, s.field) : FIELD_NAME_HE.overBudgetPolicy);
-  for (const e of collector.escalations) if (e.outcome === 'question_sent') add(isRepKind(e.kind) ? labelForCase(e.kind, e.field) : 'נתון');
+  for (const s of atStart) add(isRepKind(s.kind) ? employeeLabelFor(s.kind, s.field) : FIELD_NAME_HE.overBudgetPolicy);
+  for (const e of collector.escalations) if (e.outcome === 'question_sent') add(isRepKind(e.kind) ? employeeLabelFor(e.kind, e.field) : 'נתון נוסף');
   for (const r of collector.results) {
     const o = r.output as { status?: string; representative?: string; issues?: { path: string }[] } | null;
     if (!o) continue;
@@ -371,7 +388,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
   const guided = await ensureCarGuidance(ensured.text, args, collector);
-  const finalText = ensureQuestionSentence(guided, collector, args.openedAtStart ?? []);
+  const finalText = ensureQuestionSentence(ensureOccupationGuidance(guided, collector), collector, args.openedAtStart ?? []);
   if (finalText !== ensured.text) console.info(`[netwise] chat: server text appended (provider=${provider})`);
 
   return {

@@ -355,6 +355,49 @@ export function questionText(kind: RepKind, field: string, ctx: RepQuestionConte
 
 export { REP_FIELD_PARTICIPATION };
 
+/** Short employee-facing names of what is missing (second person). Never the representative's question text. */
+const EMPLOYEE_FIELD_LABEL: Record<UnknowableField, string> = {
+  pensionPct: 'אחוז הפנסיה שלך',
+  studyFundPct: 'אחוז קרן ההשתלמות שלך',
+  creditPoints: 'נקודות הזיכוי שלך',
+  group: 'קבוצת הזכאות שלך',
+  base: 'שכר הבסיס שלך',
+  commissions: 'העמלות שלך',
+  bonus: 'הבונוס שלך',
+  childrenUnder23: 'מספר הילדים שלך',
+  currentParticipation: 'ההשתתפות שלך ברכב הנוכחי',
+  occupation: 'העיסוק שלך',
+  occupationDetails: 'פרטי העיסוק שלך',
+  currentCar: 'הרכב הנוכחי',
+  currentCarMaker: 'הרכב הנוכחי',
+  currentCarModel: 'הרכב הנוכחי',
+  currentCarYear: 'הרכב הנוכחי',
+  alternative: 'הרכב שרצית להשוות',
+  alternativeParticipation: 'ההשתתפות שלך ברכב החדש',
+  overBudgetPolicy: 'ההסדר לרכב שעולה מעל התקציב',
+};
+
+/** What the EMPLOYEE sees for an open question: a short label of the missing item (id, kind, status and times are the rest). */
+export function employeeLabelFor(kind: RepKind, field: string): string {
+  if (isUnknowableField(field)) return EMPLOYEE_FIELD_LABEL[field];
+  switch (kind) {
+    case 'new_car_participation':
+      return EMPLOYEE_FIELD_LABEL.alternativeParticipation;
+    case 'over_budget_gap':
+      return EMPLOYEE_FIELD_LABEL.overBudgetPolicy;
+    case 'unresolved_occupation':
+      return EMPLOYEE_FIELD_LABEL.occupation;
+    case 'unresolved_current_car':
+      return EMPLOYEE_FIELD_LABEL.currentCar;
+    case 'unresolved_alternative_car':
+      return EMPLOYEE_FIELD_LABEL.alternative;
+    case 'group_conflict':
+      return EMPLOYEE_FIELD_LABEL.group;
+    default:
+      return 'נתון נוסף';
+  }
+}
+
 /** Hebrew name of what a case is about, for the fixed employee-facing sentences (a label the SERVER knows). */
 export function labelForCase(kind: RepKind, field: string): string {
   if (isUnknowableField(field)) return FIELD_NAME_HE[field];

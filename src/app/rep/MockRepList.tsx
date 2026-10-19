@@ -12,7 +12,7 @@ import { SLA_LABEL, STATUS_LABEL } from './repLabels';
 import styles from './rep.module.css';
 
 /** Rep console, list view: an even grid of fixed-size ticket cards. */
-export function RepList({ client = mockClient }: { client?: CarAdvisorClient }) {
+export function MockRepList({ client = mockClient, basePath = "/rep" }: { client?: CarAdvisorClient; basePath?: string }) {
   const [tickets, setTickets] = useState<RepTicketSummary[] | null>(null);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function RepList({ client = mockClient }: { client?: CarAdvisorClient }) 
         <ul className={styles.ticketGrid}>
           {tickets.map((ticket) => (
             <li key={ticket.id} className={styles.ticketItem}>
-              <Link href={`/rep/${ticket.id}`} className={styles.ticketLink}>
+              <Link href={`${basePath}/${ticket.id}`} className={styles.ticketLink}>
                 <span className={styles.ticketTop}>
                   <span className={styles.ticketNumber}>
                     {fill(he.rep.listTicketLabel, { ticketNumber: ticket.ticketNumber })}

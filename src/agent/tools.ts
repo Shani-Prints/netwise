@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { GroupCode } from '../config/rulesSchema';
 import { carLabel, getCatalogCar, getOccupation, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
 import { matchCatalogCar } from '../data/carMatch';
+import { matchOccupation } from '../data/occupationMatch';
 import { getUsageIndex, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
@@ -237,6 +238,19 @@ export function createTools(ctx: ToolContext): ToolSet {
       //    asks the representative and the error says so.
       let representative: string | undefined;
       if (a.occupation !== undefined && !getOccupation(a.occupation)) {
+        // a spelling the table does not have (gender form, plural, typo): the table row is found by the server, never by the model
+        const m = matchOccupation(a.occupation);
+        if (m.status === 'found') fields.occupation = m.occupation.name;
+        else if (m.status === 'ambiguous') {
+          return {
+            status: 'error' as const,
+            error: 'occupation_ambiguous',
+            issues: [{ path: 'occupation', code: 'ambiguous' }],
+            options: m.occupations.slice(0, 5).map((o) => o.name),
+          };
+        }
+      }
+      if (a.occupation !== undefined && !getOccupation(String(fields.occupation))) {
         const noted = await noteUnresolved(repo, actor, 'occupation', a.occupation);
         ctx.collector.touchedState = true;
         recordEscalations(ctx, noted);
@@ -483,7 +497,7 @@ export function createTools(ctx: ToolContext): ToolSet {
     MarkUnknownInputSchema,
     EscalationOutputSchema,
     async (a) => {
-      const reply = await reportUnknownFields(repo, actor, a.fields);
+      const reply = await reportUnknownFields(repo, actor, a.fields, { onlyWhatWasAsked: true });
       ctx.collector.touchedState = true;
       return escalationOutput(ctx, reply);
     },

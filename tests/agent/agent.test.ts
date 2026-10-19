@@ -170,7 +170,8 @@ describe('POST /api/chat', () => {
     expect(r.body.comparison.alternative).toBeDefined();
     const openFromState = (await client.state()).body.questions.filter((q: Json) => q.status === 'open');
     expect(r.body.pendingQuestions).toEqual(openFromState);
-    expect(r.body.pendingQuestions[0]).toHaveProperty('text');
+    expect(r.body.pendingQuestions[0]).not.toHaveProperty('text');
+    expect(r.body.pendingQuestions[0]).toHaveProperty('label');
     expect(r.body.updates).toBeUndefined();
   });
 

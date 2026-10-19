@@ -12,6 +12,7 @@ import {
   type RepQuestion,
   type Role,
 } from '../db/types';
+import { askNextFields } from '../agent/askNext';
 import { buildComparison, buildTodayOnly, type TodayOnly } from './comparison';
 import { missingFieldLabel } from './explain';
 import { loadRules } from '../config/rules';
@@ -23,13 +24,13 @@ import { participationFromRepresentative } from './flags';
 import { REP_ANSWER_NOTICE, REP_FIELD_PARTICIPATION } from './repFields';
 import {
   answerSpecFor,
+  employeeLabelFor,
   EMPLOYEE_REF_MAX,
   isUnknowableField,
   kindOf,
   MAX_CAR_CANDIDATES,
   MAX_CURRENT_CAR_ATTEMPTS,
   MAX_REJECTED_ATTEMPTS,
-  parseStoredAnswer,
   parseTypedAnswer,
   sanitizeEmployeeRef,
   sanitizeWroteAbout,
@@ -97,18 +98,18 @@ export interface MessageView {
   createdAt: string;
 }
 
+/**
+ * What the EMPLOYEE may see of a question: which item is missing (a short label) and where it stands. NEVER the question text the
+ * representative reads, the car label, the representative's answer or the reference.
+ */
 export interface EmployeeQuestionView {
   id: string;
   /** Question kind (see src/lib/repQuestions.ts). */
   kind: RepKind;
   field: string;
-  text: string;
+  /** Short Hebrew label of the missing item, for example "הרכב הנוכחי" (second person, built by the server). */
+  label: string;
   status: 'open' | 'answered';
-  carLabel: string | null;
-  /** The representative's answer as a number (answered questions only). */
-  value: number | null;
-  /** True once the answer has been applied to the conversation and the comparison recomputed. */
-  applied: boolean;
   createdAt: string;
   answeredAt: string | null;
 }
@@ -473,12 +474,6 @@ function profileView(profile: ProfileRecord, state: ConversationState): ProfileV
   };
 }
 
-/** The stored answer as a number, for the kinds whose answer is a number; null otherwise. */
-function numericAnswer(q: RepQuestion): number | null {
-  const stored = parseStoredAnswer(q);
-  return stored !== null && answerSpecFor(kindOf(q), q.missingField).type === 'number' ? Number(stored) : null;
-}
-
 async function buildStateResponse(repo: Repo, turn: Turn): Promise<EmployeeStateResponse> {
   const { conv, profile, updates } = turn;
   const [messages, questions] = await Promise.all([
@@ -510,11 +505,8 @@ async function buildStateResponse(repo: Repo, turn: Turn): Promise<EmployeeState
       id: q.id,
       kind: kindOf(q),
       field: q.missingField,
-      text: q.questionText,
+      label: employeeLabelFor(kindOf(q), q.missingField),
       status: q.status,
-      carLabel: q.context.carLabel ?? null,
-      value: q.status === 'answered' ? numericAnswer(q) : null,
-      applied: conv.state.appliedAnswerIds.includes(q.id),
       createdAt: q.createdAt,
       answeredAt: q.answeredAt,
     })),
@@ -715,6 +707,11 @@ export interface CarIssue {
   candidates: string[];
   /** What the employee wrote about the car. Its digits are trusted by the response guard (she wrote them). */
   text: string;
+  /**
+   * True when the description fits SEVERAL cars (or one car only through a typo): `candidates` is a pick-list taken from the
+   * catalogue / dataset, the employee is asked to choose, and nothing is counted as a failed attempt.
+   */
+  pick?: boolean;
 }
 
 export interface EscalationReply {
@@ -821,16 +818,37 @@ function specForField(
   return { spec: { kind: plan.kind, field: plan.field, source: { field: plan.part ?? plan.field, ...occupation } } };
 }
 
+const TECHNICAL_CAR_PARTS: ReadonlySet<string> = new Set(['currentCarMaker', 'currentCarModel', 'currentCarYear']);
+/** Profile fields whose "I don't know" is accepted only while they are among the items the bot has just been asking about. */
+const ONLY_WHEN_ASKED: ReadonlySet<string> = new Set(['pensionPct', 'studyFundPct', 'creditPoints', 'group', 'base', 'commissions', 'bonus', 'childrenUnder23', 'currentParticipation', 'occupation']);
+
 /**
  * The employee said she does not know / does not have these fields (a structured marker from the bot's tool). Works for EVERY
  * field the engine can report as missing. The server, not the model, decides what happens: a field the employee data already
  * has is never escalated; the rest go through requestEscalations (once per case, capped, reference prompt first).
  */
-export function reportUnknownFields(repo: Repo, actor: Actor, fields: UnknowableField[]): Promise<EscalationReply> {
+export function reportUnknownFields(
+  repo: Repo,
+  actor: Actor,
+  fields: UnknowableField[],
+  opts: { onlyWhatWasAsked?: boolean } = {},
+): Promise<EscalationReply> {
   return escalate(repo, actor, async ({ conv, profile }) => {
     const results: EscalationReport[] = [];
     const specs: EscalationSpec[] = [];
+    // "I don't know" counts only for what the bot could have asked her NOW (the next items it was told to ask), never for a value
+    // she already gave, and never for the technical details of a vehicle (maker / model / year): those come from the data.
+    const today = buildTodayOnly({ profile, state: conv.state });
+    const askedNow = new Set(today.status === 'ok' ? [] : askNextFields(today.missingFields));
     for (const field of new Set(fields)) {
+      if (TECHNICAL_CAR_PARTS.has(field)) {
+        results.push({ kind: 'unresolved_current_car', field, outcome: conv.state.currentCar !== undefined ? 'already_known' : 'not_needed' });
+        continue;
+      }
+      if (opts.onlyWhatWasAsked && ONLY_WHEN_ASKED.has(field) && !hasValue(profile, conv.state, field) && !askedNow.has(field)) {
+        results.push({ kind: 'profile_field_unknown', field, outcome: 'not_needed' });
+        continue;
+      }
       const planned = specForField(profile, conv.state, field);
       if ('spec' in planned) specs.push(planned.spec);
       else results.push({ kind: 'profile_field_unknown', field, outcome: planned.outcome });
@@ -921,6 +939,8 @@ export interface UnresolvedCar {
   text: string;
   /** Identifies the car itself (maker/model words + year), so the same car described twice is ONE case. */
   key: string;
+  /** The description fits several cars: show `candidates` as a pick-list, do not count an attempt, never open a question. */
+  pick?: boolean;
   /** Catalogue labels of cars from the same maker, found by the caller (at most MAX_CAR_CANDIDATES). */
   candidates?: string[];
 }
@@ -946,6 +966,10 @@ export function evaluateTurnTriggers(repo: Repo, actor: Actor, input: { unresolv
       const wroteAbout = sanitizeWroteAbout(c.text);
       if (wroteAbout === '') continue;
       const candidates = (c.candidates ?? []).slice(0, MAX_CAR_CANDIDATES);
+      if (c.pick) {
+        carIssues.push({ role: c.role, attempt: 0, opened: false, candidates, text: c.text, pick: true });
+        continue;
+      }
       if (c.role === 'alternative') {
         // never a representative question: the employee is told what is on the list for her group
         carIssues.push({ role: 'alternative', attempt: 0, opened: false, candidates, text: c.text });

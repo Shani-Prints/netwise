@@ -1,0 +1,93 @@
+/* Real console (connected to the server). Same scoping convention as rep.module.css. */
+[data-car-advisor][data-car-advisor] .loginCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  padding: 20px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .errorLine {
+  padding: 8px 12px;
+  border-radius: var(--ca-radius-control);
+  background: #fdecea;
+  color: var(--ca-danger-text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .contextList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+[data-car-advisor][data-car-advisor] .contextRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+[data-car-advisor][data-car-advisor] .contextTerm {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .contextValue {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .answerCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .warning {
+  padding: 10px 14px;
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-tint);
+  font-size: 14px;
+  line-height: 1.5;
+}
+[data-car-advisor][data-car-advisor] .typedRow {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .typedInput {
+  flex: 1;
+  min-width: 140px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-white);
+  font-size: 16px;
+}
+[data-car-advisor][data-car-advisor] .typedInput:focus-visible,
+[data-car-advisor][data-car-advisor] .freeField:focus-visible {
+  border-color: var(--ca-action);
+  outline: 2px solid var(--ca-blue);
+  outline-offset: 0;
+}
+[data-car-advisor][data-car-advisor] .freeField {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-white);
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+[data-car-advisor][data-car-advisor] .counter {
+  font-size: 12px;
+  color: var(--ca-muted);
+}

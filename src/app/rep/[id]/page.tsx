@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { he } from '../../../components/car-advisor/content/he';
-import { RepTicketView } from '../RepTicketView';
+import { RepTicket } from '../RepTicket';
 
-export const metadata: Metadata = { title: he.rep.title };
+export const metadata: Metadata = { title: he.repApp.consoleTitle };
 
-// TODO: rep-only access is not enforced yet (see RepShell). Needs a server-side role check before real use.
+/** Real rep console, one question. Access is enforced by the server (rep session cookie). */
 export default async function RepTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <RepTicketView id={id} />;
+  return <RepTicket id={id} />;
 }

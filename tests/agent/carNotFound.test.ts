@@ -136,7 +136,7 @@ describe('an ALTERNATIVE car that is not on the list', () => {
 });
 
 describe('every final text says so when the server opened a question in this turn', () => {
-  it('an empty model answer, a replaced model text and a normal text all end with "שלחתי שאלה לנציג"', async () => {
+  it('an empty model answer, a replaced model text and a normal text all end with "שלחתי פנייה לנציג"', async () => {
     const cases: [string, string][] = [
       ['an empty model answer', ''],
       ['a model text with an invented number (replaced by the guard)', 'הנטו שלך הוא 99,999 ₪.'],
@@ -148,7 +148,7 @@ describe('every final text says so when the server opened a question in this tur
       const r = await chat(e, 'אין לי מושג כמה נקודות זיכוי', { providers: [provider(fake(call('mark_field_unknown', { fields: ['creditPoints'] }), say(text)))], interpret: unavailable });
       expect(r.status, name).toBe(200);
       expect(await repQuestions(), name).toHaveLength(1);
-      expect(r.body.assistantText, name).toContain('שלחתי שאלה לנציג');
+      expect(r.body.assistantText, name).toContain('שלחתי פנייה לנציג');
       expect(r.body.assistantText, name).not.toContain('99,999');
     }
   });
@@ -159,6 +159,6 @@ describe('every final text says so when the server opened a question in this tur
     await chat(e, 'שלום', say1('היי!'));
     const r = await chat(e, 'לא יודע', say1('אוקיי.'));
     expect(await repQuestions()).toHaveLength(1);
-    expect(r.body.assistantText).toContain('שלחתי שאלה לנציג');
+    expect(r.body.assistantText).toContain('שלחתי פנייה לנציג');
   });
 });

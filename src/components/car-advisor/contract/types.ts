@@ -121,3 +121,4 @@ export interface CarAdvisorClient {
   replyAsRep(input: RepReplyInput): Promise<void>;
   requestMoreInfo(ticketId: string): Promise<void>;
 }
+export * from './apiTypes';

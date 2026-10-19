@@ -54,9 +54,9 @@ describe('mark_field_unknown works for EVERY field the engine can report as miss
     occupation: { kind: 'profile_field_unknown', field: 'occupation' },
     occupationDetails: { kind: 'other_missing_field', field: 'occupationDetails' },
     currentCar: { kind: 'unresolved_current_car', field: 'currentCar' },
-    currentCarMaker: { kind: 'unresolved_current_car', field: 'currentCar' },
-    currentCarModel: { kind: 'unresolved_current_car', field: 'currentCar' },
-    currentCarYear: { kind: 'unresolved_current_car', field: 'currentCar' },
+    currentCarMaker: 'none',
+    currentCarModel: 'none',
+    currentCarYear: 'none',
     alternative: { kind: 'other_missing_field', field: 'alternative' },
     alternativeParticipation: 'none', // behind PARTICIPATION_FROM_REPRESENTATIVE (tested below)
     overBudgetPolicy: 'none', // opened only by the server's own trigger
@@ -95,7 +95,7 @@ describe('mark_field_unknown works for EVERY field the engine can report as miss
     const e = new Client();
     await e.updateProfile(PROFILE);
     await e.select({ kind: 'car', carId: 'CAR-10' });
-    const { first } = await openQuestion(e, ['currentCarYear', 'alternative', 'currentParticipation', 'occupationDetails', 'base']);
+    const { first } = await openQuestion(e, ['currentCar', 'alternative', 'currentParticipation', 'occupationDetails', 'base']);
     expect(first.results.every((r) => r.outcome === 'already_known')).toBe(true);
     expect(await repQuestions()).toEqual([]);
   });
@@ -103,7 +103,7 @@ describe('mark_field_unknown works for EVERY field the engine can report as miss
   it('the generic kind is reachable through the bot tool (schema accepts every field)', async () => {
     const e = new Client();
     await e.session();
-    const m = fake(call('mark_field_unknown', { fields: ['alternative', 'currentCarYear'] }), say('בסדר.'));
+    const m = fake(call('mark_field_unknown', { fields: ['alternative', 'currentCar'] }), say('בסדר.'));
     await chat(e, 'אני לא יודע', { providers: [provider(m)] });
     await chat(e, 'אין לי', { providers: [provider(fake(call('provide_employee_reference', {}), say('תודה.')))] });
     expect((await repQuestions()).map((q) => q.kind).sort()).toEqual(['other_missing_field', 'unresolved_current_car']);
@@ -339,7 +339,7 @@ describe('the representative\'s answers are written to the profile, once, with t
       open: async () => {
         const e = new Client();
         await e.session();
-        await openQuestion(e, ['currentCarYear']);
+        await openQuestion(e, ['currentCar']);
         return e;
       },
       field: 'currentCar',
@@ -371,7 +371,7 @@ describe('the representative\'s answers are written to the profile, once, with t
       const again = (await e.state()).body;
       expect(again.updates.newAnswers).toBe(false);
       expect(await systemNotices(e)).toHaveLength(1);
-      expect((await e.state()).body.questions.find((q: Json) => q.field === c.field).applied).toBe(true);
+      expect((await e.state()).body.questions.find((q: Json) => q.field === c.field).status).toBe('answered'); // applied once: see appliedAnswerIds in the continuity test
     });
   }
 

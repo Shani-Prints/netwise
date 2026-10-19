@@ -139,6 +139,21 @@ answers it). It never logs, never stores the rep's answer text (only the ticket 
 placeholder values (`₪[__]`, `[#1]`, `[SLA]`). Any hand-off question equal to the demo hand-off text triggers the
 hand-off path.
 
+## Real mode (connected to the server)
+
+`RealFloatingChat` (or `<FloatingChat api={createApiClient()} />`) talks to the real API of this app, same origin, with the
+session cookie (`credentials: 'same-origin'`). Nothing is stored in the browser.
+
+- `contract/apiClient.ts`: `createApiClient()`. `GET /api/session` runs once before the first chat message; a 401 on chat or
+  state renews the session (DELETE + GET when the cookie cannot be verified) and retries exactly once. Errors become
+  `ApiError`; `describeApiError()` gives the friendly Hebrew message (400/401/403/404/409/429/503, network).
+- `useApiChatController`: messages, comparison and open questions all come from `GET /api/employee/state`. While the window is
+  open, a message was sent and a question is open (or `awaitingRepresentative`), the state is polled every ~10s
+  (`contract/poller.ts`, `pollPolicy.ts`). Closing the window stops polling. `updates.newAnswers` shows the notification.
+- All server text is rendered as plain text. `ComparisonPanel` shows the server numbers as they are (no calculation in the UI).
+- The mock client, `ChatWidget` and the fixtures stay for the `/dev/screens` gallery only (the rep mock pages are under `/dev/rep`).
+- The real rep console is in `src/app/rep` (sign-in with `POST /api/session/rep`, list, typed answer, free-text answer).
+
 ## Screens
 
 | Screen                        | Where it lives                                                                                          |

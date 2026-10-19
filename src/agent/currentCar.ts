@@ -19,9 +19,35 @@ const ALTERNATIVE_CUE = /(אעבור|לעבור|רוצה|אקח|לקחת|החל�
 const PARTICIPATION_NUMBER = /(השתתפות|משלם|משלמת)\s*(של\s*)?[\d,.]+/g;
 const YEAR = /(?<![\d.,])(20[0-3]\d)(?![\d.,])/;
 
+/**
+ * "from X to Y" ("אעבור מקורולה קרוס ל-BYD"): the sentence is split into the car she has now (X) and the car she wants (Y).
+ * The marker is a word that starts with the prefix letter מ (or למ) whose rest names a car, or a standalone מ; the car she wants
+ * starts at the next standalone ל or at a word with the prefix ל whose rest names a car. null when the sentence has no "from".
+ */
+export function splitFromTo(sentence: string): { from: string; to: string | null } | null {
+  const tokens = sentence.replace(/[-־]/g, ' ').split(/\s+/).filter(Boolean);
+  const names = (w: string) => w.length >= 3 && matchCatalogCar(w).status !== 'none';
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    const rest = t.replace(/^ל?מ/, '');
+    const marker = t === 'מ' || (rest !== t && names(rest));
+    if (!marker) continue;
+    for (let j = i + 1; j < tokens.length; j++) {
+      const u = tokens[j]!;
+      if (u === 'ל' || (u.startsWith('ל') && names(u.slice(1)))) {
+        return { from: tokens.slice(i, j).join(' '), to: tokens.slice(j).join(' ') };
+      }
+    }
+    return { from: tokens.slice(i).join(' '), to: null };
+  }
+  return null;
+}
+
 /** The part of the message that talks about the current car, or null. */
 export function currentCarClause(message: string): string | null {
   for (const sentence of message.split(/[.!?;\n]+/)) {
+    const ft = splitFromTo(sentence);
+    if (ft) return ft.from.replace(PARTICIPATION_NUMBER, ' ');
     const cut = sentence.search(ALTERNATIVE_CUE);
     const head = (cut >= 0 ? sentence.slice(0, cut) : sentence).replace(PARTICIPATION_NUMBER, ' ');
     if (CURRENT_CUE.test(head)) return head;
@@ -60,6 +86,11 @@ function nameWords(clause: string): string[] {
 /** The part of a message that names the car the employee wants to move to, or null. */
 export function alternativeClause(message: string): string | null {
   for (const sentence of message.split(/[.!?;\n]+/)) {
+    const ft = splitFromTo(sentence);
+    if (ft) {
+      if (ft.to) return ft.to.replace(PARTICIPATION_NUMBER, ' ');
+      continue;
+    }
     const cut = sentence.search(ALTERNATIVE_CUE);
     if (cut >= 0) return sentence.slice(cut).replace(PARTICIPATION_NUMBER, ' ');
   }
@@ -84,9 +115,15 @@ function unresolved(clause: string | null, role: UnresolvedCar['role']): Unresol
   if (!clause) return null;
   const year = clause.match(YEAR)?.[1];
   const words = nameWords(clause);
-  if (year === undefined || words.length < 2) return null;
   const match = matchCatalogCar(clause);
   if (match.status === 'found') return null;
+  const full = year !== undefined && words.length >= 2;
+  // several cars fit (or one only through a typo) and no full details: a pick-list from the catalogue, never a failed attempt
+  if (match.status === 'ambiguous' && !full) {
+    const candidates = match.cars.slice(0, MAX_CAR_CANDIDATES).map(carLabel);
+    return { role, text: clause, key: `pick ${candidates.join('|')}`, candidates, pick: true };
+  }
+  if (!full || year === undefined) return null;
   if (match.status === 'none' && datasetKnows(words, Number(year))) return null;
   // "ambiguous" with full details = the maker is in the catalogue but not this model: offer the maker's cars
   const candidates = match.status === 'ambiguous' ? match.cars.slice(0, MAX_CAR_CANDIDATES).map(carLabel) : [];
@@ -120,7 +157,16 @@ export async function prepareTurnWithCurrentCar(repo: Repo, actor: Actor, messag
   const before = await prepareEmployeeTurn(repo, actor);
   const hadCar = before.state.currentCar !== undefined;
   if (!hadCar) {
-    const car = resolveCurrentCar(message);
+    // the car in this message, or one she named earlier in the conversation (never asked again for what she already said)
+    let car = resolveCurrentCar(message);
+    if (!car) {
+      const conv = await repo.findConversationByUser(actor.userId);
+      const earlier = conv ? (await repo.listMessages(conv.id, 1000)).filter((m) => m.role === 'user').reverse() : [];
+      for (const m of earlier) {
+        car = resolveCurrentCar(m.content);
+        if (car) break;
+      }
+    }
     if (car) await updateProfile(repo, actor, { currentCar: car });
   }
   const triggers = await evaluateTurnTriggers(repo, actor, { unresolvedCars: detectUnresolvedCars(message, hadCar) });

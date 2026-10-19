@@ -84,8 +84,8 @@ const bullets = (items: string[]): string => items.map((i) => `- ${i}`).join('\n
 /** The current car was not found in the catalogue (attempts 1 and 2): friendly, with same-maker candidates if the server has some. */
 export const carNotFoundText = (candidates: string[]): string =>
   candidates.length > 0
-    ? `לא מצאתי בדיוק את הרכב הזה בקטלוג של החברה. אלה הרכבים של אותו יצרן:\n${bullets(candidates)}\nאפשר לבחור אחד מהם, או לכתוב שוב יצרן, דגם ושנת רישום.`
-    : 'לא מצאתי את הרכב הזה בקטלוג של החברה. אפשר לכתוב שוב את היצרן, הדגם ושנת הרישום?';
+    ? `לא מצאתי בדיוק את הרכב הזה בקטלוג של החברה. אלה הרכבים של אותו יצרן:\n${bullets(candidates)}\nאפשר לבחור אחד מהם, או לכתוב שוב את היצרן והדגם.`
+    : 'לא מצאתי את הרכב הזה בקטלוג של החברה. אפשר לכתוב שוב את היצרן והדגם?';
 
 /** The 3rd failed attempt: the server really sent the question to the representative in this same turn. */
 export const CAR_NOT_FOUND_SENT_TEXT =
@@ -95,12 +95,26 @@ export const CAR_NOT_FOUND_SENT_TEXT =
 export const altNotOnListText = (options: string[]): string =>
   options.length > 0
     ? `הרכב שביקשת לא ברשימה של החברה לקבוצה שלך. אלה הרכבים שמתאימים לך:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`
-    : 'הרכב שביקשת לא נמצא ברשימת הרכבים של החברה. אפשר לכתוב שוב יצרן, דגם ושנת רישום?';
+    : 'הרכב שביקשת לא נמצא ברשימת הרכבים של החברה. אפשר לכתוב שוב את היצרן והדגם?';
+
+/** The description fits several cars (or one only through a typo): the options come from the catalogue. */
+export const pickCarText = (options: string[]): string =>
+  `לא ברור לי לאיזה רכב התכוונת. אלה האפשרויות:
+${bullets(options)}
+איזה מהם?`;
+
+/** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
+export const pickOccupationText = (options: string[]): string =>
+  `לא ברור לי מה העיסוק שלך. אלה העיסוקים הקרובים בטבלה:
+${bullets(options)}
+איזה מהם?`;
 
 /** After a refusal: what she can choose. */
 export const eligibleOptionsText = (options: string[]): string =>
   `אלה הרכבים שמתאימים לקבוצה שלך:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`;
 
 /** Added to ANY final text when the server opened a question in this turn and the text does not say so. */
-export const repQuestionSentText = (labels: string[]): string =>
-  labels.length === 1 ? `שלחתי שאלה לנציג לגבי "${labels[0]}".` : `שלחתי שאלות לנציג לגבי: ${labels.map((l) => `"${l}"`).join(', ')}.`;
+export const repQuestionSentText = (labels: string[]): string => {
+  const list = labels.length <= 1 ? (labels[0] ?? '') : `${labels.slice(0, -1).join(', ')} ו${labels[labels.length - 1]}`;
+  return `חסר לי מידע לגבי ${list}, ולכן שלחתי פנייה לנציג. אעדכן אותך כשתהיה תשובה.`;
+};

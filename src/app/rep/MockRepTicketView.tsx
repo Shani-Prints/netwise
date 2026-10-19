@@ -17,7 +17,7 @@ type Outcome = 'sent' | 'info-requested' | null;
  * Rep console, single ticket (screen 5). The rep answers THE BOT, not the employee: the bot words the answer,
  * notifies the employee and returns it in the chat. The answer text lives only in this component's state.
  */
-export function RepTicketView({ id, client = mockClient }: { id: string; client?: CarAdvisorClient }) {
+export function MockRepTicketView({ id, client = mockClient, basePath = "/rep" }: { id: string; client?: CarAdvisorClient; basePath?: string }) {
   const [ticket, setTicket] = useState<RepTicketDetail | null | undefined>(undefined);
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +58,7 @@ export function RepTicketView({ id, client = mockClient }: { id: string; client?
   if (ticket === null) {
     return (
       <RepShell>
-        <Link href="/rep" className={styles.backLink}>
+        <Link href={basePath} className={styles.backLink}>
           {he.rep.backToList}
         </Link>
         <p className={styles.message}>{he.rep.notFound}</p>
@@ -71,7 +71,7 @@ export function RepTicketView({ id, client = mockClient }: { id: string; client?
 
   return (
     <RepShell>
-      <Link href="/rep" className={styles.backLink}>
+      <Link href={basePath} className={styles.backLink}>
         {he.rep.backToList}
       </Link>
       <RepHeader

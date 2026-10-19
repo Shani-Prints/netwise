@@ -40,7 +40,8 @@ describe('conversation continuity around a representative question', () => {
 
     // 2. A question is open; today's situation and a provisional comparison are shown. Nothing is guessed silently.
     expect(chosen.body.questions).toHaveLength(1);
-    expect(chosen.body.questions[0]).toMatchObject({ status: 'open', field: 'employee_participation', applied: false, value: null });
+    expect(chosen.body.questions[0]).toMatchObject({ status: 'open', field: 'employee_participation' });
+    expect(chosen.body.questions[0]).not.toHaveProperty('text'); // the employee never sees the representative's question
     expect(chosen.body.awaitingRepresentative).toBe(true);
     expect(chosen.body.todayOnly.status).toBe('ok');
     expect(chosen.body.todayOnly.today.components.net).toBe(11032);
@@ -75,7 +76,7 @@ describe('conversation continuity around a representative question', () => {
       updatedFields: [{ field: 'employee_participation', carLabel: 'בי ווי די ATTO 3 (2025)', value: 350 }],
     });
     expect(applied.body.repAnswers).toEqual({ 'CAR-10': 350 });
-    expect(applied.body.questions[0]).toMatchObject({ status: 'answered', value: 350, applied: true });
+    expect(applied.body.questions[0]).toMatchObject({ status: 'answered' });
     expect(applied.body.awaitingRepresentative).toBe(false);
     const after = applied.body.comparison;
     expect(after.alternative.components.participation).toBe(350);

@@ -8,7 +8,7 @@ interface TextFieldProps {
   onChange: (value: string) => void;
   onBlur?: () => void;
   onEnter?: () => void;
-  type?: 'text' | 'tel' | 'email';
+  type?: 'text' | 'tel' | 'email' | 'password';
   inputMode?: 'text' | 'tel' | 'email';
   autoComplete?: string;
   placeholder?: string;

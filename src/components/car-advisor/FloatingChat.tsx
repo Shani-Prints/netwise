@@ -2,8 +2,10 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { ApiChatWidget } from './ApiChatWidget';
 import { ChatWidget } from './ChatWidget';
 import { he } from './content/he';
+import type { AdvisorApiClient } from './contract/apiClient';
 import { mockClient } from './contract/mockClient';
 import type { CarAdvisorClient, NotificationView } from './contract/types';
 import styles from './FloatingChat.module.css';
@@ -17,6 +19,8 @@ export const DEFAULT_Z_INDEX = 2147483000 - 1000;
 export interface FloatingChatProps {
   /** Data client. The host implements CarAdvisorClient with the real API and its own auth. Defaults to the mock. */
   client?: CarAdvisorClient;
+  /** The REAL API client (createApiClient()). When given, the chat is connected to the server and `client` is ignored. */
+  api?: AdvisorApiClient;
   position?: 'bottom-left' | 'bottom-right';
   zIndex?: number;
   defaultOpen?: boolean;
@@ -43,6 +47,7 @@ function useIsMounted(): boolean {
  */
 export function FloatingChat({
   client = mockClient,
+  api,
   position = 'bottom-left',
   zIndex = DEFAULT_Z_INDEX,
   defaultOpen = false,
@@ -112,12 +117,16 @@ export function FloatingChat({
         className={`${styles.window} ${sideClass} ${open ? styles.windowOpen : ''}`}
         style={{ zIndex }}
       >
-        <ChatWidget
-          client={client}
-          active={open}
-          onClose={() => changeOpen(false)}
-          onNotification={handleNotification}
-        />
+        {api ? (
+          <ApiChatWidget api={api} active={open} onClose={() => changeOpen(false)} onNotification={handleNotification} />
+        ) : (
+          <ChatWidget
+            client={client}
+            active={open}
+            onClose={() => changeOpen(false)}
+            onNotification={handleNotification}
+          />
+        )}
       </div>
 
       {unread ? (

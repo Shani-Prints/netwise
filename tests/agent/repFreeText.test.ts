@@ -140,7 +140,7 @@ describe('row 1: a valid value', () => {
   it('a choice (an id from the fixed list) is applied too', async () => {
     const e = new Client();
     await e.session();
-    await openQuestion(e, ['currentCarYear']);
+    await openQuestion(e, ['currentCar']);
     const r = await answerText(await loggedInRep(), (await openFor('currentCar')).id, 'קורולה קרוס', seq(vals(['Q1', 'CAR-09'])));
     expect(r.body.interpretation).toBe('applied');
     expect((await e.state()).body.profile.currentCar.label).toContain('COROLLA CROSS');
@@ -293,7 +293,7 @@ describe('row 8: not understood / conflicting / not asked / ambiguous / invalid 
   it('an id outside the fixed lists is rejected (car, occupation, group, arrangement)', async () => {
     const e = new Client();
     await e.session();
-    await openQuestion(e, ['currentCarYear', 'occupation', 'group']);
+    await openQuestion(e, ['currentCar', 'occupation', 'group']);
     const rep = await loggedInRep();
     for (const [field, bad] of [['currentCar', 'CAR-99'], ['occupation', 'astronaut'], ['group', 'E']] as const) {
       const r = await answerText(rep, (await openFor(field)).id, bad, seq(vals(['Q1', bad])));

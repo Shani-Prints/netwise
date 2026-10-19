@@ -172,11 +172,12 @@ describe('the server resolution does not invent answers', () => {
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });
 
-  it('an ambiguous maker ("טויוטה") is NOT guessed: the generic sentence stays', async () => {
+  it('an ambiguous maker ("טויוטה") is NOT guessed: the server shows a pick-list from the catalogue', async () => {
     const e = await groupGimelEmployee();
     const r = await chat(e, 'מה אם אעבור לטויוטה?', { providers: [provider(fake(say('')))] });
-    expect(r.body.assistantText).toBe(NEUTRAL_FALLBACK_HE);
-    expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=empty_answer, via=neutral_fallback, provider=fake)');
+    expect(r.body.assistantText).toContain('לא ברור לי לאיזה רכב התכוונת');
+    expect(r.body.assistantText).toContain('COROLLA CROSS');
+    expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });
 
   it('a message naming no car keeps the generic sentence (it stays only when there is truly nothing to say)', async () => {

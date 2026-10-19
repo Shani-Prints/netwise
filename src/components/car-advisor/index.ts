@@ -2,6 +2,11 @@
 export { FloatingChat } from './FloatingChat';
 export type { FloatingChatProps } from './FloatingChat';
 export { ChatWidget } from './ChatWidget';
+export { ApiChatWidget } from './ApiChatWidget';
+export type { ApiChatWidgetProps } from './ApiChatWidget';
+export { RealFloatingChat } from './RealFloatingChat';
+export { createApiClient, describeApiError, ApiError } from './contract/apiClient';
+export type { AdvisorApiClient, ApiClientOptions } from './contract/apiClient';
 export type { ChatWidgetProps } from './ChatWidget';
 export { createMockClient } from './contract/mockClient';
 export type { MockClientOptions } from './contract/mockClient';

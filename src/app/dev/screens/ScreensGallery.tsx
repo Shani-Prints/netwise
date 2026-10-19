@@ -135,11 +135,11 @@ export function ScreensGallery() {
           <Link href="/" style={LINK_STYLE}>
             / live floating chat
           </Link>
-          <Link href="/rep" style={LINK_STYLE}>
-            /rep ticket list
+          <Link href="/dev/rep" style={LINK_STYLE}>
+            /dev/rep ticket list (mock)
           </Link>
-          <Link href="/rep/ticket-demo-1" style={LINK_STYLE}>
-            /rep/ticket-demo-1 single ticket
+          <Link href="/dev/rep/ticket-demo-1" style={LINK_STYLE}>
+            /dev/rep/ticket-demo-1 single ticket (mock)
           </Link>
         </nav>
       </header>
@@ -236,18 +236,18 @@ export function ScreensGallery() {
         <h2 style={SECTION_TITLE_STYLE}>Screen 5: rep console (normal full pages, shown in frames)</h2>
         <div style={ROW_STYLE}>
           <Panel title="/rep list, wide">
-            <PageFrame title="Rep console list, wide" src="/rep" width={1040} height={560} />
+            <PageFrame title="Rep console list, wide" src="/dev/rep" width={1040} height={560} />
           </Panel>
           <Panel title="/rep list, mobile (390)">
-            <PageFrame title="Rep console list, mobile" src="/rep" width={390} height={844} />
+            <PageFrame title="Rep console list, mobile" src="/dev/rep" width={390} height={844} />
           </Panel>
           <Panel title="/rep/ticket-demo-1 single ticket, wide">
-            <PageFrame title="Rep console ticket, wide" src="/rep/ticket-demo-1" width={1040} height={640} />
+            <PageFrame title="Rep console ticket, wide" src="/dev/rep/ticket-demo-1" width={1040} height={640} />
           </Panel>
           <Panel title="/rep/ticket-demo-4 long content (cards scroll), wide">
             <PageFrame
               title="Rep console long ticket, wide"
-              src="/rep/ticket-demo-4"
+              src="/dev/rep/ticket-demo-4"
               width={1040}
               height={640}
             />
@@ -255,7 +255,7 @@ export function ScreensGallery() {
           <Panel title="/rep/ticket-demo-1 single ticket, mobile (390)">
             <PageFrame
               title="Rep console ticket, mobile"
-              src="/rep/ticket-demo-1"
+              src="/dev/rep/ticket-demo-1"
               width={390}
               height={1240}
             />

@@ -12,8 +12,7 @@ const STRIP = [
 
 /**
  * Page frame of the rep console: scope root (tokens, direction, language), brand strip and a centered column.
- * TODO: rep-only access is not enforced yet. The real app must restrict /rep and /rep/[id] to reps on the server
- * (SSO role check), and the real API must enforce the same rule. This UI-only phase does not.
+ * Access is enforced by the API (rep session cookie, 401/403); the real pages sign in through POST /api/session/rep.
  */
 export function RepShell({ children }: { children: React.ReactNode }) {
   return (

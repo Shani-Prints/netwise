@@ -75,8 +75,12 @@ the bot's reply. A second submission for the same question is `409`, except whil
 }
 ```
 
-`EmployeeQuestionView`: `{ id, kind, field, text, status: "open"|"answered", carLabel, value: number|null, applied, createdAt,
-answeredAt }`. It never contains anything the representative wrote.
+`EmployeeQuestionView`: `{ id, kind, field, label, status: "open"|"answered", createdAt, answeredAt }`. `label` is a short
+Hebrew name of the missing item written by the server (for example "הרכב הנוכחי", "ההשתתפות שלך ברכב הנוכחי"). The question text that the
+representative reads, the car label, the representative's answer and the employee reference are NOT part of the employee view (they
+stay in `GET /api/rep/questions`). The UI shows only the label and "הפנייה נשלחה לנציג".
+
+When the server opens a question the bot says it with one fixed sentence: "חסר לי מידע לגבי {labels}, ולכן שלחתי פנייה לנציג. אעדכן אותך כשתהיה תשובה."
 
 ## `ComparisonView` (what the UI needs)
 

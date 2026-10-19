@@ -103,14 +103,15 @@ describe('anonymous employee sessions', () => {
     expect((await other.state()).body.messages.map((m: Json) => m.content)).toEqual(['hello']);
   });
 
-  it('after a server restart (empty store) a valid cookie is re-created under the same id instead of failing', async () => {
+  it('after a server restart (empty store) a valid cookie of a missing user becomes a NEW anonymous session instead of failing', async () => {
     const c = new Client();
     await c.state();
     const uid = c.uid();
     const fresh = freshRepo();
     const r = await c.state();
     expect(r.status).toBe(200);
-    expect((await fresh.listUsers()).map((u) => u.id)).toEqual([uid]);
+    expect(c.uid()).not.toBe(uid); // the response set a new cookie for a new user; the old id is not adopted
+    expect((await fresh.listUsers()).map((u) => u.id)).toEqual([c.uid()]);
   });
 
   it('logout clears the cookie; the next visit is a different anonymous person', async () => {

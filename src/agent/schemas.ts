@@ -89,6 +89,8 @@ export const CatalogOutputSchema = z.union([
     status: z.enum(['ok', 'missing_fields']),
     cars: z.array(z.object({ id: z.string(), label: z.string(), group: z.string(), drive: z.string() })),
     occupations: z.array(z.object({ name: z.string(), group: z.string() })),
+    /** Whether giving up the car is allowed (same eligibility function); absent when it cannot be decided yet. */
+    waiverAllowed: z.boolean().optional(),
     ...missing,
   }),
   ToolErrorSchema,

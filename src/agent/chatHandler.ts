@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getRepo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
 import { getEmployeeState, ServiceError, type EmployeeQuestionView } from '../lib/service';
+import { describeError } from '../lib/errorLog';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
 import { runAgentTurn } from './agent';
@@ -99,6 +100,7 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
 
     // 4. start of the turn: representative answers already applied are in context
     const repo = await getRepo();
+    if (!(await repo.getUser(actor.userId))) return fail(401, MSG.noSession); // stale cookie: nothing is created or read for it
     const conv = await repo.findConversationByUser(actor.userId);
     if (!conv) throw new ServiceError(500, 'no_conversation');
 
@@ -144,7 +146,7 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
     return json(out);
   } catch (err) {
     if (err instanceof SessionConfigError) console.error('[netwise] chat: server misconfigured');
-    else console.error(`[netwise] chat error: ${err instanceof Error ? err.name : 'unknown'}`);
+    else console.error(`[netwise] chat error: ${describeError(err)}`);
     return fail(500, MSG.internal);
   }
 }

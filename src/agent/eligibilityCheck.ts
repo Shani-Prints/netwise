@@ -2,7 +2,7 @@ import { loadRules } from '../config/rules';
 import { carLabel, getCatalogCar, getOccupation, toCarSpec } from '../data/catalog';
 import { getUsageIndex } from '../data/usageValues';
 import type { Repo } from '../db/repo';
-import type { OptionRef } from '../db/types';
+import type { OptionRef, ProfileRecord } from '../db/types';
 import { checkEligibility, type EmployeeProfile } from '../engine';
 import { eligibilityText, missingFieldLabel } from '../lib/explain';
 import { prepareEmployeeTurn, type Actor } from '../lib/service';
@@ -22,8 +22,16 @@ export interface EligibilityResult {
  * (Moved here unchanged from the check_eligibility tool so the server can run exactly the same check.)
  */
 export async function runEligibilityCheck(repo: Repo, actor: Actor, ref: OptionRef): Promise<EligibilityResult> {
-  const rules = loadRules();
   const { profile } = await prepareEmployeeTurn(repo, actor);
+  return evaluateEligibility(profile, ref);
+}
+
+/**
+ * The ONE eligibility function. check_eligibility, the server's own check and the list of allowed cars (eligibleCars.ts)
+ * all call it, so a car can never be listed as allowed and then refused (or the other way round).
+ */
+export function evaluateEligibility(profile: ProfileRecord, ref: OptionRef): EligibilityResult {
+  const rules = loadRules();
   const car = ref.kind === 'car' ? getCatalogCar(ref.carId) : undefined;
   const label = ref.kind === 'waiver' ? 'ויתור על רכב' : car ? carLabel(car) : ref.kind === 'car' ? ref.carId : '';
   const need: string[] = [];

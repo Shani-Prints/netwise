@@ -1,13 +1,11 @@
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
-import { loadRules } from '../config/rules';
 import type { GroupCode } from '../config/rulesSchema';
-import { allowedCars, carLabel, getCatalogCar, getOccupation, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
+import { carLabel, getCatalogCar, getOccupation, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
 import { matchCatalogCar } from '../data/carMatch';
 import { getUsageIndex, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
-import { missingFieldLabel } from '../lib/explain';
 import { ProfileFieldsSchema, type ProfileFields } from '../lib/schemas';
 import {
   askRepresentativeParticipation,
@@ -21,6 +19,7 @@ import type { ComparisonView } from '../lib/view';
 import { askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
 import { PROVENANCE_FIELDS, checkProvenance, type ProvenanceField } from './provenance';
+import { listAllowedOptions } from './eligibleCars';
 import { applyProvisionalPolicy } from './provisional';
 import {
   AskRepOutputSchema,
@@ -156,7 +155,6 @@ function defineTool<I extends z.ZodType, O extends z.ZodType>(
 
 export function createTools(ctx: ToolContext): ToolSet {
   const { repo, actor } = ctx;
-  const rules = loadRules();
 
   const save_employee_data = defineTool(
     ctx,
@@ -236,7 +234,7 @@ export function createTools(ctx: ToolContext): ToolSet {
   const search_catalog = defineTool(
     ctx,
     'search_catalog',
-    'List valid occupation names, or the cars this employee may choose (needs group and children saved).',
+    'List valid occupation names, or ALL the cars this employee may choose (own group and lower groups, plus the waiver verdict). Drive words are final Hebrew: copy them as they are.',
     CatalogInputSchema,
     CatalogOutputSchema,
     async (a) => {
@@ -249,30 +247,16 @@ export function createTools(ctx: ToolContext): ToolSet {
           missingText: [],
         };
       }
+      // Built by the same eligibility function check_eligibility uses (see eligibleCars.ts): list and verdict cannot disagree.
       const { profile } = await prepareEmployeeTurn(repo, actor);
-      const need: string[] = [];
-      if (!profile.groupCode) need.push('group');
-      if (profile.childrenCount === undefined) need.push('childrenUnder23');
-      if (need.length > 0 || !profile.groupCode || profile.childrenCount === undefined) {
-        return {
-          status: 'missing_fields' as const,
-          cars: [],
-          occupations: [],
-          missingFields: need,
-          missingText: need.map((f) => missingFieldLabel(f, rules.familyTrack.childMaxAge)),
-        };
-      }
+      const opts = listAllowedOptions(profile);
       return {
-        status: 'ok' as const,
-        cars: allowedCars(profile.groupCode, profile.childrenCount, rules).map((c) => ({
-          id: c.id,
-          label: carLabel(c),
-          group: c.group,
-          drive: c.drive,
-        })),
+        status: opts.status,
+        cars: opts.cars,
         occupations: [],
-        missingFields: [],
-        missingText: [],
+        waiverAllowed: opts.waiverAllowed ?? undefined,
+        missingFields: opts.missingFields,
+        missingText: opts.missingText,
       };
     },
   );

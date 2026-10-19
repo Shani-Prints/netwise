@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { describeError } from '../lib/errorLog';
 import { createAdminClient } from './adminClient';
 import { ConversationStateSchema, SalaryInputsSchema } from './types';
 import type { Repo } from './repo';
@@ -6,18 +7,31 @@ import type { Conversation, Message, ProfileRecord, RepQuestion, User } from './
 
 type Row = Record<string, unknown>;
 
-function must<T>(res: { data: T; error: { message: string } | null }, what: string): T {
-  if (res.error) throw new Error(`supabase ${what}: ${res.error.message}`);
+/**
+ * Logs and returns a database failure. The text has the method, then the error name, code, message and cause (fetch failed,
+ * ECONNRESET ...). When the client's error has no message the code or the cause is shown instead of "undefined".
+ * Row details/hints, keys and employee data are never included.
+ */
+export function supabaseFailure(what: string, error: object): Error {
+  const e = error as { message?: unknown; code?: unknown; cause?: unknown };
+  const noInfo = !e.message && !e.code && !e.cause;
+  const text = `supabase ${what} failed: ${describeError(error, true)}${noInfo ? ' (the client gave no message, code or cause)' : ''}`;
+  console.error(`[netwise] ${text}`);
+  return new Error(text, { cause: error });
+}
+
+function must<T>(res: { data: T; error: object | null }, what: string): T {
+  if (res.error) throw supabaseFailure(what, res.error);
   return res.data;
 }
 
 /** List queries: Supabase types allow null data; with no error it simply means no rows. */
-function mustRows<T>(res: { data: T[] | null; error: { message: string } | null }, what: string): T[] {
+function mustRows<T>(res: { data: T[] | null; error: object | null }, what: string): T[] {
   return must(res, what) ?? [];
 }
 
 /** Queries that must return exactly one row (insert ... select().single()): null here is a real failure. */
-function mustOne<T>(res: { data: T; error: { message: string } | null }, what: string): NonNullable<T> {
+function mustOne<T>(res: { data: T; error: object | null }, what: string): NonNullable<T> {
   const row = must(res, what);
   if (row === null || row === undefined) throw new Error(`supabase ${what}: no row returned`);
   return row;
@@ -66,7 +80,7 @@ export function createSupabaseRepo(url: string, serviceRoleKey: string): Repo {
     async ping() {
       // Harmless read: a head-only count on the small users table. No rows are created and none are returned.
       const { error } = await db.from('users').select('*', { count: 'exact', head: true });
-      if (error) throw new Error(`supabase ping failed: ${error.message}`);
+      if (error) throw supabaseFailure('ping', error);
     },
     async createUser(user) {
       // Insert-if-absent: an existing row is never overwritten.

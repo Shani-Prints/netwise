@@ -14,7 +14,8 @@ import { newCollector, createTools, type TurnCollector } from './tools';
 
 const HISTORY_LIMIT = 20;
 const MAX_STEPS = 8;
-const CALL_TIMEOUT_MS = 45_000;
+// Per model request 25s (a blocked provider is given up on quickly), and 45s for the whole multi-step call.
+const CALL_TIMEOUT = { stepMs: 25_000, totalMs: 45_000 } as const;
 
 export const NEUTRAL_FALLBACK_HE = 'לא הצלחתי לנסח תשובה מדויקת. אפשר לנסח את השאלה מחדש או לספר לי מה חסר לך?';
 
@@ -219,7 +220,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
         stopWhen: stepCountIs(MAX_STEPS),
         maxRetries: 0, // retries and backoff are handled by withFallback
         temperature: 0.2,
-        timeout: CALL_TIMEOUT_MS,
+        timeout: CALL_TIMEOUT,
       });
       return { text: result.text, collector, ctx, stateBlock, rejectedTools: sdkToolErrors(result.steps) };
     },

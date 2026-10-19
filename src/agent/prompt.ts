@@ -1,5 +1,6 @@
 import { loadRules } from '../config/rules';
-import { allowedCars, carLabel, getCatalogCar, loadOccupations } from '../data/catalog';
+import { carLabel, getCatalogCar, loadOccupations } from '../data/catalog';
+import { listAllowedOptions } from './eligibleCars';
 import { buildTodayOnly } from '../lib/comparison';
 import { fmt } from '../lib/explain';
 import { participationFromRepresentative } from '../lib/flags';
@@ -55,6 +56,7 @@ HOW TO COLLECT (read this carefully)
 
 FEWER CALLS (every tool call costs a model request)
 - Occupation names and the cars the employee may choose are already listed in this prompt: do not call search_catalog for them.
+- When you list the cars the employee may choose, list ALL of carsTheEmployeeMayChoose (every group in it), using the labels and drive words exactly as written there. Never add, drop, regroup or translate them, and never invent a drive word.
 - calculate_comparison already includes eligibility and the reason: do not call check_eligibility first. Use check_eligibility only to answer a pure eligibility question.
 - Call get_usage_value only if the employee asks about the usage value of a car. Make independent tool calls together in one step.
 
@@ -127,11 +129,15 @@ export function buildStateBlock(ctx: TurnContext, showProvisional: boolean): str
     lines.push(`representativeConfirmed: participation in "${c ? carLabel(c) : carId}" is ${fmt(value)} (use it; never ask again)`);
   }
   if (updates.newAnswers) lines.push('news: the representative just answered; the comparison was updated. Tell the employee.');
-  if (profile.groupCode && profile.childrenCount !== undefined) {
+  // The same eligibility function as check_eligibility decides who is on this list (see eligibleCars.ts).
+  const opts = listAllowedOptions(profile);
+  if (opts.status === 'ok') {
     lines.push(
-      `carsTheEmployeeMayChoose (id = label): ${allowedCars(profile.groupCode, profile.childrenCount, rules).map((c) => `${c.id} = ${carLabel(c)}`).join('; ')}`,
+      `carsTheEmployeeMayChoose (own group AND lower groups; id = label, drive; this is the COMPLETE list, copy labels and drive words exactly): ${opts.cars.map((c) => `${c.id} = ${c.label}, ${c.drive}`).join('; ')}`,
     );
+    if (opts.missingFields.length > 0) lines.push(`carsListIncomplete: family-track cars depend on the number of children, which is not saved yet`);
   }
+  if (opts.waiverAllowed !== null) lines.push(`givingUpTheCarIsAllowed: ${opts.waiverAllowed}`);
   lines.push(`rulesChildAgeLimit: ${fmt(rules.familyTrack.childMaxAge)}`);
   return lines.join('\n');
 }

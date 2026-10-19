@@ -2,6 +2,7 @@ import { createGoogle } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { AISDKError, APICallError, type LanguageModel } from 'ai';
+import { describeError, isNetworkError } from '../lib/errorLog';
 
 export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים ששמרת נשמרו; נסו שוב בעוד רגע.';
 
@@ -55,34 +56,14 @@ export interface FallbackOptions {
   /** Retries per provider after the first attempt (exponential backoff). */
   retries?: number;
   baseDelayMs?: number;
+  /** Once a provider has used this much time (all its tries), stop retrying it and move on. Default 25s. */
+  providerBudgetMs?: number;
+  now?: () => number;
   sleep?: (ms: number) => Promise<void>;
 }
 
 const statusOf = (err: unknown): number | undefined =>
   APICallError.isInstance(err) ? err.statusCode : (err as { statusCode?: number } | null)?.statusCode;
-
-const NETWORK_CODES = new Set([
-  'ECONNRESET',
-  'ECONNREFUSED',
-  'ETIMEDOUT',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EPIPE',
-  'UND_ERR_CONNECT_TIMEOUT',
-  'UND_ERR_HEADERS_TIMEOUT',
-  'UND_ERR_BODY_TIMEOUT',
-  'UND_ERR_SOCKET',
-]);
-
-/** Timeouts, aborted requests and connection failures (also when wrapped in `cause`). */
-function isNetworkError(err: unknown, depth = 0): boolean {
-  if (!err || typeof err !== 'object' || depth > 3) return false;
-  const e = err as { name?: string; code?: string; message?: string; cause?: unknown };
-  if (e.name === 'AbortError' || e.name === 'TimeoutError') return true;
-  if (e.code && NETWORK_CODES.has(e.code)) return true;
-  if (e.name === 'TypeError' && /fetch failed|network|terminated/i.test(e.message ?? '')) return true;
-  return isNetworkError(e.cause, depth + 1);
-}
 
 const retryableStatus = (s: number) => s === 429 || s === 408 || s >= 500;
 
@@ -125,8 +106,11 @@ export async function withFallback<T>(
 ): Promise<{ value: T; provider: string }> {
   const retries = opts.retries ?? 2;
   const base = opts.baseDelayMs ?? 500;
+  const budget = opts.providerBudgetMs ?? 25_000;
+  const now = opts.now ?? Date.now;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   for (const p of providers) {
+    const startedAt = now();
     for (let i = 0; i <= retries; i++) {
       try {
         const value = await attempt(p);
@@ -141,7 +125,11 @@ export async function withFallback<T>(
           throw err;
         }
         console.error(`[netwise] provider ${p.name} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
-        if (kind !== 'retryable' || i === retries) break;
+        const giveUp = kind !== 'retryable' || i === retries || now() - startedAt >= budget; // a slow provider cannot hold the request
+        if (giveUp) {
+          console.error(`[netwise] provider ${p.name} given up: ${describeError(err)}`);
+          break;
+        }
         await sleep(base * 2 ** i + Math.floor(Math.random() * base * 0.2));
       }
     }

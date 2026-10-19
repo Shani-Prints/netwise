@@ -96,6 +96,8 @@ interface Authed {
  *  - tampered / forged / expired / other-secret cookie -> 401 (never a silent new session)
  *  - no cookie: employee routes create an anonymous employee session; rep routes -> 401
  *  - a valid cookie of the wrong role -> 403
+ *  - a valid cookie of an EMPLOYEE whose user row does not exist (e.g. made before the repo mode changed) -> a brand-new
+ *    anonymous session: new user, new cookie. The old id is never adopted, so it can never reach anyone's data.
  */
 async function authenticate(req: Request, mode: Mode): Promise<Authed> {
   const secret = getSessionSecret(); // throws if missing: no fallback secret, ever
@@ -109,6 +111,14 @@ async function authenticate(req: Request, mode: Mode): Promise<Authed> {
   }
   const { uid, role } = read.session;
   if (mode !== 'any' && role !== mode) throw new ServiceError(403, 'forbidden');
+  if (role === 'employee') {
+    const repo = await getRepo();
+    if (!(await repo.getUser(uid))) {
+      const actor = await createAnonymousEmployee(repo);
+      const token = signSession({ uid: actor.userId, role: 'employee' }, secret);
+      return { actor, setCookie: sessionCookieHeader(token), created: true };
+    }
+  }
   return { actor: { userId: uid, role }, created: false };
 }
 

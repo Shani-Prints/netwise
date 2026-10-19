@@ -4,6 +4,8 @@ export type { FloatingChatProps } from './FloatingChat';
 export { ChatWidget } from './ChatWidget';
 export type { ChatWidgetProps } from './ChatWidget';
 export { createMockClient } from './contract/mockClient';
+export type { MockClientOptions } from './contract/mockClient';
+export type { ChatMessage } from './useChatController';
 export type {
   AnswerView,
   AskResult,

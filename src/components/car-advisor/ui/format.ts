@@ -12,7 +12,9 @@ export function formatCell(cell: Cell): string {
       return he.answer.table.notApplicable;
     case 'money': {
       const body =
-        cell.amount === null ? he.answer.table.placeholderAmount : Math.abs(cell.amount).toLocaleString('he-IL');
+        cell.amount === null
+          ? he.answer.table.placeholderAmount
+          : Math.abs(cell.amount).toLocaleString('he-IL');
       const negative = cell.amount === null ? cell.signHint === 'negative' : cell.amount < 0;
       const positive = cell.amount === null ? cell.signHint === 'positive' : cell.amount > 0;
       const sign = negative ? '−' : positive ? '+' : '';

@@ -2,7 +2,12 @@ import { he } from '../content/he';
 import { Chip } from '../ui/Chip';
 import styles from './messages.module.css';
 
-const CHIPS = [he.ask.chips.electric, he.ask.chips.otherCar, he.ask.chips.waiver, he.ask.chips.usageValue] as const;
+const CHIPS = [
+  he.ask.chips.electric,
+  he.ask.chips.otherCar,
+  he.ask.chips.waiver,
+  he.ask.chips.usageValue,
+] as const;
 
 interface GreetingProps {
   /** Suggestion chips are shown only before the first question. */

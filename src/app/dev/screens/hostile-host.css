@@ -6,7 +6,9 @@
 .hostile-host {
   direction: ltr;
   text-align: center;
-  font: italic 700 22px/2.6 'Comic Sans MS', cursive;
+  font:
+    italic 700 22px/2.6 'Comic Sans MS',
+    cursive;
   color: #b0b;
   letter-spacing: 3px;
   text-transform: uppercase;

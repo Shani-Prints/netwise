@@ -9,6 +9,18 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** Semantic button with a 44px touch target. Defaults to type="button" so it never submits a form by accident. */
-export function Button({ variant = 'primary', fullWidth = false, className, type = 'button', ...rest }: ButtonProps) {
-  return <button type={type} className={cx(styles.button, styles[variant], fullWidth && styles.full, className)} {...rest} />;
+export function Button({
+  variant = 'primary',
+  fullWidth = false,
+  className,
+  type = 'button',
+  ...rest
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      className={cx(styles.button, styles[variant], fullWidth && styles.full, className)}
+      {...rest}
+    />
+  );
 }

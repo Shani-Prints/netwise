@@ -13,5 +13,13 @@ interface ScopeRootProps extends React.HTMLAttributes<HTMLDivElement> {
  */
 export function ScopeRoot({ layout = 'block', className = '', ...rest }: ScopeRootProps) {
   const layoutClass = layout === 'fill' ? styles.fill : layout === 'contents' ? styles.contents : '';
-  return <div data-car-advisor="" dir="rtl" lang="he" className={`${styles.root} ${layoutClass} ${className}`} {...rest} />;
+  return (
+    <div
+      data-car-advisor=""
+      dir="rtl"
+      lang="he"
+      className={`${styles.root} ${layoutClass} ${className}`}
+      {...rest}
+    />
+  );
 }

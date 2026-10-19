@@ -6,5 +6,10 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 export function Badge({ tone = 'info', className, ...rest }: BadgeProps) {
-  return <span className={cx(styles.badge, tone === 'danger' ? styles.badgeDanger : styles.badgeInfo, className)} {...rest} />;
+  return (
+    <span
+      className={cx(styles.badge, tone === 'danger' ? styles.badgeDanger : styles.badgeInfo, className)}
+      {...rest}
+    />
+  );
 }

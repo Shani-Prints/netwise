@@ -54,3 +54,7 @@
   outline: 3px solid var(--ca-action);
   outline-offset: 2px;
 }
+[data-car-advisor][data-car-advisor] fieldset {
+  border: 0;
+  min-width: 0;
+}

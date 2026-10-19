@@ -51,9 +51,7 @@ export interface HandoffView {
   defaultChannel: NotifyChannel;
 }
 
-export type AskResult =
-  | { kind: 'answer'; answer: AnswerView }
-  | { kind: 'handoff'; handoff: HandoffView };
+export type AskResult = { kind: 'answer'; answer: AnswerView } | { kind: 'handoff'; handoff: HandoffView };
 
 export interface TicketConfirmationView {
   ticketNumber: string;
@@ -99,6 +97,8 @@ export interface ReturnedAnswerView {
 /** Everything the UI calls. TODO: the real API layer implements this same interface. */
 export interface CarAdvisorClient {
   ask(question: string): Promise<AskResult>;
+  /** Hand-off view for a question the employee wants a rep to handle (the "talk to a rep" link). */
+  prepareHandoff(question: string): Promise<HandoffView>;
   sendToRep(question: string, channel: NotifyChannel): Promise<TicketConfirmationView>;
   getReturnedAnswer(ticketId: string): Promise<ReturnedAnswerView | null>;
   listRepTickets(): Promise<RepTicketSummary[]>;

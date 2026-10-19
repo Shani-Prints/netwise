@@ -29,7 +29,11 @@ const subscribeNever = () => () => {};
 
 /** True only after hydration, so the portal is never rendered on the server. */
 function useIsMounted(): boolean {
-  return useSyncExternalStore(subscribeNever, () => true, () => false);
+  return useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
 }
 
 /**

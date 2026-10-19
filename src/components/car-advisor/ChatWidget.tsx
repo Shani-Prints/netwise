@@ -6,7 +6,9 @@ import { he } from './content/he';
 import { mockClient } from './contract/mockClient';
 import type { CarAdvisorClient, NotificationView } from './contract/types';
 import { AnswerCard } from './messages/AnswerCard';
+import { ConfirmationCard } from './messages/ConfirmationCard';
 import { Greeting } from './messages/Greeting';
+import { HandoffCard } from './messages/HandoffCard';
 import messageStyles from './messages/messages.module.css';
 import { UserBubble } from './messages/UserBubble';
 import { ScopeRoot } from './ScopeRoot';
@@ -38,7 +40,8 @@ export interface ChatWidgetProps {
 
 /** The chat window content. Fills its container (100% x 100%) and needs no viewport units. */
 export function ChatWidget({ client = mockClient, onClose, initialMessages }: ChatWidgetProps) {
-  const { messages, draft, setDraft, busy, hasAsked, submit } = useChatController(client, initialMessages);
+  const { messages, draft, setDraft, busy, hasAsked, submit, talkToRep, changeChannel, sendToRep } =
+    useChatController(client, initialMessages);
   const fieldId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +53,7 @@ export function ChatWidget({ client = mockClient, onClose, initialMessages }: Ch
 
   // Keep the newest message in view. A message taller than the viewport is scrolled to its top, so the start of a
   // long answer is never hidden. Scrolling happens inside the messages area only.
+  const messageCount = messages.length;
   useEffect(() => {
     const area = messagesRef.current;
     if (!area) return;
@@ -60,7 +64,7 @@ export function ChatWidget({ client = mockClient, onClose, initialMessages }: Ch
     } else {
       area.scrollTop = area.scrollHeight;
     }
-  }, [messages, busy]);
+  }, [messageCount, busy]);
 
   // Auto-grow the composer: min and max height come from CSS (about 3 to 8 rows), the field scrolls beyond that.
   useLayoutEffect(() => {
@@ -98,23 +102,29 @@ export function ChatWidget({ client = mockClient, onClose, initialMessages }: Ch
         </header>
 
         <div ref={messagesRef} className={styles.messages} role="log" aria-label={he.ask.messagesLabel}>
-          <Greeting
-            showSuggestions={!hasAsked}
-            onPickSuggestion={prefill}
-          />
+          <Greeting showSuggestions={!hasAsked} onPickSuggestion={prefill} />
           {messages.map((message) => (
             <div key={message.id} data-message="" className={messageStyles.message}>
               {message.kind === 'user' ? (
                 <UserBubble text={message.text} />
-              ) : (
+              ) : message.kind === 'answer' ? (
                 <AnswerCard
                   answer={message.answer}
                   onCompareOtherCar={() => prefill(he.ask.chips.otherCar.question)}
                   onAnotherQuestion={() => prefill('')}
-                  onTalkToRep={() => {
-                    // TODO(step 3): start the hand-off to a rep for this question.
-                  }}
+                  onTalkToRep={(question) => void talkToRep(question)}
                 />
+              ) : message.kind === 'handoff' ? (
+                <HandoffCard
+                  handoff={message.handoff}
+                  channel={message.channel}
+                  sending={message.sending}
+                  sent={message.sent}
+                  onChannelChange={(channel) => changeChannel(message.id, channel)}
+                  onSend={() => void sendToRep(message.id)}
+                />
+              ) : (
+                <ConfirmationCard confirmation={message.confirmation} onBackToChat={() => prefill('')} />
               )}
             </div>
           ))}

@@ -2,6 +2,7 @@ import { generateText, stepCountIs, type ModelMessage } from 'ai';
 import { loadRules } from '../config/rules';
 import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
+import { buildTodayOnly } from '../lib/comparison';
 import { missingFieldLabel } from '../lib/explain';
 import { employeeLabelFor, FIELD_NAME_HE, isRepKind } from '../lib/repQuestions';
 import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
@@ -11,6 +12,7 @@ import { MAX_ASK, askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
+import { answeredAPick, dropListedNames, modelNamesOfLabels } from './listDedupe';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
 import { newCollector, createTools, SaveInputSchema, type TurnCollector } from './tools';
@@ -176,8 +178,12 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
     out = out === '' ? extra : `${out}\n${extra}`;
   };
   for (const issue of issues) {
-    if (issue.pick) add(pickCarText(issue.candidates));
-    else if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates));
+    if (issue.pick) {
+      // ONE block: what the model wrote about these same cars is dropped, the server list stays
+      out = dropListedNames(out, modelNamesOfLabels(issue.candidates));
+      add(pickCarText(issue.candidates, issue.more === true));
+    }
+    else if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates, issue.more === true));
     else add(altNotOnListText(optionLines));
   }
   const alternativeIssue = issues.some((i) => i.role === 'alternative');
@@ -202,6 +208,18 @@ export function ensureOccupationGuidance(text: string, collector: TurnCollector)
 ${sentence}`;
   }
   return text;
+}
+
+/**
+ * After the employee only picked from a pick-list, the reply is ONE short sentence with what is still missing (never the whole list
+ * of questions again). null when nothing is missing.
+ */
+export async function shortMissingSentence(repo: Repo, actor: Actor): Promise<string | null> {
+  const { profile, state } = await prepareEmployeeTurn(repo, actor);
+  const today = buildTodayOnly({ profile, state });
+  if (today.status === 'ok') return null;
+  const labels = askNextLabels(today.missingFields);
+  return labels.length === 0 ? null : `מעולה, רשמתי. כדי להמשיך חסר לי עוד: ${labels.join(', ')}.`;
 }
 
 /** Labels of the representative questions the SERVER opened in this turn (before the model ran, or through a tool). */
@@ -388,7 +406,13 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
   const guided = await ensureCarGuidance(ensured.text, args, collector);
-  const finalText = ensureQuestionSentence(ensureOccupationGuidance(guided, collector), collector, args.openedAtStart ?? []);
+  let finalText = ensureQuestionSentence(ensureOccupationGuidance(guided, collector), collector, args.openedAtStart ?? []);
+  // she only picked from a list the server showed: nothing to repeat, just what is still missing, in one short sentence
+  const quiet = (args.carIssues ?? []).length === 0 && collector.lastView === undefined && ineligibleFacts(collector).length === 0 && collector.escalations.length === 0 && (args.openedAtStart ?? []).length === 0;
+  if (quiet && args.userMessage && (await answeredAPick(repo, conversationId, args.userMessage))) {
+    const short = await shortMissingSentence(repo, actor);
+    if (short) finalText = short;
+  }
   if (finalText !== ensured.text) console.info(`[netwise] chat: server text appended (provider=${provider})`);
 
   return {

@@ -65,6 +65,13 @@ export const gapReasonText = (label: string): string =>
 export const repUpdatedText = (label: string, value: string, quoted: boolean): string =>
   `הנציג עדכן את הנתון "${label}" ל${quoted ? `"${value}"` : `-${value}`}. הערך נשמר בפרופיל שלך (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.`;
 
+/** One fact of a merged notice: "label" ל-value. */
+export const repUpdatedPart = (label: string, value: string, quoted: boolean): string => `"${label}" ל${quoted ? `"${value}"` : `-${value}`}`;
+
+/** ONE notice when several representative answers are applied together: it lists the fields. */
+export const repUpdatedManyText = (parts: string[]): string =>
+  `הנציג עדכן כמה נתונים: ${parts.join('; ')}. הערכים נשמרו בפרופיל שלך (הוזנו על ידי נציג) ואפשר לתקן אותם בכל שלב.`;
+
 /** The participation in the new car (kept on the conversation, not on the profile). */
 export const repParticipationUpdatedText = (carLabel: string, value: string): string =>
   `הנציג עדכן את הנתון "ההשתתפות ברכב ${carLabel}" ל-${value}. החישוב עודכן בהתאם.`;
@@ -73,18 +80,18 @@ export const repParticipationUpdatedText = (carLabel: string, value: string): st
 export const repBudgetPolicyText = (carLabel: string, policyLabel: string): string =>
   `הנציג השיב לגבי הרכב "${carLabel}": ${policyLabel}. הכללים במערכת עדיין לא כוללים הסדר לפער מעל התקציב, ולכן לא הצגתי נטו לרכב הזה.`;
 
-/** First notice: the representative answered (the details follow when the answer is applied). */
-export const REP_ANSWER_NOTICE_TEXT = 'הנציג ענה על השאלה שלך.';
-
 /** A rejected typed answer: the question stays open. */
 export const REP_ANSWER_REJECTED_TEXT = 'הנציג ניסה להשיב, אבל התשובה לא הייתה תקינה. השאלה עדיין פתוחה.';
 
 const bullets = (items: string[]): string => items.map((i) => `- ${i}`).join('\n');
 
 /** The current car was not found in the catalogue (attempts 1 and 2): friendly, with same-maker candidates if the server has some. */
-export const carNotFoundText = (candidates: string[]): string =>
+/** Shown under a car list that was cut to its first MAX_CAR_CANDIDATES rows. */
+export const MORE_OPTIONS_TEXT = 'יש עוד אפשרויות, אפשר לדייק את הדגם או השנה.';
+
+export const carNotFoundText = (candidates: string[], more = false): string =>
   candidates.length > 0
-    ? `לא מצאתי בדיוק את הרכב הזה בקטלוג של החברה. אלה הרכבים של אותו יצרן:\n${bullets(candidates)}\nאפשר לבחור אחד מהם, או לכתוב שוב את היצרן והדגם.`
+    ? `לא מצאתי בדיוק את הרכב הזה בקטלוג של החברה. אלה הרכבים של אותו יצרן:\n${bullets(candidates)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאפשר לבחור אחד מהם, או לכתוב שוב את היצרן והדגם.`
     : 'לא מצאתי את הרכב הזה בקטלוג של החברה. אפשר לכתוב שוב את היצרן והדגם?';
 
 /** The 3rd failed attempt: the server really sent the question to the representative in this same turn. */
@@ -97,11 +104,13 @@ export const altNotOnListText = (options: string[]): string =>
     ? `הרכב שביקשת לא ברשימה של החברה לקבוצה שלך. אלה הרכבים שמתאימים לך:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`
     : 'הרכב שביקשת לא נמצא ברשימת הרכבים של החברה. אפשר לכתוב שוב את היצרן והדגם?';
 
+/** Assumption line of a comparison: the current car is the catalogue row and the employee did not state its year. */
+export const currentCarYearAssumptionText = (year: number, label: string): string =>
+  `הנחתי שנת רישום ${year} עבור ${label} לפי הקטלוג. אם זו לא השנה הנכונה, כתבי לי את השנה.`;
+
 /** The description fits several cars (or one only through a typo): the options come from the catalogue. */
-export const pickCarText = (options: string[]): string =>
-  `לא ברור לי לאיזה רכב התכוונת. אלה האפשרויות:
-${bullets(options)}
-איזה מהם?`;
+export const pickCarText = (options: string[], more = false): string =>
+  `לא ברור לי לאיזה רכב התכוונת. אלה האפשרויות:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
 
 /** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
 export const pickOccupationText = (options: string[]): string =>

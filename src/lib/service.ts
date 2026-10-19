@@ -19,9 +19,9 @@ import { loadRules } from '../config/rules';
 import { flushPendingEscalations, openQuestionNow, requestEscalations, type EscalationResult } from './escalation';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisionalPolicy';
 import { applyRepAnswer } from './repApply';
-import { gapReasonText, REP_ANSWER_REJECTED_TEXT, STATUS_TEXT, type QuestionStatus } from './repTemplates';
+import { gapReasonText, REP_ANSWER_REJECTED_TEXT, repUpdatedManyText, STATUS_TEXT, type QuestionStatus } from './repTemplates';
 import { participationFromRepresentative } from './flags';
-import { REP_ANSWER_NOTICE, REP_FIELD_PARTICIPATION } from './repFields';
+import { REP_FIELD_PARTICIPATION } from './repFields';
 import {
   answerSpecFor,
   employeeLabelFor,
@@ -408,7 +408,7 @@ async function applyAnsweredQuestions(
 
   const state: ConversationState = structuredClone(conv.state);
   const profile: ProfileRecord = structuredClone(profile0);
-  const applied: { field: string; carLabel: string; value: number | string; message: string }[] = [];
+  const applied: { field: string; carLabel: string; value: number | string; message: string; part: string }[] = [];
   for (const q of pending) {
     state.appliedAnswerIds.push(q.id); // a stored answer that cannot be applied is still never tried twice
     const done = isSuperseded(q, profile, state) ? null : applyRepAnswer(q, profile, state);
@@ -428,7 +428,8 @@ async function applyAnsweredQuestions(
   //    the audit record and the explanation message below are produced only for a complete result.
   const next = await commitComparison(repo, conv.id, state, profile);
 
-  for (const u of applied) await repo.addMessage(conv.id, 'system', u.message);
+  // ONE notice per application: the line of the answer, or one line listing the fields when several are applied together
+  await repo.addMessage(conv.id, 'system', applied.length === 1 ? applied[0]!.message : repUpdatedManyText(applied.map((u) => u.part)));
   if (next.lastComparison?.status === 'ok') {
     await repo.addMessage(conv.id, 'assistant', next.lastComparison.explanation.join('\n'));
   }
@@ -572,7 +573,12 @@ function resolveCurrentCar(input: CurrentCarInput): NonNullable<ConversationStat
 }
 
 /** Saves what the employee says about themselves and recomputes the chosen alternative, if any. */
-export async function updateProfile(repo: Repo, actor: Actor, fields: ProfileFields): Promise<EmployeeStateResponse> {
+export async function updateProfile(
+  repo: Repo,
+  actor: Actor,
+  fields: ProfileFields,
+  meta: { currentCarYearAssumed?: boolean } = {},
+): Promise<EmployeeStateResponse> {
   requireEmployee(actor);
   return withLock(actor.userId, async () => {
     const turn = await prepare(repo, actor);
@@ -596,7 +602,12 @@ export async function updateProfile(repo: Repo, actor: Actor, fields: ProfileFie
       delete state.fieldSources[field]; // the employee's own value replaces the representative's
       delete state.escalation.attempts[`reject:${field}`];
     }
-    if (fields.currentCar !== undefined) state.currentCar = resolveCurrentCar(fields.currentCar);
+    if (fields.currentCar !== undefined) {
+      state.currentCar = resolveCurrentCar(fields.currentCar);
+      // the catalogue's registration year is an assumption only when the employee did not state a year
+      if (meta.currentCarYearAssumed && state.currentCar.kind === 'car') state.currentCarYearAssumed = true;
+      else delete state.currentCarYearAssumed;
+    }
     if (fields.currentParticipation !== undefined) state.currentParticipation = fields.currentParticipation;
 
     await repo.saveProfile(profile);
@@ -657,8 +668,7 @@ export async function answerRepQuestion(
   // Conditional write: if two reps race, only one wins and the other gets 409.
   const saved = await repo.answerRepQuestion(q.id, value);
   if (!saved) throw new ServiceError(409, 'already_answered');
-  // The employee's conversation gets a system notice now; the value is applied when they next load / write.
-  await repo.addMessage(q.conversationId, 'system', REP_ANSWER_NOTICE);
+  // No notice here: the employee gets ONE system notice ("הנציג עדכן את הנתון ...") when the answer is applied.
   return toRepQuestionView(saved);
 }
 
@@ -712,6 +722,8 @@ export interface CarIssue {
    * catalogue / dataset, the employee is asked to choose, and nothing is counted as a failed attempt.
    */
   pick?: boolean;
+  /** More cars fit than `candidates` shows (the list is cut to MAX_CAR_CANDIDATES). */
+  more?: boolean;
 }
 
 export interface EscalationReply {
@@ -943,6 +955,8 @@ export interface UnresolvedCar {
   pick?: boolean;
   /** Catalogue labels of cars from the same maker, found by the caller (at most MAX_CAR_CANDIDATES). */
   candidates?: string[];
+  /** More cars fit than `candidates` shows. */
+  more?: boolean;
 }
 
 
@@ -967,7 +981,7 @@ export function evaluateTurnTriggers(repo: Repo, actor: Actor, input: { unresolv
       if (wroteAbout === '') continue;
       const candidates = (c.candidates ?? []).slice(0, MAX_CAR_CANDIDATES);
       if (c.pick) {
-        carIssues.push({ role: c.role, attempt: 0, opened: false, candidates, text: c.text, pick: true });
+        carIssues.push({ role: c.role, attempt: 0, opened: false, candidates, text: c.text, pick: true, more: c.more === true });
         continue;
       }
       if (c.role === 'alternative') {
@@ -984,7 +998,7 @@ export function evaluateTurnTriggers(repo: Repo, actor: Actor, input: { unresolv
           source: { wroteAbout, ...(profile.occupation ? { occupation: profile.occupation } : {}) },
         });
       }
-      carIssues.push({ role: 'current', attempt, opened: false, candidates, text: c.text });
+      carIssues.push({ role: 'current', attempt, opened: false, candidates, text: c.text, more: c.more === true });
     }
 
     const occupation = profile.occupation ? getOccupation(profile.occupation) : undefined;

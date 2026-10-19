@@ -59,17 +59,22 @@ export type CurrentCarFields = { kind: 'car'; carId: string } | { kind: 'dataset
 
 /** Pure part: which current car does this message name? null = nothing clear enough (never a guess). */
 export function resolveCurrentCar(message: string): CurrentCarFields | null {
+  return resolveCurrentCarDetailed(message)?.fields ?? null;
+}
+
+/** Same, and says whether the employee wrote the registration year (if not, the catalogue's year is an assumption). */
+export function resolveCurrentCarDetailed(message: string): { fields: CurrentCarFields; yearStated: boolean } | null {
   const clause = currentCarClause(message);
   if (!clause) return null;
   const match = matchCatalogCar(clause);
   if (match.status !== 'found') return null;
   const car = match.car;
   const year = clause.match(YEAR)?.[1];
-  if (year === undefined || Number(year) === car.registrationYear) return { kind: 'car', carId: car.id };
+  if (year === undefined || Number(year) === car.registrationYear) return { fields: { kind: 'car', carId: car.id }, yearStated: year !== undefined };
   // a different registration year than the catalogue row: take it from the official dataset, only if it is unambiguous
   const found = lookupUsageValue(getUsageIndex(), { registrationYear: Number(year), makerCode: car.makerCode, modelCode: car.modelCode });
   if (found.status !== 'found') return null;
-  return { kind: 'dataset', makerCode: car.makerCode, modelCode: car.modelCode, vehicleTypeCode: found.row.vehicleTypeCode, registrationYear: Number(year) };
+  return { fields: { kind: 'dataset', makerCode: car.makerCode, modelCode: car.modelCode, vehicleTypeCode: found.row.vehicleTypeCode, registrationYear: Number(year) }, yearStated: true };
 }
 
 // ---- a car that cannot be found even though the employee gave full details --------------------------------------------
@@ -121,13 +126,19 @@ function unresolved(clause: string | null, role: UnresolvedCar['role']): Unresol
   // several cars fit (or one only through a typo) and no full details: a pick-list from the catalogue, never a failed attempt
   if (match.status === 'ambiguous' && !full) {
     const candidates = match.cars.slice(0, MAX_CAR_CANDIDATES).map(carLabel);
-    return { role, text: clause, key: `pick ${candidates.join('|')}`, candidates, pick: true };
+    return { role, text: clause, key: `pick ${candidates.join('|')}`, candidates, pick: true, more: match.cars.length > MAX_CAR_CANDIDATES };
   }
   if (!full || year === undefined) return null;
   if (match.status === 'none' && datasetKnows(words, Number(year))) return null;
   // "ambiguous" with full details = the maker is in the catalogue but not this model: offer the maker's cars
   const candidates = match.status === 'ambiguous' ? match.cars.slice(0, MAX_CAR_CANDIDATES).map(carLabel) : [];
-  return { role, text: clause, key: `${words.map((w) => w.toLowerCase()).sort().join(' ')} ${year}`, candidates };
+  return {
+    role,
+    text: clause,
+    key: `${words.map((w) => w.toLowerCase()).sort().join(' ')} ${year}`,
+    candidates,
+    more: match.status === 'ambiguous' && match.cars.length > MAX_CAR_CANDIDATES,
+  };
 }
 
 export function detectUnresolvedCars(message: string, currentAlreadySaved: boolean): UnresolvedCar[] {
@@ -158,16 +169,16 @@ export async function prepareTurnWithCurrentCar(repo: Repo, actor: Actor, messag
   const hadCar = before.state.currentCar !== undefined;
   if (!hadCar) {
     // the car in this message, or one she named earlier in the conversation (never asked again for what she already said)
-    let car = resolveCurrentCar(message);
+    let car = resolveCurrentCarDetailed(message);
     if (!car) {
       const conv = await repo.findConversationByUser(actor.userId);
       const earlier = conv ? (await repo.listMessages(conv.id, 1000)).filter((m) => m.role === 'user').reverse() : [];
       for (const m of earlier) {
-        car = resolveCurrentCar(m.content);
+        car = resolveCurrentCarDetailed(m.content);
         if (car) break;
       }
     }
-    if (car) await updateProfile(repo, actor, { currentCar: car });
+    if (car) await updateProfile(repo, actor, { currentCar: car.fields }, { currentCarYearAssumed: !car.yearStated });
   }
   const triggers = await evaluateTurnTriggers(repo, actor, { unresolvedCars: detectUnresolvedCars(message, hadCar) });
   // Answers are applied by the FIRST prepare of the turn; the later ones see them as already applied, so keep that report.

@@ -247,6 +247,7 @@ export const he = {
       differenceNone: 'ההפרש: אין שינוי',
       todayOnly: 'הנטו החודשי המוערך שלך היום: {amount}',
       missingTitle: 'חסר מידע לחישוב',
+      eligibilityLabel: 'זכאות',
       ineligibleTitle: 'אין זכאות לחלופה הזו',
       assumptionsTitle: 'הנחות',
       enteredByRepTitle: 'נתונים שהוזנו על ידי הנציג',

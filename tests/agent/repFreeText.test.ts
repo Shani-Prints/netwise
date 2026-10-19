@@ -125,7 +125,12 @@ describe('row 1: a valid value', () => {
     await Promise.all([e.state(), e.state(), e.state()]);
     const all = await messages(e);
     expect(all.filter((m) => m.includes('11,693'))).toHaveLength(1);
-    expect((await notices(e)).filter((m) => m.startsWith('הנציג עדכן את הנתון'))).toHaveLength(2);
+    // two answers applied together: ONE merged notice that lists both fields
+    const merged = (await notices(e)).filter((m) => m.startsWith('הנציג עדכן'));
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toContain('הנציג עדכן כמה נתונים');
+    expect(merged[0]).toContain('אחוז פנסיה');
+    expect(merged[0]).toContain('אחוז קרן השתלמות');
     expect(i.calls).toHaveLength(1); // no further model call produced any of it
   });
 
@@ -469,7 +474,9 @@ describe('row 14: a text with several fields', () => {
     expect(s.comparison.status).toBe('ok');
     await e.state();
     await e.state();
-    expect((await notices(e)).filter((m) => m.startsWith('הנציג עדכן את הנתון'))).toHaveLength(2);
+    const merged = (await notices(e)).filter((m) => m.startsWith('הנציג עדכן'));
+    expect(merged).toHaveLength(1); // two answers applied together: ONE notice listing both fields
+    expect(merged[0]).toContain('הנציג עדכן כמה נתונים');
     expect((await messages(e)).filter((m) => m.includes('11,693'))).toHaveLength(1);
   });
 

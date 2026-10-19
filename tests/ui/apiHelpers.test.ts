@@ -89,8 +89,9 @@ describe('typed answers follow the answerSpec', () => {
 
 describe('after which errors the typed message goes back into the composer', () => {
   it('is restored only when the server certainly did not store it', () => {
-    for (const status of [0, 400, 401, 403, 429]) expect(messageWasNotStored(new ApiError(status, 'x'))).toBe(true);
-    for (const status of [500, 503]) expect(messageWasNotStored(new ApiError(status, 'x'))).toBe(false);
+    for (const status of [400, 401, 403, 429]) expect(messageWasNotStored(new ApiError(status, 'x'))).toBe(true);
+    // after a network failure the server may have stored the message: it is not put back (that would send it twice)
+    for (const status of [0, 500, 503]) expect(messageWasNotStored(new ApiError(status, 'x'))).toBe(false);
     expect(messageWasNotStored(new Error('boom'))).toBe(false);
   });
 });

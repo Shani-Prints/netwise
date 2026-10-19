@@ -66,14 +66,15 @@ describe('the system message after a representative answer is one fixed template
     }
   });
 
-  it('a text value (group, occupation, car) is shown in quotes; the first notice is "הנציג ענה על השאלה שלך."', async () => {
+  it('a text value (group, occupation, car) is shown in quotes; there is ONE notice per answer (no separate "הנציג ענה על השאלה שלך." line)', async () => {
     const e = new Client();
     await e.session();
     await openQuestion(e, ['group']);
     const rep = await loggedInRep();
     await rep.repAnswer((await openFor('group')).id, 'ב');
     const all = (await e.state()).body.messages.map((m: Json) => m.content as string);
-    expect(all).toContain('הנציג ענה על השאלה שלך.');
+    expect(all).not.toContain('הנציג ענה על השאלה שלך.');
+    expect(all.filter((c: string) => c.startsWith('הנציג עדכן את הנתון'))).toHaveLength(1);
     expect(all).toContain(repUpdatedText(FIELD_NAME_HE.group, 'ב', true));
     expect(repUpdatedText('עיסוק', 'מנהל/ת מוצר', true)).toBe(`${PREFIX} "עיסוק" ל"מנהל/ת מוצר". ${TAIL}`);
   });

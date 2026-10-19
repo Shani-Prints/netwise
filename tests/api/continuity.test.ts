@@ -84,12 +84,11 @@ describe('conversation continuity around a representative question', () => {
     expect(after.assumptions).toEqual([]);
     expect(after.pendingQuestionId).toBeUndefined();
     const texts = applied.body.messages.map((m: Json) => `${m.role}: ${m.content}`);
-    expect(texts).toHaveLength(3);
-    expect(texts[0]).toBe('system: הנציג ענה על השאלה שלך.');
-    expect(texts[1]).toContain('system: הנציג עדכן את הנתון');
-    expect(texts[1]).toContain('350 ₪');
-    expect(texts[2]).toContain('assistant: ');
-    expect(texts[2]).toContain('11,643 ₪');
+    expect(texts).toHaveLength(2); // ONE system notice for the answer, then the engine's explanation
+    expect(texts[0]).toContain('system: הנציג עדכן את הנתון');
+    expect(texts[0]).toContain('350 ₪');
+    expect(texts[1]).toContain('assistant: ');
+    expect(texts[1]).toContain('11,643 ₪');
 
     // 6. Applying is idempotent: ten more loads give the same result and add no messages.
     for (let i = 0; i < 10; i++) {
@@ -99,7 +98,7 @@ describe('conversation continuity around a representative question', () => {
     }
     const conv = await repo.findConversationByUser(e.uid());
     expect(conv!.state.appliedAnswerIds).toHaveLength(1);
-    expect((await repo.listMessages(conv!.id)).length).toBe(3);
+    expect((await repo.listMessages(conv!.id)).length).toBe(2);
 
     // 7. The employee's later turns already have the representative's data; nobody is asked again.
     const turn = await prepareEmployeeTurn(repo, e.actor());
@@ -208,7 +207,7 @@ describe('conversation continuity around a representative question', () => {
     expect(replies.filter((r) => r.body.updates.newAnswers)).toHaveLength(1);
     const conv = await repo.findConversationByUser(e.uid());
     expect(conv!.state.appliedAnswerIds).toHaveLength(1);
-    expect((await repo.listMessages(conv!.id)).length).toBe(3);
+    expect((await repo.listMessages(conv!.id)).length).toBe(2);
     for (const r of replies) expect(r.body.comparison.alternative.components.participation).toBe(350);
   });
 

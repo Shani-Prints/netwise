@@ -131,7 +131,7 @@ describe('E (server): the occupation is asked even when the group was stated, an
       interpret: unavailable,
     });
     expect(ambiguous.body.assistantText).toContain('מנהל/ת מוצר');
-    expect(ambiguous.body.assistantText).toContain('מנהל/ת פיתוח'); // the first five rows of the table
+    expect(ambiguous.body.assistantText).toContain('מנהל/ת חטיבה'); // all six rows: a pick-list never hides an option
     expect((await e.state()).body.profile.occupation).toBeNull();
     const ok = await chat(e, 'מנהלת מוצר', {
       providers: [provider(fake(call('save_employee_data', { occupation: 'מנהלת מוצר' }), say('מעולה.')))],

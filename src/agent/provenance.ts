@@ -165,7 +165,7 @@ const KEYWORDS: Partial<Record<ProvenanceField, string[]>> = {
   pensionPct: ['פנסה', 'פנסית'],
   studyFundPct: ['השתלמת'],
   creditPoints: ['נקדת'],
-  childrenUnder23: ['ילדמ', 'ילד'],
+  childrenUnder23: ['לדמ', 'לד'], // plene() also drops the yod of "ילדים"
   currentParticipation: ['השתתפת'],
 };
 const NEGATORS = ['אין', 'ואין', 'ולא', 'אינני', 'ללא', 'בלי', 'אפס', 'לא'].map(fold);
@@ -216,9 +216,36 @@ export function statedZero(messages: string[], field: ProvenanceField): boolean 
     m.split(/[.!?;\n]+/).some((s) => {
       if (kws !== undefined && negatedKeyword(s, kws)) return true;
       // the older phrase pattern, unless the sentence says she does not know, or gives a value for the same word
-      return ZERO_PHRASES[field].test(clean(s)) && !(kws !== undefined && (saysDontKnow(s) || hasValueAfterKeyword(s, kws)));
+      const phrase = ZERO_PHRASES[field].exec(clean(s));
+      // "I don't know" vetoes only the words the pattern matched, not the whole sentence ("אני לא יודעת כמה נקודות זיכוי יש לי, בלי ילדים")
+      return phrase !== null && !(kws !== undefined && (saysDontKnow(phrase[0]) || hasValueAfterKeyword(s, kws)));
     }),
   );
+}
+
+const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
+const rx = (source: string) => new RegExp(source, 'gu');
+/** Patterns that read a stated value of a field from the employee's words ("פנסיה 6%", "2.75 נקודות זיכוי"). Last mention wins. */
+const VALUE_PATTERNS: Partial<Record<ProvenanceField, RegExp[]>> = {
+  pensionPct: [rx(String.raw`פנסי\S*[\s:=-]*` + NUM), rx(NUM + String.raw`\s*%?\s*פנסי`)],
+  studyFundPct: [rx(String.raw`השתלמות[\s:=-]*` + NUM), rx(NUM + String.raw`\s*%?\s*קרן\s+השתלמות`)],
+  creditPoints: [rx(String.raw`נקודות(?:\s+זיכוי)?[\s:=-]*` + NUM), rx(NUM + String.raw`\s*נקודות`)],
+};
+
+/**
+ * The value the employee stated for this field in ANY of her messages, or null: zero said in words ("בלי ילדים", "אין לי בונוס") is 0,
+ * and a number written right next to the field's name is that number. Used by the server to refuse "I don't know" for something
+ * she already told us, and to record it instead.
+ */
+export function statedFieldValue(messages: string[], field: ProvenanceField): number | null {
+  let found: number | null = null;
+  for (const m of messages) {
+    for (const re of VALUE_PATTERNS[field] ?? []) {
+      for (const hit of m.matchAll(re)) found = Number(hit[1]!.replace(',', '.'));
+    }
+  }
+  if (found !== null && Number.isFinite(found)) return found;
+  return statedZero(messages, field) ? 0 : null;
 }
 
 /**

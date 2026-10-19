@@ -72,6 +72,8 @@ export type EscalationState = z.infer<typeof EscalationStateSchema>;
 export const ConversationStateSchema = z.object({
   currentCar: z.union([OptionRefSchema, DatasetCarSchema, z.object({ kind: z.literal('none') })]).optional(),
   currentParticipation: z.number().min(0).optional(),
+  /** True when the current car was taken from the catalogue and the employee did not state its registration year. */
+  currentCarYearAssumed: z.boolean().optional(),
   alternative: OptionRefSchema.optional(),
   /** Participation per car id confirmed by a representative. */
   repAnswers: z.record(z.string(), z.number()).default({}),

@@ -19,6 +19,7 @@ import {
 } from '../engine';
 import { eligibilityText, explainResult, fmt, missingFieldLabel } from './explain';
 import { participationFromRepresentative } from './flags';
+import { currentCarYearAssumptionText } from './repTemplates';
 import type { ComponentsView, ComparisonView, ScenarioView } from './view';
 
 export type ParticipationSource = 'representative' | 'catalog_default' | 'not_applicable';
@@ -209,6 +210,8 @@ export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
   const repMode = args.participationFromRepresentative ?? participationFromRepresentative();
   const needsRepresentative = repMode && source === 'catalog_default';
   const assumptions: string[] = [];
+  const current = state.currentCar?.kind === 'car' ? getCatalogCar(state.currentCar.carId) : undefined;
+  if (current && state.currentCarYearAssumed) assumptions.push(currentCarYearAssumptionText(current.registrationYear, carLabel(current)));
   if (result.status === 'ok' && source === 'catalog_default') {
     const amount = fmt(result.alternative.components.participation);
     assumptions.push(

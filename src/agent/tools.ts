@@ -26,7 +26,7 @@ import {
 import type { ComparisonView } from '../lib/view';
 import { askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
-import { PROVENANCE_FIELDS, checkProvenance, type ProvenanceField } from './provenance';
+import { PROVENANCE_FIELDS, checkProvenance, statedFieldValue, type ProvenanceField } from './provenance';
 import { listAllowedOptions } from './eligibleCars';
 import { applyProvisionalPolicy } from './provisional';
 import {
@@ -246,7 +246,7 @@ export function createTools(ctx: ToolContext): ToolSet {
             status: 'error' as const,
             error: 'occupation_ambiguous',
             issues: [{ path: 'occupation', code: 'ambiguous' }],
-            options: m.occupations.slice(0, 5).map((o) => o.name),
+            options: m.occupations.map((o) => o.name), // never hides an option
           };
         }
       }
@@ -297,7 +297,7 @@ export function createTools(ctx: ToolContext): ToolSet {
         }
       }
 
-      const state = await updateProfile(repo, actor, update);
+      const state = await updateProfile(repo, actor, update, { currentCarYearAssumed: fields.currentCar !== undefined && (fields.currentCar as { kind: string }).kind === 'car' });
       ctx.collector.touchedState = true;
       const saved: Record<string, string | number> = {};
       for (const [k, v] of Object.entries(a)) {
@@ -497,9 +497,27 @@ export function createTools(ctx: ToolContext): ToolSet {
     MarkUnknownInputSchema,
     EscalationOutputSchema,
     async (a) => {
-      const reply = await reportUnknownFields(repo, actor, a.fields, { onlyWhatWasAsked: true });
+      // A field the employee STATED in any message (a number, or "none" in words) is never "unknown": the server records what she
+      // wrote and does not escalate it. (The model may have forgotten to save it, or its save may have been rejected.)
+      const own = ctx.conversationId
+        ? (await repo.listMessages(ctx.conversationId, 1000)).filter((m) => m.role === 'user').map((m) => m.content)
+        : [];
+      const already: { field: string; outcome: 'already_known' }[] = [];
+      const rest: typeof a.fields = [];
+      for (const field of a.fields) {
+        const stated = (PROVENANCE_FIELDS as readonly string[]).includes(field) && field !== 'base' ? statedFieldValue(own, field as ProvenanceField) : null;
+        if (stated === null) {
+          rest.push(field);
+          continue;
+        }
+        await updateProfile(repo, actor, { [field]: stated });
+        ctx.collector.touchedState = true;
+        already.push({ field, outcome: 'already_known' });
+      }
+      const reply = rest.length > 0 ? await reportUnknownFields(repo, actor, rest, { onlyWhatWasAsked: true }) : { results: [], needsReference: false };
       ctx.collector.touchedState = true;
-      return escalationOutput(ctx, reply);
+      const out = escalationOutput(ctx, reply);
+      return { ...out, results: [...already, ...out.results] };
     },
   );
 

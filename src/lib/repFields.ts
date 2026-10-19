@@ -29,4 +29,3 @@ export function participationQuestionText(carLabel: string, group: string | unde
   return `מה גובה ההשתתפות החודשית של העובד ברכב "${carLabel}"${groupPart}? נא להשיב בשקלים.`;
 }
 
-export { REP_ANSWER_NOTICE_TEXT as REP_ANSWER_NOTICE } from './repTemplates';

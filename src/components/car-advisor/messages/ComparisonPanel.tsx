@@ -76,7 +76,7 @@ export function ComparisonPanel({ comparison }: { comparison: ApiComparison }) {
           </>
         ) : null}
 
-        {c.status === 'missing' ? (
+        {c.status === 'missing' && (c.today || c.missingText.length > 0) ? (
           <>
             <p className={styles.listTitle}>{c18.missingTitle}</p>
             {c.today ? (
@@ -88,11 +88,17 @@ export function ComparisonPanel({ comparison }: { comparison: ApiComparison }) {
           </>
         ) : null}
 
-        {c.status === 'ineligible' ? (
+        {c.status === 'ineligible' && c.eligibilityText ? (
           <>
             <p className={styles.listTitle}>{c18.ineligibleTitle}</p>
             <p className={styles.lineText}>{c.eligibilityText}</p>
           </>
+        ) : null}
+
+        {c.eligible === true && c.eligibilityText ? (
+          <p className={styles.lineText}>
+            <strong>{c18.eligibilityLabel}:</strong> {c.eligibilityText}
+          </p>
         ) : null}
 
         <div className={styles.lines}>

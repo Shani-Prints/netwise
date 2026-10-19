@@ -2,7 +2,7 @@ import { carLabel, getCatalogCar, getOccupation } from '../data/catalog';
 import type { ConversationState, ProfileRecord, RepQuestion } from '../db/types';
 import { fmt, missingFieldLabel } from './explain';
 import { loadRules } from '../config/rules';
-import { repBudgetPolicyText, repParticipationUpdatedText, repUpdatedText } from './repTemplates';
+import { repBudgetPolicyText, repParticipationUpdatedText, repUpdatedPart, repUpdatedText } from './repTemplates';
 import { GAP_POLICY_OPTIONS, FIELD_NAME_HE, isUnknowableField, kindOf, parseStoredAnswer, WAIVER_LABEL_HE, WAIVER_VALUE } from './repQuestions';
 
 /**
@@ -17,6 +17,8 @@ export interface AppliedAnswer {
   value: number | string;
   /** The system message the employee sees. */
   message: string;
+  /** The same fact as a short phrase for ONE merged notice when several answers are applied together. */
+  part: string;
 }
 
 const SALARY_FIELDS = ['base', 'commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'] as const;
@@ -62,6 +64,7 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
     carLabel: carLabelText,
     value,
     message: repUpdatedText(label, shown, quoted),
+    part: repUpdatedPart(label, shown, quoted),
   });
 
   switch (kind) {
@@ -75,6 +78,7 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
         carLabel: q.context.carLabel ?? '',
         value,
         message: repParticipationUpdatedText(q.context.carLabel ?? '', `${fmt(value)} ₪`),
+        part: repUpdatedPart(`ההשתתפות ברכב ${q.context.carLabel ?? ''}`, `${fmt(value)} ₪`, false),
       };
     }
     case 'profile_field_unknown':
@@ -135,6 +139,7 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
         carLabel: q.context.carLabel ?? '',
         value: stored,
         message: repBudgetPolicyText(q.context.carLabel ?? '', label),
+        part: `"ההסדר לרכב ${q.context.carLabel ?? ''}": ${label}`,
       };
     }
   }

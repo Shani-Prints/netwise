@@ -28,6 +28,61 @@
   gap: 8px;
   margin-top: 8px;
 }
+[data-car-advisor][data-car-advisor] .message {
+  display: flex;
+  flex-direction: column;
+}
+[data-car-advisor][data-car-advisor] .thinking {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+
+/* Answer card (screen 2) */
+[data-car-advisor][data-car-advisor] .answer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+[data-car-advisor][data-car-advisor] .sectionTitle {
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .howHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+[data-car-advisor][data-car-advisor] .howHeader .sectionTitle {
+  margin-bottom: 0;
+}
+[data-car-advisor][data-car-advisor] .sources {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .placeholderNote {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--ca-muted);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .actions {
+  display: flex;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .actions > * {
+  flex: 1;
+  padding: 0 8px;
+}
+[data-car-advisor][data-car-advisor] .linkRow {
+  display: flex;
+  justify-content: center;
+}
+
 [data-car-advisor][data-car-advisor] .note {
   padding: 12px;
   border: 1px solid var(--ca-line);

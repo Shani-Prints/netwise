@@ -5,12 +5,14 @@ import styles from './ChatWidget.module.css';
 import { he } from './content/he';
 import { mockClient } from './contract/mockClient';
 import type { CarAdvisorClient, NotificationView } from './contract/types';
+import { AnswerCard } from './messages/AnswerCard';
 import { Greeting } from './messages/Greeting';
+import messageStyles from './messages/messages.module.css';
 import { UserBubble } from './messages/UserBubble';
 import { ScopeRoot } from './ScopeRoot';
 import { CarIcon, CrossIcon, SendIcon } from './ui/Icons';
 import uiStyles from './ui/ui.module.css';
-import { useChatController } from './useChatController';
+import { useChatController, type ChatMessage } from './useChatController';
 
 const STRIP = [
   styles.stripRed,
@@ -30,19 +32,34 @@ export interface ChatWidgetProps {
   onClose?: () => void;
   /** Reports a "rep answered" notification when the window is not active. TODO(step 5): wired to ticket polling. */
   onNotification?: (notification: NotificationView | null) => void;
+  /** Starts the conversation in a given state. For the dev gallery and tests only. */
+  initialMessages?: ChatMessage[];
 }
 
 /** The chat window content. Fills its container (100% x 100%) and needs no viewport units. */
-export function ChatWidget({ client = mockClient, onClose }: ChatWidgetProps) {
-  const { messages, draft, setDraft, busy, hasAsked, submit } = useChatController(client);
+export function ChatWidget({ client = mockClient, onClose, initialMessages }: ChatWidgetProps) {
+  const { messages, draft, setDraft, busy, hasAsked, submit } = useChatController(client, initialMessages);
   const fieldId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
 
-  // Keep the newest message in view. Scrolling happens inside the messages area only.
+  function prefill(question: string) {
+    setDraft(question);
+    fieldRef.current?.focus();
+  }
+
+  // Keep the newest message in view. A message taller than the viewport is scrolled to its top, so the start of a
+  // long answer is never hidden. Scrolling happens inside the messages area only.
   useEffect(() => {
-    const element = messagesRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    const area = messagesRef.current;
+    if (!area) return;
+    const items = area.querySelectorAll<HTMLElement>('[data-message]');
+    const last = items[items.length - 1];
+    if (!busy && last && last.offsetHeight > area.clientHeight) {
+      area.scrollTop += last.getBoundingClientRect().top - area.getBoundingClientRect().top - 8;
+    } else {
+      area.scrollTop = area.scrollHeight;
+    }
   }, [messages, busy]);
 
   // Auto-grow the composer: min and max height come from CSS (about 3 to 8 rows), the field scrolls beyond that.
@@ -83,14 +100,29 @@ export function ChatWidget({ client = mockClient, onClose }: ChatWidgetProps) {
         <div ref={messagesRef} className={styles.messages} role="log" aria-label={he.ask.messagesLabel}>
           <Greeting
             showSuggestions={!hasAsked}
-            onPickSuggestion={(question) => {
-              setDraft(question);
-              fieldRef.current?.focus();
-            }}
+            onPickSuggestion={prefill}
           />
           {messages.map((message) => (
-            <UserBubble key={message.id} text={message.text} />
+            <div key={message.id} data-message="" className={messageStyles.message}>
+              {message.kind === 'user' ? (
+                <UserBubble text={message.text} />
+              ) : (
+                <AnswerCard
+                  answer={message.answer}
+                  onCompareOtherCar={() => prefill(he.ask.chips.otherCar.question)}
+                  onAnotherQuestion={() => prefill('')}
+                  onTalkToRep={() => {
+                    // TODO(step 3): start the hand-off to a rep for this question.
+                  }}
+                />
+              )}
+            </div>
           ))}
+          {busy ? (
+            <p role="status" className={messageStyles.thinking}>
+              {he.ask.thinking}
+            </p>
+          ) : null}
         </div>
 
         <form

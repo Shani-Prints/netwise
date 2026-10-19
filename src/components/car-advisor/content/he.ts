@@ -91,6 +91,21 @@ export const he = {
       email: 'מייל',
       sms: 'SMS',
     },
+    contact: {
+      required: 'שדה חובה',
+      phone: {
+        label: 'מספר טלפון נייד',
+        placeholder: '05X-XXXXXXX',
+        hint: 'מספר נייד ישראלי, למשל 05X-XXXXXXX',
+        error: 'יש להזין מספר נייד ישראלי תקין: 10 ספרות שמתחילות ב־05',
+      },
+      email: {
+        label: 'כתובת מייל',
+        placeholder: 'name@example.com',
+        hint: 'למשל name@example.com',
+        error: 'יש להזין כתובת מייל תקינה',
+      },
+    },
     submit: 'העבר לנציג',
     submitBusy: 'מעביר…',
     submitted: 'הועבר לנציג',
@@ -107,15 +122,17 @@ export const he = {
     step2Detail: 'בתוך [SLA] ימי עבודה',
     step3Title: 'היועץ מתריע לך',
     step3Detail: {
-      push: 'התראה בנייד, והתשובה בצ׳אט',
-      email: 'הודעת מייל, והתשובה בצ׳אט',
-      sms: 'הודעת SMS, והתשובה בצ׳אט',
+      push: 'התראה בנייד אל {contact}, והתשובה בצ׳אט',
+      email: 'הודעת מייל אל {contact}, והתשובה בצ׳אט',
+      sms: 'הודעת SMS אל {contact}, והתשובה בצ׳אט',
     },
   },
 
   rep: {
     title: 'קונסולת נציג',
-    listSubtitle: 'פניות ממתינות למענה',
+    listCountOne: 'פנייה פתוחה אחת',
+    listCountMany: '{count} פניות פתוחות',
+    open: 'פתיחת הפנייה',
     listEmpty: 'אין פניות פתוחות.',
     loading: 'טוען…',
     listTicketLabel: 'פנייה {ticketNumber}',
@@ -184,7 +201,7 @@ export const he = {
     teamName: '[שם הצוות]',
     timeLabel: '[שעה]',
     ticketNumber: '[#]',
-    ticketNumbers: ['[#1]', '[#2]', '[#3]'],
+    ticketNumbers: ['[#1]', '[#2]', '[#3]', '[#4]'],
   },
 } as const;
 

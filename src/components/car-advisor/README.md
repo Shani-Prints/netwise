@@ -58,20 +58,41 @@ The component knows nothing about auth, sessions or endpoints. The host implemen
 own backend. Every method returns display-ready view models (see `contract/types.ts`): text is final Hebrew, and
 amounts are `Cell` values that the UI only formats.
 
-| Method                                 | Used by        | What it must do                                                                                                                                                 |
-| -------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ask(question)`                        | chat           | Answer the question. Return `{ kind: 'answer', answer }` with the comparison, or `{ kind: 'handoff', handoff }` when the bot has no reliable answer.            |
-| `prepareHandoff(question)`             | chat           | Return a `HandoffView` for a question the employee wants a rep to handle (the "talk to a rep" link on an answer): what was checked, channels.                   |
-| `sendToRep(question, channel)`         | chat           | Create the ticket with the chosen notification channel. Return `{ ticketId, ticketNumber, channel }`.                                                           |
-| `getReturnedAnswer(ticketId)`          | chat (polling) | Return the rep's answer as a `ReturnedAnswerView` once the bot has it, or `null` while the ticket is open. The widget calls it every 2 seconds per open ticket. |
-| `listRepTickets()`                     | rep console    | Open tickets for reps. Must be rep-only.                                                                                                                        |
-| `getRepTicket(id)`                     | rep console    | One ticket with what the bot checked, or `null` if it does not exist. Must be rep-only.                                                                         |
-| `replyAsRep({ ticketId, answerText })` | rep console    | Give the rep's answer **to the bot**. The bot words it for the employee, notifies them and makes `getReturnedAnswer` return it. Rep-only.                       |
-| `requestMoreInfo(ticketId)`            | rep console    | Mark the ticket as waiting for more details. Rep-only.                                                                                                          |
+| Method                                      | Used by        | What it must do                                                                                                                                                 |
+| ------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ask(question)`                             | chat           | Answer the question. Return `{ kind: 'answer', answer }` with the comparison, or `{ kind: 'handoff', handoff }` when the bot has no reliable answer.            |
+| `prepareHandoff(question)`                  | chat           | Return a `HandoffView` for a question the employee wants a rep to handle (the "talk to a rep" link on an answer): what was checked, channels.                   |
+| `sendToRep(question, { channel, contact })` | chat           | Create the ticket with the chosen notification channel and the employee's contact for it (see below). Return `{ ticketId, ticketNumber, channel }`.             |
+| `getReturnedAnswer(ticketId)`               | chat (polling) | Return the rep's answer as a `ReturnedAnswerView` once the bot has it, or `null` while the ticket is open. The widget calls it every 2 seconds per open ticket. |
+| `listRepTickets()`                          | rep console    | Open tickets for reps. Must be rep-only.                                                                                                                        |
+| `getRepTicket(id)`                          | rep console    | One ticket with what the bot checked, or `null` if it does not exist. Must be rep-only.                                                                         |
+| `replyAsRep({ ticketId, answerText })`      | rep console    | Give the rep's answer **to the bot**. The bot words it for the employee, notifies them and makes `getReturnedAnswer` return it. Rep-only.                       |
+| `requestMoreInfo(ticketId)`                 | rep console    | Mark the ticket as waiting for more details. Rep-only.                                                                                                          |
 
 The chat widget calls only the first four methods. The rep console pages (`/rep`, `/rep/[id]`) are separate full
 pages in our dev app and use the other four. A host that does not ship the rep console can implement those four to
 throw or return empty results.
+
+### Contact details for notifications
+
+On the hand-off card the employee chooses how to be notified and must enter a contact for that channel: a
+**mobile number** for mobile push and SMS, or an **email address** for email. The widget validates it before the
+send button is enabled (Israeli mobile format with or without +972 or dashes; a basic email check) and passes
+`sendToRep` a `NotifyTarget`:
+
+```ts
+interface NotifyTarget {
+  channel: 'push' | 'email' | 'sms';
+  contact: string; // normalized: 05XXXXXXXX for push and sms, the trimmed address for email
+}
+```
+
+- The contact is personal data. The widget keeps it in component state only (never in `localStorage`,
+  `sessionStorage`, cookies or logs), shows it masked after sending (only the last 2 digits of a phone number, or
+  the first character and the domain of an email) and then removes the full value from memory.
+- **The real client must validate the contact again on the server** and must not log it. The host may later prefill
+  it from the employee's profile instead of asking for it.
+- The mock client uses only the channel and never stores or logs the contact.
 
 ### How the host should implement the client
 
@@ -98,7 +119,7 @@ import type { CarAdvisorClient } from './car-advisor';
 export const client: CarAdvisorClient = {
   ask: (question) => post('/car-advisor/ask', { question }),
   prepareHandoff: (question) => post('/car-advisor/handoff', { question }),
-  sendToRep: (question, channel) => post('/car-advisor/tickets', { question, channel }),
+  sendToRep: (question, notify) => post('/car-advisor/tickets', { question, ...notify }), // notify = { channel, contact }
   getReturnedAnswer: (ticketId) => get(`/car-advisor/tickets/${ticketId}/answer`), // null while open
   listRepTickets: () => get('/car-advisor/rep/tickets'),
   getRepTicket: (id) => get(`/car-advisor/rep/tickets/${id}`),
@@ -157,7 +178,7 @@ wants Heebo, the host loads it (self-hosted, for example `/fonts/Heebo.woff2`). 
 ## Data and privacy
 
 - The conversation lives in memory only: no `localStorage`, `sessionStorage` or cookies.
-- Question text, amounts and answers are never logged by the component.
+- Question text, amounts, answers and contact details are never logged by the component.
 - No external requests: no CDN, fonts, analytics or remote images. Icons are inline SVG.
 
 ## Development

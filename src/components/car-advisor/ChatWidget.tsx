@@ -58,12 +58,23 @@ export function ChatWidget({
     activeRef.current = active;
   }, [active]);
 
-  const { messages, draft, setDraft, busy, hasAsked, submit, talkToRep, changeChannel, sendToRep } =
-    useChatController(client, initialMessages, (notification) => {
-      // Open window: a banner at the top of the messages area. Closed window: let the shell show badge and bubble.
-      if (activeRef.current) setBanner(notification);
-      else onNotification?.(notification);
-    });
+  const {
+    messages,
+    draft,
+    setDraft,
+    busy,
+    hasAsked,
+    submit,
+    talkToRep,
+    changeChannel,
+    changeContact,
+    touchContact,
+    sendToRep,
+  } = useChatController(client, initialMessages, (notification) => {
+    // Open window: a banner at the top of the messages area. Closed window: let the shell show badge and bubble.
+    if (activeRef.current) setBanner(notification);
+    else onNotification?.(notification);
+  });
   const fieldId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
@@ -157,13 +168,18 @@ export function ChatWidget({
                 <HandoffCard
                   handoff={message.handoff}
                   channel={message.channel}
+                  contacts={message.contacts}
+                  touched={message.touched}
                   sending={message.sending}
                   sent={message.sent}
+                  maskedContact={message.maskedContact}
                   onChannelChange={(channel) => changeChannel(message.id, channel)}
+                  onContactChange={(kind, value) => changeContact(message.id, kind, value)}
+                  onContactTouched={(kind) => touchContact(message.id, kind)}
                   onSend={() => void sendToRep(message.id)}
                 />
               ) : message.kind === 'confirmation' ? (
-                <ConfirmationCard confirmation={message.confirmation} />
+                <ConfirmationCard confirmation={message.confirmation} maskedContact={message.maskedContact} />
               ) : (
                 <ReturnedAnswerCard returned={message.returned} onAnotherQuestion={() => prefill('')} />
               )}

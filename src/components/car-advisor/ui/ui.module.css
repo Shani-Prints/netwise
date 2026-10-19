@@ -279,3 +279,52 @@
 [data-car-advisor][data-car-advisor] .tableStrong {
   font-weight: 700;
 }
+
+/* Text field */
+[data-car-advisor][data-car-advisor] .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+[data-car-advisor][data-car-advisor] .fieldLabel {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .fieldInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-white);
+  font-size: 16px;
+}
+/* The value is dir="ltr" (phone numbers, emails). "end" is then the right edge, which is the start edge of the
+   right-to-left layout, so the value lines up with the labels. */
+[data-car-advisor][data-car-advisor] .fieldInputLtr {
+  text-align: end;
+}
+[data-car-advisor][data-car-advisor] .fieldInput::placeholder {
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .fieldInput:focus-visible {
+  border-color: var(--ca-action);
+  outline: 2px solid var(--ca-blue);
+  outline-offset: 0;
+}
+[data-car-advisor][data-car-advisor] .fieldInput:disabled {
+  background: var(--ca-surface);
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .fieldInputInvalid {
+  border-color: var(--ca-danger-text);
+}
+[data-car-advisor][data-car-advisor] .fieldHint {
+  font-size: 12px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .fieldError {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ca-danger-text);
+}

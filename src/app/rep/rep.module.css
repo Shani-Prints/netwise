@@ -2,6 +2,9 @@
  * Rep console styles. Same convention as the car advisor component: every rule starts with the doubled scope
  * attribute, so the component's base reset (which also applies inside this scope) never overrides these rules.
  * These are normal full pages, so viewport media queries are fine here.
+ *
+ * Cards have one fixed size per kind and never grow or shrink with their content. Content that does not fit
+ * scrolls inside the card.
  */
 [data-car-advisor][data-car-advisor] .page {
   min-height: 100dvh;
@@ -38,7 +41,7 @@
 [data-car-advisor][data-car-advisor] .main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   width: 100%;
   max-width: 1040px;
   margin: 0 auto;
@@ -50,6 +53,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ca-line);
 }
 [data-car-advisor][data-car-advisor] .headerTitle {
   font-size: 28px;
@@ -57,7 +62,7 @@
   line-height: 1.2;
 }
 [data-car-advisor][data-car-advisor] .headerSubtitle {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 15px;
   color: var(--ca-muted);
 }
@@ -67,6 +72,7 @@
   align-items: center;
   align-self: flex-start;
   min-height: 44px;
+  margin-bottom: -8px;
   color: var(--ca-action);
   font-weight: 500;
   text-decoration: underline;
@@ -77,18 +83,24 @@
   color: var(--ca-muted);
 }
 
-/* List view */
+/* List view: an even grid. Every card has the same width and the same fixed height, so rows line up. */
 [data-car-advisor][data-car-advisor] .ticketGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-auto-rows: 216px;
+  gap: 16px;
+}
+[data-car-advisor][data-car-advisor] .ticketItem {
+  min-width: 0;
+  min-height: 0;
 }
 [data-car-advisor][data-car-advisor] .ticketLink {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 44px;
+  height: 100%;
   padding: 16px;
+  overflow: hidden;
   border: 1px solid var(--ca-line);
   border-radius: var(--ca-radius-card);
   background: var(--ca-white);
@@ -100,6 +112,7 @@
 }
 [data-car-advisor][data-car-advisor] .ticketTop {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -108,15 +121,27 @@
   font-weight: 700;
 }
 [data-car-advisor][data-car-advisor] .ticketStatus {
+  flex: none;
   font-size: 13px;
   color: var(--ca-muted);
 }
+/* Short preview of the question: three lines at most, inside the fixed card. The open action is pushed to the
+   bottom edge, so it lines up across cards. */
 [data-car-advisor][data-car-advisor] .ticketQuestion {
   display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  flex: 0 1 auto;
+  min-height: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+[data-car-advisor][data-car-advisor] .ticketOpen {
+  flex: none;
+  margin-top: auto;
+  font-weight: 700;
+  color: var(--ca-action);
 }
 
 /* Single ticket view: one column on mobile, two columns on a wide screen */
@@ -135,38 +160,78 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
+
+/* Fixed-size cards. The form card height equals the two stacked cards plus the gap (200 + 16 + 244). */
+[data-car-advisor][data-car-advisor] .fixedCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .questionCard {
+  height: 200px;
+}
+[data-car-advisor][data-car-advisor] .checkedCard {
+  height: 244px;
+}
+[data-car-advisor][data-car-advisor] .formCard {
+  height: 460px;
+}
+
 [data-car-advisor][data-car-advisor] .cardLabel {
-  margin-bottom: 8px;
+  flex: none;
   font-size: 14px;
   color: var(--ca-muted);
 }
-[data-car-advisor][data-car-advisor] .questionText {
-  font-size: 19px;
-  line-height: 1.4;
-}
 [data-car-advisor][data-car-advisor] .cardTitle {
-  margin-bottom: 12px;
+  flex: none;
   font-size: 17px;
   font-weight: 700;
 }
+
+/* The part of a card that scrolls when its content is longer than the card */
+[data-car-advisor][data-car-advisor] .scrollRegion {
+  flex: 1;
+  min-height: 0;
+  padding-inline-end: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .scrollRegion:focus-visible {
+  outline: 2px solid var(--ca-blue);
+  outline-offset: 2px;
+}
+[data-car-advisor][data-car-advisor] .questionText {
+  font-size: 18px;
+  line-height: 1.45;
+}
+
 [data-car-advisor][data-car-advisor] .answerLabel {
-  display: block;
-  margin-bottom: 8px;
+  flex: none;
   font-size: 14px;
   color: var(--ca-muted);
 }
 [data-car-advisor][data-car-advisor] .answerField {
   display: block;
+  flex: 1;
   width: 100%;
-  min-height: 220px;
-  padding: 14px;
+  min-height: 0;
+  padding: 12px;
   border: 1px solid var(--ca-line);
-  border-radius: var(--ca-radius-card);
+  border-radius: var(--ca-radius-control);
   background: var(--ca-white);
   font-size: 17px;
   line-height: 1.5;
-  resize: vertical;
+  overflow-y: auto;
+  resize: none;
 }
 [data-car-advisor][data-car-advisor] .answerField:focus-visible {
   border-color: var(--ca-action);
@@ -178,23 +243,27 @@
   color: var(--ca-muted);
 }
 [data-car-advisor][data-car-advisor] .helper {
-  margin-top: 12px;
+  flex: none;
   font-size: 14px;
   color: var(--ca-muted);
 }
-[data-car-advisor][data-car-advisor] .actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-[data-car-advisor][data-car-advisor] .actions > * {
-  flex: 1;
+/* Reserved slot so the status message never changes the size of the card */
+[data-car-advisor][data-car-advisor] .statusSlot {
+  flex: none;
+  min-height: 44px;
 }
 [data-car-advisor][data-car-advisor] .status {
-  margin-top: 12px;
   padding: 10px 14px;
   border-radius: var(--ca-radius-control);
   background: var(--ca-tint);
   color: var(--ca-action);
   font-weight: 500;
+}
+[data-car-advisor][data-car-advisor] .actions {
+  display: flex;
+  flex: none;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .actions > * {
+  flex: 1;
 }

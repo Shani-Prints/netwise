@@ -51,7 +51,8 @@ export function createMockClient(options: MockClientOptions = {}): CarAdvisorCli
       return { ...handoffFixture, questionText: question };
     },
 
-    async sendToRep(question, channel) {
+    // The contact value in `notify` is deliberately never stored or logged by the mock: only the channel is used.
+    async sendToRep(question, { channel }) {
       await delay(400);
       created += 1;
       const ticket: RepTicketDetail = {

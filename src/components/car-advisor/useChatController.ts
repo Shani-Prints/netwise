@@ -10,6 +10,16 @@ import type {
   ReturnedAnswerView,
   TicketConfirmationView,
 } from './contract/types';
+import {
+  checkContact,
+  contactKindFor,
+  EMPTY_CONTACTS,
+  maskContact,
+  UNTOUCHED,
+  type ContactKind,
+  type ContactTouched,
+  type ContactValues,
+} from './messages/contact';
 
 /** One item in the messages area. */
 export type ChatMessage =
@@ -20,11 +30,18 @@ export type ChatMessage =
       kind: 'handoff';
       handoff: HandoffView;
       channel: NotifyChannel;
+      /** What the employee typed, per field, in memory only. Cleared after sending. */
+      contacts: ContactValues;
+      touched: ContactTouched;
       sending: boolean;
       sent: boolean;
+      /** Set after sending: the masked contact. The full value is not kept. */
+      maskedContact: string | null;
     }
-  | { id: string; kind: 'confirmation'; confirmation: TicketConfirmationView }
+  | { id: string; kind: 'confirmation'; confirmation: TicketConfirmationView; maskedContact: string }
   | { id: string; kind: 'returned'; ticketId: string; returned: ReturnedAnswerView };
+
+export type HandoffMessage = Extract<ChatMessage, { kind: 'handoff' }>;
 
 let messageCounter = 0;
 /** Ids are only used as React keys and for lookups inside one chat; they never leave the browser. */
@@ -38,7 +55,8 @@ const shorten = (text: string) =>
   text.length > NOTIFICATION_QUESTION_MAX ? `${text.slice(0, NOTIFICATION_QUESTION_MAX).trimEnd()}…` : text;
 
 /**
- * In-memory chat state. Nothing is persisted: no localStorage, sessionStorage or cookies, and no logging of text.
+ * In-memory chat state. Nothing is persisted: no localStorage, sessionStorage or cookies, and no logging of text
+ * or contact details.
  * `initialMessages` lets the dev gallery render a conversation in a given state.
  * `onReplyArrived` is called once when a rep's answer comes back; the widget decides how to show the notification.
  */
@@ -62,20 +80,19 @@ export function useChatController(
         kind: 'handoff',
         handoff,
         channel: handoff.defaultChannel,
+        contacts: EMPTY_CONTACTS,
+        touched: UNTOUCHED,
         sending: false,
         sent: false,
+        maskedContact: null,
       }),
     [append],
   );
 
-  const patchHandoff = useCallback(
-    (id: string, changes: Partial<{ channel: NotifyChannel; sending: boolean; sent: boolean }>) => {
-      setMessages((current) =>
-        current.map((m) => (m.id === id && m.kind === 'handoff' ? { ...m, ...changes } : m)),
-      );
-    },
-    [],
-  );
+  /** Applies a change to one hand-off message. */
+  const updateHandoff = useCallback((id: string, change: (message: HandoffMessage) => HandoffMessage) => {
+    setMessages((current) => current.map((m) => (m.id === id && m.kind === 'handoff' ? change(m) : m)));
+  }, []);
 
   const submit = useCallback(async () => {
     const text = draft.trim();
@@ -108,26 +125,57 @@ export function useChatController(
   );
 
   const changeChannel = useCallback(
-    (id: string, channel: NotifyChannel) => patchHandoff(id, { channel }),
-    [patchHandoff],
+    (id: string, channel: NotifyChannel) => updateHandoff(id, (m) => ({ ...m, channel })),
+    [updateHandoff],
   );
 
-  /** Sends the hand-off to a rep, locks the card and appends the confirmation. */
+  const changeContact = useCallback(
+    (id: string, kind: ContactKind, value: string) =>
+      updateHandoff(id, (m) => ({ ...m, contacts: { ...m.contacts, [kind]: value } })),
+    [updateHandoff],
+  );
+
+  const touchContact = useCallback(
+    (id: string, kind: ContactKind) =>
+      updateHandoff(id, (m) => ({ ...m, touched: { ...m.touched, [kind]: true } })),
+    [updateHandoff],
+  );
+
+  /**
+   * Sends the hand-off to a rep, locks the card and appends the confirmation. The contact is validated again
+   * here, passed to the client, shown only masked afterwards and then removed from memory.
+   */
   const sendToRep = useCallback(
     async (id: string) => {
       const target = messages.find((m) => m.id === id);
       if (!target || target.kind !== 'handoff' || target.sending || target.sent) return;
-      patchHandoff(id, { sending: true });
+      const kind = contactKindFor(target.channel);
+      const check = checkContact(kind, target.contacts[kind]);
+      if (!check.valid) {
+        touchContact(id, kind);
+        return;
+      }
+      updateHandoff(id, (m) => ({ ...m, sending: true }));
       try {
-        const confirmation = await client.sendToRep(target.handoff.questionText, target.channel);
-        patchHandoff(id, { sending: false, sent: true });
-        append({ id: newId(), kind: 'confirmation', confirmation });
+        const confirmation = await client.sendToRep(target.handoff.questionText, {
+          channel: target.channel,
+          contact: check.normalized,
+        });
+        const maskedContact = maskContact(kind, check.normalized);
+        updateHandoff(id, (m) => ({
+          ...m,
+          sending: false,
+          sent: true,
+          contacts: EMPTY_CONTACTS,
+          maskedContact,
+        }));
+        append({ id: newId(), kind: 'confirmation', confirmation, maskedContact });
       } catch (error) {
-        patchHandoff(id, { sending: false });
+        updateHandoff(id, (m) => ({ ...m, sending: false }));
         throw error;
       }
     },
-    [client, messages, append, patchHandoff],
+    [client, messages, append, updateHandoff, touchContact],
   );
 
   // Open tickets: confirmations that do not have a returned answer yet. Polling continues while the window is
@@ -176,5 +224,17 @@ export function useChatController(
     };
   }, [pendingKey, client, append]);
 
-  return { messages, draft, setDraft, busy, hasAsked, submit, talkToRep, changeChannel, sendToRep };
+  return {
+    messages,
+    draft,
+    setDraft,
+    busy,
+    hasAsked,
+    submit,
+    talkToRep,
+    changeChannel,
+    changeContact,
+    touchContact,
+    sendToRep,
+  };
 }

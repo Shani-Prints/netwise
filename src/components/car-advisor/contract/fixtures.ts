@@ -70,6 +70,12 @@ const repChecked = (specialArrangementOk: boolean) => [
   { label: he.demo.repCheckedSpecialArrangement, ok: specialArrangementOk },
 ];
 
+/** Demo ticket with a very long question and many checked items, to show the scrolling cards. */
+const longChecked = Array.from({ length: 12 }, (_, index) => ({
+  label: `${index % 2 === 0 ? he.demo.checkedElectricFormula : he.demo.checkedSalaryData} · [${index + 1}]`,
+  ok: index % 5 !== 4,
+}));
+
 export const repTicketFixtures: RepTicketDetail[] = [
   {
     id: 'ticket-demo-1',
@@ -94,6 +100,14 @@ export const repTicketFixtures: RepTicketDetail[] = [
     status: 'needs-info',
     slaLevel: 'ok',
     checked: repChecked(true),
+  },
+  {
+    id: 'ticket-demo-4',
+    ticketNumber: he.demo.ticketNumbers[3],
+    questionText: Array.from({ length: 9 }, () => he.demo.handoffQuestion).join(' '),
+    status: 'waiting',
+    slaLevel: 'overdue',
+    checked: longChecked,
   },
 ];
 

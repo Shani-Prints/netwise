@@ -8,6 +8,17 @@ export type OptionKey = 'current' | 'electric' | 'none';
 export type NotifyChannel = 'push' | 'email' | 'sms';
 export type Confidence = 'high' | 'medium' | 'low';
 
+/**
+ * Where the employee wants to be notified. `contact` is the validated, normalized value for the channel:
+ * a mobile number in local form (05XXXXXXXX) for 'push' and 'sms', an email address for 'email'.
+ * TODO: the real client must validate it again on the server. The host may later prefill it from the
+ * employee's profile instead of asking for it.
+ */
+export interface NotifyTarget {
+  channel: NotifyChannel;
+  contact: string;
+}
+
 /** One table cell. A money cell with a null amount is shown as a marked placeholder (for example "₪[__]"). */
 export type Cell =
   | { kind: 'money'; amount: number | null; signHint?: 'positive' | 'negative' }
@@ -101,7 +112,8 @@ export interface CarAdvisorClient {
   ask(question: string): Promise<AskResult>;
   /** Hand-off view for a question the employee wants a rep to handle (the "talk to a rep" link). */
   prepareHandoff(question: string): Promise<HandoffView>;
-  sendToRep(question: string, channel: NotifyChannel): Promise<TicketConfirmationView>;
+  /** Creates the ticket. The contact value is personal data: do not log it or store it beyond what delivery needs. */
+  sendToRep(question: string, notify: NotifyTarget): Promise<TicketConfirmationView>;
   /** The rep's answer once the bot has it, or null while the ticket is still open. The widget polls this. */
   getReturnedAnswer(ticketId: string): Promise<ReturnedAnswerView | null>;
   listRepTickets(): Promise<RepTicketSummary[]>;

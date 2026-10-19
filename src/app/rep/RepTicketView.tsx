@@ -6,7 +6,7 @@ import { he } from '../../components/car-advisor/content/he';
 import { fill } from '../../components/car-advisor/content/fill';
 import { mockClient } from '../../components/car-advisor/contract/mockClient';
 import type { CarAdvisorClient, RepTicketDetail } from '../../components/car-advisor/contract/types';
-import { Badge, Button, Card, CheckList } from '../../components/car-advisor/ui';
+import { Badge, Button, CheckList } from '../../components/car-advisor/ui';
 import { RepHeader, RepShell } from './RepShell';
 import { SLA_LABEL, STATUS_LABEL } from './repLabels';
 import styles from './rep.module.css';
@@ -85,59 +85,75 @@ export function RepTicketView({ id, client = mockClient }: { id: string; client?
 
       <div className={styles.detail}>
         <div className={styles.column}>
-          <Card>
-            <p className={styles.cardLabel}>{he.rep.questionLabel}</p>
-            <p className={styles.questionText}>{ticket.questionText}</p>
-          </Card>
-          <Card>
-            <h2 className={styles.cardTitle}>{he.rep.checkedTitle}</h2>
-            <CheckList items={ticket.checked} />
-          </Card>
+          <section className={`${styles.fixedCard} ${styles.questionCard}`}>
+            <p id={`${fieldId}-question`} className={styles.cardLabel}>
+              {he.rep.questionLabel}
+            </p>
+            {/* Scrolls inside the card when the question is long. Focusable so keyboard users can scroll it. */}
+            <div
+              role="region"
+              aria-labelledby={`${fieldId}-question`}
+              tabIndex={0}
+              className={styles.scrollRegion}
+            >
+              <p className={styles.questionText}>{ticket.questionText}</p>
+            </div>
+          </section>
+
+          <section className={`${styles.fixedCard} ${styles.checkedCard}`}>
+            <h2 id={`${fieldId}-checked`} className={styles.cardTitle}>
+              {he.rep.checkedTitle}
+            </h2>
+            <div
+              role="region"
+              aria-labelledby={`${fieldId}-checked`}
+              tabIndex={0}
+              className={styles.scrollRegion}
+            >
+              <CheckList items={ticket.checked} />
+            </div>
+          </section>
         </div>
 
         <form
-          className={styles.column}
+          className={`${styles.fixedCard} ${styles.formCard}`}
           onSubmit={(event) => {
             event.preventDefault();
             if (canSend)
               void run(() => client.replyAsRep({ ticketId: ticket.id, answerText: answer }), 'sent');
           }}
         >
-          <div>
-            <label htmlFor={fieldId} className={styles.answerLabel}>
-              {he.rep.answerLabel}
-            </label>
-            <textarea
-              id={fieldId}
-              className={styles.answerField}
-              placeholder={he.rep.answerPlaceholder}
-              maxLength={2000}
-              value={answer}
-              disabled={answered || busy}
-              onChange={(event) => setAnswer(event.target.value)}
-            />
-            <p className={styles.helper}>{he.rep.helper}</p>
+          <label htmlFor={fieldId} className={styles.answerLabel}>
+            {he.rep.answerLabel}
+          </label>
+          <textarea
+            id={fieldId}
+            className={styles.answerField}
+            placeholder={he.rep.answerPlaceholder}
+            maxLength={2000}
+            value={answer}
+            disabled={answered || busy}
+            onChange={(event) => setAnswer(event.target.value)}
+          />
+          <p className={styles.helper}>{he.rep.helper}</p>
+          <div role="status" className={styles.statusSlot}>
             {answered ? (
-              <p role="status" className={styles.status}>
-                {outcome === 'sent' ? he.rep.sent : he.rep.answered}
-              </p>
+              <p className={styles.status}>{outcome === 'sent' ? he.rep.sent : he.rep.answered}</p>
             ) : outcome ? (
-              <p role="status" className={styles.status}>
-                {he.rep.infoRequested}
-              </p>
+              <p className={styles.status}>{he.rep.infoRequested}</p>
             ) : null}
-            <div className={styles.actions}>
-              <Button
-                variant="secondary"
-                disabled={busy || answered}
-                onClick={() => void run(() => client.requestMoreInfo(ticket.id), 'info-requested')}
-              >
-                {he.rep.requestInfo}
-              </Button>
-              <Button type="submit" disabled={!canSend}>
-                {busy ? he.rep.sendBusy : he.rep.send}
-              </Button>
-            </div>
+          </div>
+          <div className={styles.actions}>
+            <Button
+              variant="secondary"
+              disabled={busy || answered}
+              onClick={() => void run(() => client.requestMoreInfo(ticket.id), 'info-requested')}
+            >
+              {he.rep.requestInfo}
+            </Button>
+            <Button type="submit" disabled={!canSend}>
+              {busy ? he.rep.sendBusy : he.rep.send}
+            </Button>
           </div>
         </form>
       </div>

@@ -1,0 +1,39 @@
+/*
+ * Design tokens: the single source for colors, radii and fonts of the car advisor.
+ * They are declared on the component's scope root, never on :root, so they cannot leak into the host page.
+ *
+ * Rule of thumb:
+ *   - brand colors (--ca-red ... --ca-light-blue): fills, the top strip and icons only.
+ *   - --ca-action and --ca-danger-text: accessible variants for buttons, blue text and red text.
+ */
+[data-car-advisor] {
+  /* Logo colors */
+  --ca-red: #ed3024;
+  --ca-orange: #f48326;
+  --ca-light-green: #c7de8d;
+  --ca-green: #78a12f;
+  --ca-cyan: #00bae2;
+  --ca-blue: #0390cb;
+  --ca-light-blue: #9ed8ef;
+  --ca-white: #ffffff;
+
+  /* Accessible variants (contrast-safe on white and on the tinted surfaces) */
+  --ca-action: #02709e;
+  --ca-danger-text: #c9241a;
+
+  /* Neutrals and surfaces */
+  --ca-ink: #0b2a3d;
+  --ca-muted: #4f6270;
+  --ca-line: #d6e3ec;
+  --ca-surface: #f5f9fc;
+  --ca-tint: #e4f4fb; /* light-blue tint for highlighted cells and info boxes */
+  --ca-step-idle: #d6e3ec;
+
+  /* Shape and depth */
+  --ca-radius-card: 16px;
+  --ca-radius-control: 12px;
+  --ca-shadow: 0 12px 40px rgba(11, 42, 61, 0.22);
+
+  /* Heebo is loaded by the host (or by our dev app); system fonts are the fallback */
+  --ca-font: 'Heebo', system-ui, 'Segoe UI', Arial, sans-serif;
+}

@@ -1,0 +1,281 @@
+/* Shared primitives. Specificity is doubled on purpose (see ScopeRoot.module.css). */
+[data-car-advisor][data-car-advisor] .srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Buttons */
+[data-car-advisor][data-car-advisor] .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--ca-radius-control);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+[data-car-advisor][data-car-advisor] .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+[data-car-advisor][data-car-advisor] .primary {
+  background: var(--ca-action);
+  border-color: var(--ca-action);
+  color: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+[data-car-advisor][data-car-advisor] .secondary {
+  background: var(--ca-white);
+  border-color: var(--ca-line);
+  color: var(--ca-ink);
+}
+[data-car-advisor][data-car-advisor] .secondary:hover:not(:disabled) {
+  background: var(--ca-tint);
+}
+[data-car-advisor][data-car-advisor] .link {
+  background: none;
+  border-color: transparent;
+  color: var(--ca-danger-text);
+  text-decoration: underline;
+  padding: 0 8px;
+}
+[data-car-advisor][data-car-advisor] .full {
+  display: flex;
+  width: 100%;
+}
+
+/* Suggestion chip */
+[data-car-advisor][data-car-advisor] .chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ca-line);
+  border-radius: 999px;
+  background: var(--ca-white);
+  color: var(--ca-ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .chip:hover {
+  background: var(--ca-tint);
+}
+
+/* Card */
+[data-car-advisor][data-car-advisor] .card {
+  padding: 14px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .tint {
+  background: var(--ca-tint);
+  border-color: transparent;
+}
+
+/* Badge */
+[data-car-advisor][data-car-advisor] .badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .badgeInfo {
+  background: var(--ca-tint);
+  color: var(--ca-action);
+}
+[data-car-advisor][data-car-advisor] .badgeDanger {
+  background: var(--ca-white);
+  border-color: var(--ca-line);
+  color: var(--ca-danger-text);
+}
+
+/* Step list */
+[data-car-advisor][data-car-advisor] .steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+[data-car-advisor][data-car-advisor] .step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .stepNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .stepDark {
+  background: var(--ca-ink);
+  color: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .stepActive {
+  background: var(--ca-action);
+  color: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .stepIdle {
+  background: var(--ca-step-idle);
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .stepTitleStrong {
+  font-weight: 500;
+}
+[data-car-advisor][data-car-advisor] .stepDetail {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+
+/* Radio group */
+[data-car-advisor][data-car-advisor] .radioLegend {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .radioRow {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 20px;
+}
+[data-car-advisor][data-car-advisor] .radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .radioInput {
+  appearance: auto;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--ca-action);
+}
+
+/* Check list */
+[data-car-advisor][data-car-advisor] .checkList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .checkItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .iconOk {
+  color: var(--ca-green);
+}
+[data-car-advisor][data-car-advisor] .iconMissing {
+  color: var(--ca-red);
+}
+
+/* Notification card */
+[data-car-advisor][data-car-advisor] .notification {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+  text-align: start;
+}
+[data-car-advisor][data-car-advisor] .notificationButton {
+  min-height: 44px;
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .notificationTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .notificationApp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .notificationTile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--ca-blue);
+  color: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .notificationTitle {
+  display: block;
+  margin-top: 6px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .notificationBody {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+/* Comparison table */
+[data-car-advisor][data-car-advisor] .table {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  text-align: center;
+  table-layout: fixed;
+}
+[data-car-advisor][data-car-advisor] .table thead {
+  display: table-header-group;
+}
+[data-car-advisor][data-car-advisor] .table tbody {
+  display: table-row-group;
+}
+[data-car-advisor][data-car-advisor] .table tr {
+  display: table-row;
+}
+[data-car-advisor][data-car-advisor] .table th,
+[data-car-advisor][data-car-advisor] .table td {
+  display: table-cell;
+  padding: 8px 2px;
+  font-size: 13px;
+  vertical-align: middle;
+}
+[data-car-advisor][data-car-advisor] .tableRowHead {
+  width: 24%;
+  text-align: start;
+  font-weight: 400;
+  color: var(--ca-muted);
+  font-size: 12px;
+}
+[data-car-advisor][data-car-advisor] .tableHighlight {
+  border-radius: 10px;
+  background: var(--ca-tint);
+}
+[data-car-advisor][data-car-advisor] .tableHeadHighlight {
+  color: var(--ca-action);
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .tableStrong {
+  font-weight: 700;
+}

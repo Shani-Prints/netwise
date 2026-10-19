@@ -1,0 +1,168 @@
+/*
+ * Chat window content. It fills its container and sizes itself with flex and container queries only:
+ * no viewport units and no viewport media queries in this file.
+ */
+[data-car-advisor][data-car-advisor] .frame {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-surface);
+  box-shadow: var(--ca-shadow);
+}
+[data-car-advisor][data-car-advisor] .strip {
+  display: flex;
+  flex: none;
+  height: 5px;
+}
+[data-car-advisor][data-car-advisor] .strip i {
+  display: block;
+  flex: 1;
+}
+[data-car-advisor][data-car-advisor] .stripRed {
+  background: var(--ca-red);
+}
+[data-car-advisor][data-car-advisor] .stripOrange {
+  background: var(--ca-orange);
+}
+[data-car-advisor][data-car-advisor] .stripLightGreen {
+  background: var(--ca-light-green);
+}
+[data-car-advisor][data-car-advisor] .stripGreen {
+  background: var(--ca-green);
+}
+[data-car-advisor][data-car-advisor] .stripCyan {
+  background: var(--ca-cyan);
+}
+[data-car-advisor][data-car-advisor] .stripBlue {
+  background: var(--ca-blue);
+}
+[data-car-advisor][data-car-advisor] .header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ca-line);
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+[data-car-advisor][data-car-advisor] .tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--ca-blue);
+  color: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+[data-car-advisor][data-car-advisor] .subtitle {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-inline-end: -8px;
+  border-radius: var(--ca-radius-control);
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .close:hover {
+  background: var(--ca-tint);
+}
+[data-car-advisor][data-car-advisor] .messages {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 16px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+[data-car-advisor][data-car-advisor] .composer {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--ca-line);
+  background: var(--ca-white);
+}
+/* Multi-line field: about 3 rows to start, grows to about 8 rows (set by script), then scrolls inside */
+[data-car-advisor][data-car-advisor] .field {
+  flex: 1;
+  min-width: 0;
+  min-height: 72px;
+  max-height: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-surface);
+  font-size: 16px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+}
+[data-car-advisor][data-car-advisor] .field:focus-visible {
+  border-color: var(--ca-action);
+  outline: 2px solid var(--ca-blue);
+  outline-offset: 0;
+}
+[data-car-advisor][data-car-advisor] .send {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ca-action);
+  color: var(--ca-white);
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .send:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+[data-car-advisor][data-car-advisor] .send:disabled {
+  background: var(--ca-step-idle);
+  color: var(--ca-muted);
+  cursor: not-allowed;
+}
+[data-car-advisor][data-car-advisor] .sendIcon {
+  transform: scaleX(-1);
+}
+[data-car-advisor][data-car-advisor] .field::placeholder {
+  color: var(--ca-muted);
+}
+@container (max-width: 340px) {
+  [data-car-advisor][data-car-advisor] .messages {
+    padding: 12px 10px;
+  }
+  [data-car-advisor][data-car-advisor] .header {
+    padding: 8px 10px;
+  }
+}

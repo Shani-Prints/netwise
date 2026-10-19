@@ -1,0 +1,50 @@
+/*
+ * Dev only. Simulates an aggressive host page: rules a real host might have (resets, element selectors,
+ * inherited text styling, a different direction). Everything is scoped under .hostile-host so it cannot
+ * break the rest of our dev app. The car advisor must look the same inside and outside this wrapper.
+ */
+.hostile-host {
+  direction: ltr;
+  text-align: center;
+  font: italic 700 22px/2.6 'Comic Sans MS', cursive;
+  color: #b0b;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.hostile-host * {
+  box-sizing: content-box;
+  margin: 6px;
+  padding: 4px;
+}
+.hostile-host div,
+.hostile-host section,
+.hostile-host header,
+.hostile-host form,
+.hostile-host p {
+  display: inline;
+}
+.hostile-host button {
+  all: unset;
+  background: hotpink;
+  color: lime;
+  border: 3px dashed red;
+}
+.hostile-host textarea {
+  all: unset;
+  background: yellow;
+  height: 10px;
+}
+.hostile-host h1,
+.hostile-host p,
+.hostile-host span {
+  font-size: 40px;
+}
+.hostile-host svg {
+  width: 200px;
+  height: 200px;
+}
+.hostile-host ul,
+.hostile-host li {
+  list-style: square;
+  display: inline-block;
+}

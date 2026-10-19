@@ -14,7 +14,12 @@
   font-display: swap;
 }
 
+:root {
+  color-scheme: light; /* kept from the pre-UI globals.css */
+}
+
 body {
   background: #eceff1;
   color: #222;
+  font-family: system-ui, 'Segoe UI', Arial, sans-serif; /* kept from the pre-UI globals.css: the fallback until Heebo is added */
 }

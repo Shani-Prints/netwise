@@ -1,7 +1,10 @@
 import { MockLanguageModelV4 } from 'ai/test';
 import { vi } from 'vitest';
+import { runAgentTurn } from '../../src/agent/agent';
+import { prepareTurnWithCurrentCar } from '../../src/agent/currentCar';
 import { handleChat, type ChatDeps } from '../../src/agent/chatHandler';
 import type { ProviderEntry } from '../../src/agent/providers';
+import { getRepo } from '../../src/db/repo';
 import { SESSION_COOKIE } from '../../src/lib/session';
 import { BASE, Client, PROFILE, type Json } from '../api/harness';
 
@@ -66,3 +69,50 @@ export function captureConsole() {
 export const MESSAGE = 'ומה אם אעבור לטסלה מודל 3?';
 /** The engine's Hebrew reason for CAR-14 (group ד) and a group ג employee. */
 export const REASON_CAR14 = 'הרכב שייך לקבוצה ד והזכאות שלך היא לקבוצה ג; אפשר לבחור רכב מהקבוצה שלך או מקבוצה נמוכה יותר';
+
+// ---- helpers for the "collect many fields" scenarios -------------------------------------------------------------
+
+/** A brand-new anonymous employee with an EMPTY profile. */
+export async function newEmployee(): Promise<Client> {
+  const c = new Client();
+  await c.session();
+  return c;
+}
+
+/**
+ * One employee turn, run exactly like POST /api/chat does (the message is saved first, then the agent runs), but returning
+ * the whole turn so a test can count the tool calls and read every tool output.
+ */
+export async function runTurn(c: Client, message: string, ...responses: unknown[]) {
+  const repo = await getRepo();
+  const actor = c.actor();
+  const conv = (await repo.findConversationByUser(actor.userId))!;
+  await repo.addMessage(conv.id, 'user', message);
+  const context = await prepareTurnWithCurrentCar(repo, actor, message);
+  const model = fake(...responses);
+  const turn = await runAgentTurn({
+    repo,
+    actor,
+    conversationId: conv.id,
+    context,
+    providers: [provider(model)],
+    showProvisional: true,
+    participationFromRepresentative: false,
+    userMessage: message,
+    fallback: fast,
+  });
+  await repo.addMessage(conv.id, 'assistant', turn.assistantText);
+  return {
+    turn,
+    model,
+    repo,
+    conversationId: conv.id,
+    tools: turn.collector.results.map((r) => r.tool),
+    outputs: turn.collector.results.map((r) => r.output as Json),
+    /** The system prompt the model saw on its first request of this turn (plain text, not JSON-escaped). */
+    system: (model.doGenerateCalls[0]?.prompt ?? [])
+      .filter((m: Json) => m.role === 'system')
+      .map((m: Json) => String(m.content))
+      .join('\n'),
+  };
+}

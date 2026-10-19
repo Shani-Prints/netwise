@@ -131,7 +131,8 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
   it('an earlier refusal is not hidden by a later unrelated tool result', async () => {
     const e = await groupGimelEmployee();
     const model = fake(call('check_eligibility', { alternative: 'CAR-14' }), call('save_employee_data', { creditPoints: 2.75 }), say(''));
-    const r = await chat(e, MESSAGE, { providers: [provider(model)] });
+    // the employee states the 2.75 in this very message, so the later save succeeds and returns "what is still missing"
+    const r = await chat(e, `${MESSAGE} ואגב, יש לי 2.75 נקודות זיכוי.`, { providers: [provider(model)] });
     expect(r.body.assistantText).toContain(REASON_CAR14);
   });
 });

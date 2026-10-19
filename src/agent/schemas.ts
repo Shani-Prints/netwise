@@ -65,6 +65,10 @@ export const SaveOutputSchema = z.union([
     saved: z.record(z.string(), z.union([z.string(), z.number()])),
     /** What is still needed for today's situation (empty = complete). */
     ...missing,
+    /** The items to ask about TOGETHER in one short question (at most 4, Hebrew labels). */
+    askNext: z.array(z.string()),
+    /** Set when the group was derived from the occupation table (the employee did not state it): confirm it. */
+    derivedGroup: z.enum(['א', 'ב', 'ג', 'ד']).optional(),
     todayNet: z.number().optional(),
   }),
   ToolErrorSchema,

@@ -1,8 +1,11 @@
 import { generateText, stepCountIs, type ModelMessage } from 'ai';
+import { loadRules } from '../config/rules';
 import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
+import { missingFieldLabel } from '../lib/explain';
 import { participationFromRepresentative } from '../lib/flags';
 import { prepareEmployeeTurn, type Actor, type TurnContext } from '../lib/service';
+import { MAX_ASK, askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
 import { guardLogCode, guardResponse, type GuardReason } from './guard';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
@@ -69,17 +72,57 @@ export function ineligibleFacts(collector: TurnCollector): IneligibleFact[] {
   return out;
 }
 
+/** One plain sentence stating the group that the server derived from the occupation (an assumption, not a question). */
+export function derivedGroupSentence(collector: TurnCollector): string {
+  for (const r of collector.results) {
+    const g = (r.output as { derivedGroup?: string } | null)?.derivedGroup;
+    if (g) return `הנחתי שהקבוצה שלך היא ${g} לפי טבלת העיסוקים.`;
+  }
+  return '';
+}
+
 /** Deterministic Hebrew text built only from tool results (which come from src/lib/explain.ts and the rules engine). */
 export function deterministicText(collector: TurnCollector): string {
   const parts: string[] = [];
   // A refusal always wins: it is the one thing the employee must not miss.
   for (const f of ineligibleFacts(collector)) parts.push(`אין זכאות לחלופה "${f.label}".\n${f.reason}.`);
-  if (collector.lastView && collector.lastView.status !== 'ineligible') parts.push(collector.lastView.explanation.join('\n'));
+  const view = collector.lastView;
+  if (view && view.status !== 'ineligible') {
+    // Data missing (no net to show): ask for the next items TOGETHER, at most MAX_ASK, instead of listing everything.
+    // A "missing" view that still shows today's net (a representative question is open) keeps its own explanation.
+    parts.push(
+      view.status === 'missing' && !view.today && view.missingFields.length > 0
+        ? `חסר לי מידע כדי להמשיך: ${askNextLabels(view.missingFields).join(', ')}.`
+        : view.explanation.join('\n'),
+    );
+  }
   if (parts.length > 0) return parts.join('\n');
 
   for (const r of [...collector.results].reverse()) {
-    const o = r.output as { missingText?: string[]; text?: string; status?: string; alternativeLabel?: string } | null;
-    if (o?.missingText && o.missingText.length > 0) return `חסר לי מידע כדי להמשיך: ${o.missingText.join(', ')}.`;
+    const o = r.output as {
+      missingFields?: string[];
+      missingText?: string[];
+      text?: string;
+      status?: string;
+      alternativeLabel?: string;
+      error?: string;
+      issues?: { path: string }[];
+    } | null;
+    // A rejected value (not written by the employee, or out of range): ask for exactly those fields again.
+    if (o?.status === 'error' && o.issues && o.issues.length > 0 && (o.error === 'value_not_stated_by_employee' || o.error === 'invalid_arguments')) {
+      const age = loadRules().familyTrack.childMaxAge;
+      const labels = [...new Set(o.issues.map((i) => missingFieldLabel(i.path.split('.')[0] ?? '', age)))].filter((l) => l !== 'פרט נוסף');
+      if (labels.length > 0) {
+        return o.error === 'value_not_stated_by_employee'
+          ? `לא שמרתי את הנתונים כי לא מצאתי בהודעות שלך את: ${labels.join(', ')}. אפשר לכתוב לי אותם?`
+          : `הערכים הבאים אינם תקינים: ${labels.join(', ')}. אפשר לכתוב אותם שוב?`;
+      }
+    }
+    // What is missing, grouped into ONE short question (at most MAX_ASK items).
+    if (o?.missingText && o.missingText.length > 0) {
+      const labels = o.missingFields && o.missingFields.length > 0 ? askNextLabels(o.missingFields) : o.missingText.slice(0, MAX_ASK);
+      return [derivedGroupSentence(collector), `חסר לי מידע כדי להמשיך: ${labels.join(', ')}.`].filter(Boolean).join('\n');
+    }
     if (r.tool === 'check_eligibility' && o?.text) {
       return o.status === 'eligible' && o.alternativeLabel
         ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אם תרצה, אחשב כמה זה ישנה בנטו.`
@@ -172,7 +215,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
         model: p.model,
         instructions: buildSystemPrompt(stateBlock, fromRep),
         messages: await history(repo, conversationId),
-        tools: createTools({ repo, actor, collector, showProvisional, participationFromRepresentative: fromRep }),
+        tools: createTools({ repo, actor, collector, showProvisional, participationFromRepresentative: fromRep, conversationId }),
         stopWhen: stepCountIs(MAX_STEPS),
         maxRetries: 0, // retries and backoff are handled by withFallback
         temperature: 0.2,

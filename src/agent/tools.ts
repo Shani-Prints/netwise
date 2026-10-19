@@ -1,12 +1,14 @@
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { loadRules } from '../config/rules';
-import { allowedCars, carLabel, getCatalogCar, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
+import type { GroupCode } from '../config/rulesSchema';
+import { allowedCars, carLabel, getCatalogCar, getOccupation, loadCatalog, loadOccupations, toCarSpec } from '../data/catalog';
+import { matchCatalogCar } from '../data/carMatch';
 import { getUsageIndex, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
 import { missingFieldLabel } from '../lib/explain';
-import { ProfileFieldsSchema } from '../lib/schemas';
+import { ProfileFieldsSchema, type ProfileFields } from '../lib/schemas';
 import {
   askRepresentativeParticipation,
   prepareEmployeeTurn,
@@ -16,7 +18,9 @@ import {
   type Actor,
 } from '../lib/service';
 import type { ComparisonView } from '../lib/view';
+import { askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
+import { PROVENANCE_FIELDS, checkProvenance, type ProvenanceField } from './provenance';
 import { applyProvisionalPolicy } from './provisional';
 import {
   AskRepOutputSchema,
@@ -45,6 +49,11 @@ export interface ToolContext {
   showProvisional: boolean;
   /** PARTICIPATION_FROM_REPRESENTATIVE: only changes the wording of the ask_representative description. */
   participationFromRepresentative?: boolean;
+  /**
+   * The employee's conversation. save_employee_data checks every numeric value against the employee's OWN messages in it;
+   * without it numeric fields cannot be verified and are refused (fail closed).
+   */
+  conversationId?: string;
 }
 
 // ---------------------------------------------------------------- input schemas (unknown keys, e.g. userId, are stripped)
@@ -58,13 +67,13 @@ const AlternativeArg = z
 export const SaveInputSchema = z.object({
   occupation: z.string().min(1).max(100).optional().describe('Exact occupation name from search_catalog(kind=occupations).'),
   group: z.enum(['א', 'ב', 'ג', 'ד']).optional().describe('Eligibility group.'),
-  base: z.number().min(0).max(1_000_000).optional().describe('Monthly base salary, gross, in shekels.'),
-  commissions: z.number().min(0).max(1_000_000).optional().describe('Monthly commissions, gross.'),
-  bonus: z.number().min(0).max(1_000_000).optional().describe('Monthly bonus, gross.'),
-  pensionPct: z.number().min(0).max(100).optional().describe('Employee pension percent.'),
-  studyFundPct: z.number().min(0).max(100).optional().describe('Employee study fund percent.'),
-  creditPoints: z.number().min(0).max(50).optional().describe('Tax credit points.'),
-  childrenUnder23: z.number().int().min(0).max(30).optional().describe('Number of children up to the age limit in the rules.'),
+  base: z.number().min(0).max(1_000_000).optional().describe('Monthly base salary, gross, in shekels (0-1,000,000). 18,500 or 18500 -> 18500.'),
+  commissions: z.number().min(0).max(1_000_000).optional().describe('Monthly commissions, gross (0-1,000,000). "no commissions" -> 0.'),
+  bonus: z.number().min(0).max(1_000_000).optional().describe('Monthly bonus, gross (0-1,000,000). "no bonus" -> 0.'),
+  pensionPct: z.number().min(0).max(100).optional().describe('Employee pension as a plain number between 0 and 100: 6 for "6%" or "6 אחוז".'),
+  studyFundPct: z.number().min(0).max(100).optional().describe('Employee study fund as a plain number between 0 and 100: 2.5 for "2.5%".'),
+  creditPoints: z.number().min(0).max(50).optional().describe('Tax credit points (0-50), for example 2.75.'),
+  childrenUnder23: z.number().int().min(0).max(30).optional().describe('Number of children up to the age limit in the rules (whole number 0-30). "no children" -> 0.'),
   currentCarId: z.string().min(1).max(40).optional().describe('Current car: catalogue id, "waiver" or "none".'),
   currentCarDataset: z
     .object({
@@ -152,7 +161,11 @@ export function createTools(ctx: ToolContext): ToolSet {
   const save_employee_data = defineTool(
     ctx,
     'save_employee_data',
-    'Save facts the employee stated about themselves (any subset). Returns what is still missing for today\'s situation.',
+    'Save EVERY fact the employee stated about themselves in ONE call (send all of them together, any subset). ' +
+      'Only numbers the employee actually wrote in this conversation are accepted: if one was not stated, the whole call is ' +
+      'rejected (value_not_stated_by_employee) and NOTHING is saved. If you send an occupation without a group, the group is ' +
+      'derived from the occupation table and returned as derivedGroup (mention it once as an assumption; do not ask). The current car is resolved by the server, not here. ' +
+      'Returns what is still missing for today\'s situation and askNext (up to 4 items to ask about together in one short question).',
     SaveInputSchema,
     SaveOutputSchema,
     async (a) => {
@@ -166,11 +179,41 @@ export function createTools(ctx: ToolContext): ToolSet {
       } else if (currentCarDataset) {
         fields.currentCar = { kind: 'dataset', ...currentCarDataset };
       }
+      // 1. ranges and shapes, server side
       const valid = ProfileFieldsSchema.safeParse(fields);
       if (!valid.success) {
         return invalidArguments(valid.error.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code })));
       }
-      const state = await updateProfile(repo, actor, valid.data);
+
+      // 2. provenance: the employee must have written every numeric value. One unsupported value rejects the WHOLE call.
+      const claimed: Partial<Record<ProvenanceField, number>> = {};
+      for (const f of PROVENANCE_FIELDS) if (a[f] !== undefined) claimed[f] = a[f];
+      if (Object.keys(claimed).length > 0) {
+        if (!ctx.conversationId) return { status: 'error' as const, error: 'provenance_unavailable' };
+        const own = (await repo.listMessages(ctx.conversationId, 1000)).filter((m) => m.role === 'user').map((m) => m.content);
+        const unsupported = checkProvenance(claimed, own);
+        if (unsupported.length > 0) {
+          return {
+            status: 'error' as const,
+            error: 'value_not_stated_by_employee',
+            issues: unsupported.map((path) => ({ path, code: 'not_in_employee_messages' })),
+          };
+        }
+      }
+
+      // 3. an occupation without a group: the group comes from the occupations table (never from the model)
+      let update: ProfileFields = { ...valid.data };
+      let derivedGroup: GroupCode | undefined;
+      if (update.occupation !== undefined && update.group === undefined) {
+        const occupation = getOccupation(update.occupation);
+        const existing = await repo.getProfile(actor.userId);
+        if (occupation && !existing?.groupCode) {
+          derivedGroup = occupation.group;
+          update = { ...update, group: occupation.group };
+        }
+      }
+
+      const state = await updateProfile(repo, actor, update);
       ctx.collector.touchedState = true;
       const saved: Record<string, string | number> = {};
       for (const [k, v] of Object.entries(a)) {
@@ -183,6 +226,8 @@ export function createTools(ctx: ToolContext): ToolSet {
         saved,
         missingFields: t.missingFields,
         missingText: t.missingText,
+        askNext: askNextLabels(t.missingFields),
+        ...(derivedGroup ? { derivedGroup } : {}),
         ...(t.status === 'ok' && t.today ? { todayNet: t.today.components.net } : {}),
       };
     },
@@ -248,7 +293,7 @@ export function createTools(ctx: ToolContext): ToolSet {
   const get_usage_value = defineTool(
     ctx,
     'get_usage_value',
-    'Official monthly usage value (שווי שימוש) of a car, from the dataset. Give carId, or maker/model(/registrationYear) to search.',
+    'Official monthly usage value (שווי שימוש) of a car, from the dataset. Give carId, or maker/model(/registrationYear) to search (Latin names such as "corolla cross" also work with Hebrew names).',
     UsageInputSchema,
     UsageOutputSchema,
     async (a) => {
@@ -273,7 +318,17 @@ export function createTools(ctx: ToolContext): ToolSet {
         };
       }
       if (!a.maker && !a.model) return invalidArguments([{ path: 'carId', code: 'missing_search' }]);
-      const rows = searchVehicles(index, { maker: a.maker, model: a.model, registrationYear: a.registrationYear }, 8);
+      let rows = searchVehicles(index, { maker: a.maker, model: a.model, registrationYear: a.registrationYear }, 8);
+      if (rows.length === 0) {
+        // Hebrew names: use the same deterministic matcher as everywhere else, then read the dataset rows of that car
+        const m = matchCatalogCar(`${a.maker ?? ''} ${a.model ?? ''}`);
+        if (m.status === 'found') {
+          const car = m.car;
+          rows = index.rows
+            .filter((r) => r.makerCode === car.makerCode && r.modelCode === car.modelCode && r.registrationYear === (a.registrationYear ?? car.registrationYear))
+            .slice(0, 8);
+        }
+      }
       const catalog = loadCatalog();
       return {
         status: rows.length > 0 ? ('found' as const) : ('not_found' as const),

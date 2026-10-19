@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { getRepo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
-import { getEmployeeState, prepareEmployeeTurn, ServiceError, type EmployeeQuestionView } from '../lib/service';
+import { getEmployeeState, ServiceError, type EmployeeQuestionView } from '../lib/service';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
 import { runAgentTurn } from './agent';
+import { prepareTurnWithCurrentCar } from './currentCar';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisional';
 import { AllProvidersFailedError, BUSY_MESSAGE_HE, buildProviders, type FallbackOptions, type ProviderEntry } from './providers';
 
@@ -98,7 +99,6 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
 
     // 4. start of the turn: representative answers already applied are in context
     const repo = await getRepo();
-    const context = await prepareEmployeeTurn(repo, actor);
     const conv = await repo.findConversationByUser(actor.userId);
     if (!conv) throw new ServiceError(500, 'no_conversation');
 
@@ -109,6 +109,8 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
     }
 
     await repo.addMessage(conv.id, 'user', message); // saved first: never lost if every provider fails
+    // start of the turn: rep answers applied, and a current car the employee named is resolved on the server
+    const context = await prepareTurnWithCurrentCar(repo, actor, message);
 
     const show = showProvisionalAlternative(env);
     let turn;

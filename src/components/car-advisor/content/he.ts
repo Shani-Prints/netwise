@@ -118,6 +118,7 @@ export const he = {
     title: 'קונסולת נציג',
     listSubtitle: 'פניות ממתינות למענה',
     listEmpty: 'אין פניות פתוחות.',
+    loading: 'טוען…',
     listTicketLabel: 'פנייה {ticketNumber}',
     ticketSubtitle: 'פנייה {ticketNumber} · {status}',
     status: {
@@ -127,11 +128,11 @@ export const he = {
     },
     sla: {
       remaining: 'נותרו [SLA]',
-      overdue: 'חריגה מה־[SLA]',
     },
     questionLabel: 'השאלה של העובד',
     checkedTitle: 'מה היועץ כבר בדק',
     answerLabel: 'התשובה ליועץ',
+    answered: 'הפנייה נענתה. התשובה נשלחה ליועץ.',
     answerPlaceholder: '[כתבו כאן את התשובה והחישוב לעובד]',
     helper: 'היועץ ינסח את התשובה לעובד, יתריע לו ויחזיר אותה בצ׳אט.',
     send: 'שלח ליועץ',
@@ -183,6 +184,7 @@ export const he = {
     teamName: '[שם הצוות]',
     timeLabel: '[שעה]',
     ticketNumber: '[#]',
+    ticketNumbers: ['[#1]', '[#2]', '[#3]'],
   },
 } as const;
 

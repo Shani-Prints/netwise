@@ -63,18 +63,36 @@ export const confirmationFixture: TicketConfirmationView = {
   channel: 'push',
 };
 
+const repChecked = (specialArrangementOk: boolean) => [
+  { label: he.demo.checkedElectricFormula, ok: true },
+  { label: he.demo.checkedSalaryData, ok: true },
+  { label: he.demo.repCheckedSpecialArrangement, ok: specialArrangementOk },
+];
+
 export const repTicketFixtures: RepTicketDetail[] = [
   {
     id: 'ticket-demo-1',
-    ticketNumber: he.demo.ticketNumber,
+    ticketNumber: he.demo.ticketNumbers[0],
     questionText: he.demo.handoffQuestion,
     status: 'waiting',
     slaLevel: 'overdue',
-    checked: [
-      { label: he.demo.checkedElectricFormula, ok: true },
-      { label: he.demo.checkedSalaryData, ok: true },
-      { label: he.demo.repCheckedSpecialArrangement, ok: false },
-    ],
+    checked: repChecked(false),
+  },
+  {
+    id: 'ticket-demo-2',
+    ticketNumber: he.demo.ticketNumbers[1],
+    questionText: he.ask.chips.waiver.question,
+    status: 'waiting',
+    slaLevel: 'ok',
+    checked: repChecked(false),
+  },
+  {
+    id: 'ticket-demo-3',
+    ticketNumber: he.demo.ticketNumbers[2],
+    questionText: he.ask.chips.otherCar.question,
+    status: 'needs-info',
+    slaLevel: 'ok',
+    checked: repChecked(true),
   },
 ];
 

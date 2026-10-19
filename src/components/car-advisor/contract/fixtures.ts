@@ -59,6 +59,7 @@ export const handoffFixture: HandoffView = {
 };
 
 export const confirmationFixture: TicketConfirmationView = {
+  ticketId: 'ticket-fixture',
   ticketNumber: he.demo.ticketNumber,
   channel: 'push',
 };

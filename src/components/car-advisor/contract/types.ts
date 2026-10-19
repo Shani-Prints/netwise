@@ -54,6 +54,8 @@ export interface HandoffView {
 export type AskResult = { kind: 'answer'; answer: AnswerView } | { kind: 'handoff'; handoff: HandoffView };
 
 export interface TicketConfirmationView {
+  /** Opaque id the widget uses to follow the ticket until the rep's answer comes back. */
+  ticketId: string;
   ticketNumber: string;
   channel: NotifyChannel;
 }
@@ -100,6 +102,7 @@ export interface CarAdvisorClient {
   /** Hand-off view for a question the employee wants a rep to handle (the "talk to a rep" link). */
   prepareHandoff(question: string): Promise<HandoffView>;
   sendToRep(question: string, channel: NotifyChannel): Promise<TicketConfirmationView>;
+  /** The rep's answer once the bot has it, or null while the ticket is still open. The widget polls this. */
   getReturnedAnswer(ticketId: string): Promise<ReturnedAnswerView | null>;
   listRepTickets(): Promise<RepTicketSummary[]>;
   getRepTicket(id: string): Promise<RepTicketDetail | null>;

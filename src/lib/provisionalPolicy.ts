@@ -23,7 +23,7 @@ export function applyProvisionalPolicy(view: ComparisonView, show: boolean): Com
     missingText: [missingFieldLabel('alternativeParticipation', childMaxAge)],
     explanation: [
       `הנטו החודשי המוערך שלך היום הוא ${fmt(view.today.components.net)} ₪.`,
-      `ממתין לתשובת נציג התחבורה על ההשתתפות ברכב "${view.alternativeLabel}"; את החלופה אחשב ברגע שהתשובה תתקבל.`,
+      `בינתיים הנה המצב היום; החלופה "${view.alternativeLabel}" תתעדכן כשהנציג יענה על ההשתתפות ברכב.`,
     ],
     assumptions: [],
   };

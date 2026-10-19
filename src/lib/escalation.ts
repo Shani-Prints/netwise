@@ -51,8 +51,9 @@ export async function openQuestionNow(
 }
 
 /**
- * Opens (or queues) the questions for these cases. Returns the new conversation state (the caller saves it) and one
- * outcome per case. Never throws for "already there": it reports it.
+ * Opens the questions for these cases IN THE SAME TURN. Nobody is ever asked for a name or an employee number first: if the
+ * employee volunteered one it is attached (provideEmployeeReference), otherwise the question says the reference is missing.
+ * Returns the new conversation state (the caller saves it) and one outcome per case. Never throws for "already there".
  */
 export async function requestEscalations(
   repo: Repo,
@@ -65,11 +66,12 @@ export async function requestEscalations(
   const existing = await repo.listRepQuestions({ conversationId });
   const byKey = new Map(existing.map((q) => [caseKeyOf(q), q]));
   let open = existing.filter((q) => q.status === 'open').length;
-  const canOpen = esc.refAsked; // decided BEFORE this call, so the prompt for the reference comes first
   const results: EscalationResult[] = [];
-  let queued = false;
+  // questions that an older version left waiting for a reference prompt are opened now
+  const legacy = esc.pending;
+  esc.pending = [];
 
-  for (const spec of specs) {
+  for (const spec of [...legacy, ...specs]) {
     const base = { kind: spec.kind, field: spec.field, ...(spec.carId ? { carId: spec.carId } : {}) };
     if (spec.kind === 'new_car_participation' && !participationFromRepresentative()) {
       // the participation of the new car is the catalogue default unless PARTICIPATION_FROM_REPRESENTATIVE=true
@@ -81,18 +83,8 @@ export async function requestEscalations(
       results.push({ ...base, outcome: q.status === 'open' ? 'waiting' : 'already_answered' });
       continue;
     }
-    if (esc.pending.some((p) => specKey(p) === specKey(spec))) {
-      results.push({ ...base, outcome: 'needs_reference' });
-      continue;
-    }
-    if (open + esc.pending.length >= MAX_OPEN_QUESTIONS) {
+    if (open >= MAX_OPEN_QUESTIONS) {
       results.push({ ...base, outcome: 'cap_reached' });
-      continue;
-    }
-    if (!canOpen) {
-      esc.pending.push(spec);
-      queued = true;
-      results.push({ ...base, outcome: 'needs_reference' });
       continue;
     }
     const created = await openQuestionNow(repo, conversationId, spec, esc.employeeRef);
@@ -100,11 +92,10 @@ export async function requestEscalations(
     open++;
     results.push({ ...base, outcome: 'question_sent' });
   }
-  if (queued) esc.refAsked = true;
   return { state: next, results };
 }
 
-/** The reference prompt is over (answered or skipped): open everything that was waiting for it. */
+/** Opens whatever an older version left waiting for a reference prompt (normally nothing). */
 export async function flushPendingEscalations(
   repo: Repo,
   conversationId: string,

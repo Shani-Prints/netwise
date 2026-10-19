@@ -142,7 +142,7 @@ export type RepresentativeStatus = z.infer<typeof RepresentativeStatusSchema>;
 /** ask_representative only reports: a question was sent by the server this turn, it is still waiting, or nothing is open. */
 export const AskRepOutputSchema = z.union([
   z.object({
-    status: z.enum(['sent', 'waiting', 'already_answered', 'none_open', 'needs_reference']),
+    status: z.enum(['sent', 'waiting', 'already_answered', 'unresolved', 'none_open', 'needs_reference']),
     note: z.string(),
   }),
   ToolErrorSchema,
@@ -155,8 +155,6 @@ export const EscalationOutputSchema = z.union([
   z.object({
     status: z.literal('ok'),
     results: z.array(z.object({ field: z.string(), outcome: EscalationOutcomeSchema })),
-    /** True: ask the employee, in ONE short sentence, for the optional reference (name or employee number). */
-    askReference: z.boolean(),
     note: z.string(),
   }),
   ToolErrorSchema,

@@ -63,21 +63,27 @@ function walk(v: unknown, out: { keys: string[]; strings: string[] } = { keys: [
 }
 
 describe('trigger (iv): the employee says she does not know a field (structured marker)', () => {
-  it('"I do not know my pension %" opens exactly ONE question, after the optional reference prompt, and shows no net', async () => {
+  it('"I do not know my pension %" opens exactly ONE question IN THE SAME TURN, asks for no name or number, and shows no net', async () => {
     const e = await employeeWithoutPension();
-    const a = await markUnknown(e, ['pensionPct']);
+    const m = fake(call('mark_field_unknown', { fields: ['pensionPct'] }), say('חסר לי אחוז הפנסיה ושלחתי שאלה לנציג.'));
+    const a = await chat(e, 'אין לי מושג מה אחוז הפנסיה שלי', { providers: [provider(m)] });
     expect(a.status).toBe(200);
-    // the first escalation of the conversation asks the employee for the optional reference; nothing is sent yet
-    expect(await repView()).toEqual([]);
-    expect((await e.state()).body.escalation).toEqual({ needsReference: true });
-    const b = await giveReference(e, 'דנה, מספר עובד 4711');
-    expect(b.status).toBe(200);
+    // the server opened the question in this very turn, without any reference
     const qs = await repView();
     expect(qs).toHaveLength(1);
     expect(qs[0]).toMatchObject({ kind: 'profile_field_unknown', field: 'pensionPct', status: 'open' });
-    expect(qs[0].context).toMatchObject({ occupation: PROFILE.occupation, employeeRef: 'דנה, מספר עובד 4711' });
+    expect(qs[0].context).toMatchObject({ occupation: PROFILE.occupation, employeeRefMissing: true });
+    expect(qs[0].context.employeeRef).toBeUndefined();
     expect(qs[0].answerSpec).toMatchObject({ type: 'number', unit: 'percent', min: 0, max: 100 });
-    expect(b.body.pendingQuestions).toHaveLength(1);
+    expect(a.body.pendingQuestions).toHaveLength(1);
+    // the bot may say a question was sent (it really was) and was never told to ask for an identifier
+    expect(a.body.assistantText).toContain('שלחתי שאלה לנציג');
+    const tool = JSON.stringify((m.doGenerateCalls[1]?.prompt ?? []).filter((x: Json) => x.role === 'tool'));
+    expect(tool).toContain('question_sent');
+    expect(tool).not.toMatch(/askReference|needs_reference/);
+    const system = JSON.stringify((m.doGenerateCalls[0]?.prompt ?? []).filter((x: Json) => x.role === 'system'));
+    expect(system).toContain('NEVER ask the employee for a name, an employee number or any other identification');
+    expect(system).not.toMatch(/askReference|pendingEscalation|optional reference/);
     // no number is shown while the value is missing
     const st = (await e.state()).body;
     expect(st.todayOnly.status).toBe('missing');
@@ -89,10 +95,10 @@ describe('trigger (iv): the employee says she does not know a field (structured 
   it('the bot is told the question was sent, and never to ask the employee for that value again', async () => {
     const e = await employeeWithoutPension();
     await markUnknown(e, ['pensionPct']);
-    const m = fake(call('provide_employee_reference', {}), say('חסר לי אחוז הפנסיה ושלחתי שאלה לנציג התחבורה.'));
+    const m = fake(call('provide_employee_reference', {}), say('חסר לי אחוז הפנסיה ושלחתי שאלה לנציג.'));
     const r = await chat(e, 'אין לי', { providers: [provider(m)] });
     expect(JSON.stringify(m.doGenerateCalls[1]?.prompt)).toContain('question_sent');
-    expect(r.body.assistantText).toContain('שלחתי שאלה לנציג התחבורה');
+    expect(r.body.assistantText).toContain('שלחתי שאלה לנציג');
     const m2 = fake(say('בסדר.'));
     await chat(e, 'מה המצב?', { providers: [provider(m2)] });
     const system = JSON.stringify((m2.doGenerateCalls[0]?.prompt ?? []).filter((x: Json) => x.role === 'system'));
@@ -100,15 +106,24 @@ describe('trigger (iv): the employee says she does not know a field (structured 
     expect(system).toContain('do not ask the employee for it again');
   });
 
-  it('if the employee gives no reference the question is STILL opened, and its context says the reference is missing', async () => {
+  it('a name or employee number the employee VOLUNTEERS is attached to the open question, as unverified text', async () => {
     const e = await employeeWithoutPension();
     await markUnknown(e, ['pensionPct']);
-    expect(await repView()).toEqual([]);
-    await justTalk(e, 'מה צריך?'); // the model never calls provide_employee_reference: the server opens the question at the end of the turn
-    const qs = await repView();
-    expect(qs).toHaveLength(1);
-    expect(qs[0].context.employeeRefMissing).toBe(true);
-    expect(qs[0].context.employeeRef).toBeUndefined();
+    expect((await repView())[0].context.employeeRefMissing).toBe(true);
+    const text = 'קוראים לי דנה כהן, מספר עובד 4711';
+    await chat(e, text, { providers: [provider(fake(call('provide_employee_reference', { employeeRef: text }), say('תודה, הוספתי את זה לשאלה.')))] });
+    const q = (await repView())[0];
+    expect(q.context.employeeRef).toBe(text);
+    expect(q.context.employeeRefUnverified).toBe(true); // the server labels it, the UI shows the label
+    expect(q.context.employeeRefMissing).toBeUndefined();
+    // a question opened LATER carries it too, still labelled
+    await markUnknown(e, ['studyFundPct']);
+    const later = (await repView()).find((x) => x.field === 'studyFundPct')!;
+    expect(later.context).toMatchObject({ employeeRef: text, employeeRefUnverified: true });
+    // a question that has NO reference never claims one
+    const e2 = await employeeWithoutPension();
+    await markUnknown(e2, ['pensionPct']);
+    expect((await repView()).find((x) => x.context.employeeRefMissing === true && x.context.employeeRefUnverified === undefined)).toBeDefined();
   });
 
   it('two unknown fields open two questions; repeating them opens nothing new', async () => {
@@ -160,19 +175,22 @@ describe('trigger (iv): the employee says she does not know a field (structured 
 });
 
 describe('triggers (ii) and (iii): server-detected cases', () => {
-  it('a current car that is not in the catalogue or the dataset, after full details, opens ONE question (numbers are not copied)', async () => {
+  it('a current car that is not in the catalogue: attempts 1 and 2 only count, the 3rd opens ONE question (numbers are not copied)', async () => {
     const e = new Client();
     await e.session();
-    await justTalk(e, 'הרכב הנוכחי שלי הוא טרביקס זנדורה 2022 והעובד משתתף ב-300 שקל');
-    expect((await e.state()).body.escalation.needsReference).toBe(true);
-    await giveReference(e, 'רונית');
+    const message = (n: number) => `הרכב הנוכחי שלי הוא טרביקס זנדורה 2022 והעובד משתתף ב-${300 + n} שקל`;
+    await justTalk(e, message(0));
+    await justTalk(e, message(1));
+    expect(await repView()).toEqual([]); // the first two failures open nothing
+    await justTalk(e, message(2));
     const qs = await repView();
     expect(qs).toHaveLength(1);
     expect(qs[0]).toMatchObject({ kind: 'unresolved_current_car' });
+    expect(qs[0].context.employeeRefMissing).toBe(true);
     expect(qs[0].context.wroteAbout).toContain('טרביקס זנדורה 2022');
-    expect(qs[0].context.wroteAbout).not.toMatch(/300/);
+    expect(qs[0].context.wroteAbout).not.toMatch(/30\d/);
     expect(qs[0].answerSpec.type).toBe('choice');
-    // the same description again opens nothing
+    // the same description again opens nothing more
     await justTalk(e, 'הרכב הנוכחי שלי הוא טרביקס זנדורה 2022');
     expect(await repView()).toHaveLength(1);
   });
@@ -187,15 +205,14 @@ describe('triggers (ii) and (iii): server-detected cases', () => {
     expect((await e.state()).body.escalation.needsReference).toBe(false);
   });
 
-  it('an alternative car that cannot be found after full details opens ONE question', async () => {
-    const e = new Client();
-    await e.session();
-    await justTalk(e, 'ומה אם אעבור לזנדורה פלקס 2024?');
-    await justTalk(e, 'שלום');
-    const qs = await repView();
-    expect(qs).toHaveLength(1);
-    expect(qs[0].kind).toBe('unresolved_alternative_car');
-    expect(qs[0].context.wroteAbout).toContain('זנדורה פלקס 2024');
+  it('an alternative car that cannot be found NEVER opens a question: the employee is shown what she may choose', async () => {
+    const e = await employeeWithoutPension();
+    for (let i = 0; i < 4; i++) {
+      const r = await chat(e, 'ואם אעבור לזנדורה פלקס 2024?', { providers: [provider(fake(say('בסדר.')))] });
+      expect(r.body.assistantText).toContain('הרכב שביקשת לא ברשימה של החברה לקבוצה שלך');
+    }
+    expect(await repView()).toEqual([]);
+    expect((await e.state()).body.questions).toEqual([]);
   });
 
   it('an occupation that is not in the table: the 1st time the employee is asked, the 2nd time the SERVER asks the representative', async () => {
@@ -208,9 +225,7 @@ describe('triggers (ii) and (iii): server-detected cases', () => {
     expect(toolPart).toContain('invalid_arguments');
     expect(toolPart).not.toContain('representative');
     expect(await repView()).toEqual([]);
-    await tryOccupation();
-    expect((await e.state()).body.escalation.needsReference).toBe(true);
-    await justTalk(e, 'שלום'); // end of turn: the server opens it
+    await tryOccupation(); // the 2nd time the SERVER opens the question, in this same turn
     const qs = await repView();
     expect(qs).toHaveLength(1);
     expect(qs[0]).toMatchObject({ kind: 'unresolved_occupation', field: 'occupation' });
@@ -309,7 +324,8 @@ describe('what the representative can see', () => {
     await e.updateProfile({ currentCar: PROFILE.currentCar });
     await markUnknown(e, ['pensionPct', 'studyFundPct']);
     await giveReference(e, 'דנה');
-    await justTalk(e, 'ואם אעבור לזנדורה פלקס 2024 ומשכורתי 23457?');
+    await e.updateProfile({ group: 'ב' }); // contradicts the occupation table: a third kind of question
+    await justTalk(e, 'ומשכורתי 23457');
     await justTalk(e, 'שלום');
     const views = await repView();
     expect(views.length).toBeGreaterThanOrEqual(3);
@@ -364,7 +380,7 @@ describe('what the representative can see', () => {
     const rep = await loggedInRep();
     expect((await rep.state()).status).toBe(403); // a rep session is not an employee session
     const q = (await repView())[0]!;
-    expect(Object.keys(q).sort()).toEqual(['answer', 'answerSpec', 'answeredAt', 'context', 'createdAt', 'field', 'id', 'kind', 'questionText', 'status'].sort());
+    expect(Object.keys(q).sort()).toEqual(['answer', 'answerSpec', 'answeredAt', 'context', 'createdAt', 'field', 'freeText', 'id', 'kind', 'questionText', 'status'].sort());
     expect(JSON.stringify(q)).not.toMatch(/conversationId|"messages"|salaryInputs/);
     expect((await chat(rep, 'שלום', { providers: [provider(fake(say('x')))] })).status).toBe(403);
   });

@@ -187,6 +187,13 @@ export function createSupabaseRepo(url: string, serviceRoleKey: string): Repo {
       if (filter?.conversationId) q = q.eq('conversation_id', filter.conversationId);
       return mustRows(await q, 'listRepQuestions').map(toQuestion);
     },
+    async updateRepQuestionContext(id, context) {
+      const r = must(
+        await db.from('rep_questions').update({ context }).eq('id', id).select('*').maybeSingle(),
+        'updateRepQuestionContext',
+      );
+      return r ? toQuestion(r) : null;
+    },
     async answerRepQuestion(id, answer) {
       // Conditional update: only an open question can be answered (no overwrite of a previous answer).
       const r = must(

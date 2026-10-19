@@ -175,7 +175,7 @@ describe('missing data returns "missing" and no number', () => {
     expect(b.view.difference).toBeUndefined();
     expect(b.view.explanation.join(' ')).not.toMatch(/\d/);
     expect(b.view.explanation[0]).toBe('חסר מידע כדי לחשב: אחוז פנסיה של העובד.');
-    expect(b.view.explanation[1]).toContain('לא חישבתי נטו כדי לא להמציא מספר');
+    expect(b.view.explanation[1]).toContain('לא הצגתי נטו');
     expect(JSON.stringify(b.result)).not.toContain('net');
   });
   it('no profile at all: every payroll field is reported missing', () => {

@@ -213,7 +213,7 @@ export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
     const amount = fmt(result.alternative.components.participation);
     assumptions.push(
       repMode
-        ? `השתתפות העובד ברכב החדש (${amount} ₪) היא ברירת המחדל של הקטלוג וטרם אושרה על ידי נציג התחבורה.`
+        ? `השתתפות העובד ברכב החדש (${amount} ₪) היא ברירת המחדל של הקטלוג וטרם אושרה על ידי הנציג.`
         : `השתתפות העובד ברכב החדש (${amount} ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).`,
     );
   }

@@ -86,13 +86,13 @@ describe('system prompt', () => {
     expect(p).toContain('Do NOT call ask_representative for it');
     expect(p).toContain('NEVER say that you asked');
     expect(p).toContain('ask_representative never opens a question');
-    expect(p).not.toContain('ושאלתי את נציג התחבורה'); // the sentence that claims a question was sent
+    expect(p).not.toContain('ושאלתי את הנציג'); // the sentence that claims a question was sent
     expect(p).not.toContain('representative mode');
   });
   it('representative mode: tells the bot to say it asked the representative', () => {
     const p = buildSystemPrompt('STATE', true);
     expect(p).toContain('NEW CAR PARTICIPATION (representative mode)');
-    expect(p).toContain('ושאלתי את נציג התחבורה');
+    expect(p).toContain('ושאלתי את הנציג');
     expect(p).not.toContain('default mode - decided policy');
   });
   it('the hard rules and the server state are identical in both modes', () => {
@@ -148,7 +148,7 @@ describe('default mode, end to end through POST /api/chat (fake model)', () => {
     expect(state.awaitingRepresentative).toBe(false);
     // what the model saw
     expect(systemOf(model)).toContain('default mode');
-    expect(systemOf(model)).not.toContain('ושאלתי את נציג התחבורה');
+    expect(systemOf(model)).not.toContain('ושאלתי את הנציג');
     const toolResult = secondRequest(model);
     expect(toolResult).toMatch(/pendingRepresentative\W+false/);
     expect(toolResult).not.toContain('awaiting_representative');
@@ -192,16 +192,16 @@ describe('representative mode (PARTICIPATION_FROM_REPRESENTATIVE=true), end to e
   it('opens the question automatically after a comparison and marks the comparison provisional', async () => {
     repModeOn();
     const e = await readyEmployee();
-    const model = fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('חסר לי נתון ושאלתי את נציג התחבורה.'));
+    const model = fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('חסר לי נתון ושאלתי את הנציג.'));
     const r = await chat(e, 'תשווה לאטו 3', { providers: [provider(model)], env: REP_MODE });
     expect(r.status).toBe(200);
     expect(r.body.pendingQuestions).toHaveLength(1);
     expect(r.body.pendingQuestions[0]).toMatchObject({ status: 'open', field: 'employee_participation' });
     expect(r.body.comparison.pendingQuestionId).toBe(r.body.pendingQuestions[0].id);
     expect(r.body.comparison.alternative.components.net).toBe(11693); // provisional net shown (default flag)
-    expect(r.body.comparison.assumptions[0]).toContain('טרם אושרה על ידי נציג התחבורה');
+    expect(r.body.comparison.assumptions[0]).toContain('טרם אושרה על ידי הנציג');
     expect(systemOf(model)).toContain('representative mode');
-    expect(systemOf(model)).toContain('ושאלתי את נציג התחבורה');
+    expect(systemOf(model)).toContain('ושאלתי את הנציג');
     expect(secondRequest(model)).toMatch(/pendingRepresentative\W+true/);
     expect((await e.state()).body.awaitingRepresentative).toBe(true);
   });
@@ -222,7 +222,7 @@ describe('representative mode (PARTICIPATION_FROM_REPRESENTATIVE=true), end to e
   it('after the representative answers, the value is applied once, the question is not re-created, and the next turn knows it', async () => {
     repModeOn();
     const e = await readyEmployee();
-    await chat(e, 'תשווה', { providers: [provider(fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('ושאלתי את נציג התחבורה.')))], env: REP_MODE });
+    await chat(e, 'תשווה', { providers: [provider(fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('ושאלתי את הנציג.')))], env: REP_MODE });
     const rep = await loggedInRep();
     const q = (await rep.repQuestions()).body.questions;
     expect(q).toHaveLength(1);

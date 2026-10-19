@@ -18,6 +18,10 @@ export const MAX_OPEN_QUESTIONS = 5;
 /** After this many rejected attempts to give the same field the server asks a representative instead of asking again. */
 export const MAX_REJECTED_ATTEMPTS = 3;
 export const EMPLOYEE_REF_MAX = 60;
+/** A current car that is not in the catalogue: the 3rd failed attempt (after full details) opens the representative question. */
+export const MAX_CURRENT_CAR_ATTEMPTS = 3;
+/** Candidate cars of the same maker offered to the employee. */
+export const MAX_CAR_CANDIDATES = 5;
 export const WROTE_ABOUT_MAX = 100;
 
 /** Inclusive bounds of typed numeric answers (monthly shekels, percent, points, counts). */
@@ -45,6 +49,46 @@ export const REP_KINDS = [
 ] as const;
 export type RepKind = (typeof REP_KINDS)[number];
 export const isRepKind = (k: unknown): k is RepKind => (REP_KINDS as readonly unknown[]).includes(k);
+
+// ------------------------------------------------------------------------------------------------ free-text answers
+
+/** The closed list of outcomes the interpreting model may choose from ("other" is always treated as not understood). */
+export const OUTCOMES = ['employee_not_found', 'value_unavailable', 'will_check_later', 'refer_elsewhere', 'approved', 'denied', 'other'] as const;
+export type Outcome = (typeof OUTCOMES)[number];
+
+/** Which outcomes a question kind may be answered with in free text. Anything else is "not understood". */
+export function allowedOutcomes(kind: RepKind): readonly Outcome[] {
+  switch (kind) {
+    case 'profile_field_unknown':
+    case 'other_missing_field':
+      return ['employee_not_found', 'value_unavailable', 'will_check_later', 'refer_elsewhere'];
+    case 'over_budget_gap':
+      return ['approved', 'denied'];
+    case 'unresolved_occupation':
+    case 'unresolved_current_car':
+    case 'unresolved_alternative_car':
+      return ['value_unavailable'];
+    case 'new_car_participation':
+    case 'group_conflict':
+      return [];
+  }
+}
+
+/** Fields where "none / zero" is a real value. For the others (base salary, group, occupation, cars) "none" is invalid. */
+export const ZERO_OK_FIELDS: ReadonlySet<string> = new Set([
+  'pensionPct',
+  'studyFundPct',
+  'creditPoints',
+  'commissions',
+  'bonus',
+  'childrenUnder23',
+  'currentParticipation',
+  'employee_participation',
+]);
+
+/** The stored value that means "give up the car" (alternative car questions only). */
+export const WAIVER_VALUE = 'waiver';
+export const WAIVER_LABEL_HE = 'ויתור על רכב';
 
 /**
  * EVERY field the engine can report as missing (plus the parts of the current car), by the engine's own names. The employee
@@ -143,6 +187,9 @@ function plain(text: string, max: number): string {
     .trim();
 }
 
+/** What a representative wrote in a free-text answer: control characters become spaces, at most 500 characters. */
+export const sanitizeRepText = (text: string): string => plain(text, 500);
+
 /** What the employee typed to identify herself. Untrusted: it is only ever shown quoted and labelled, never obeyed. */
 export const sanitizeEmployeeRef = (text: string): string => plain(text, EMPLOYEE_REF_MAX);
 
@@ -200,7 +247,7 @@ export function answerSpecFor(kind: RepKind, field: string): AnswerSpec {
       return { type: 'choice', options: [] }; // an unknown field accepts nothing
     }
     case 'other_missing_field':
-      if (field === 'alternative') return { type: 'choice', options: loadCatalog().map((c) => ({ value: c.id, label: carLabel(c) })) };
+      if (field === 'alternative') return { type: 'choice', options: [...loadCatalog().map((c) => ({ value: c.id, label: carLabel(c) })), { value: WAIVER_VALUE, label: WAIVER_LABEL_HE }] };
       if (field === 'occupationDetails') return { type: 'choice', options: loadOccupations().map((o) => ({ value: o.name, label: o.name })) };
       return { type: 'choice', options: [] };
     case 'over_budget_gap':
@@ -208,8 +255,9 @@ export function answerSpecFor(kind: RepKind, field: string): AnswerSpec {
     case 'unresolved_occupation':
       return { type: 'choice', options: loadOccupations().map((o) => ({ value: o.name, label: o.name })) };
     case 'unresolved_current_car':
-    case 'unresolved_alternative_car':
       return { type: 'choice', options: loadCatalog().map((c) => ({ value: c.id, label: carLabel(c) })) };
+    case 'unresolved_alternative_car':
+      return { type: 'choice', options: [...loadCatalog().map((c) => ({ value: c.id, label: carLabel(c) })), { value: WAIVER_VALUE, label: WAIVER_LABEL_HE }] };
     case 'group_conflict':
       return { type: 'choice', options: groupOptions() };
   }
@@ -306,3 +354,24 @@ export function questionText(kind: RepKind, field: string, ctx: RepQuestionConte
 }
 
 export { REP_FIELD_PARTICIPATION };
+
+/** Hebrew name of what a case is about, for the fixed employee-facing sentences (a label the SERVER knows). */
+export function labelForCase(kind: RepKind, field: string): string {
+  if (isUnknowableField(field)) return FIELD_NAME_HE[field];
+  switch (kind) {
+    case 'unresolved_occupation':
+      return 'עיסוק';
+    case 'unresolved_current_car':
+      return 'הרכב הנוכחי';
+    case 'unresolved_alternative_car':
+      return 'הרכב להשוואה';
+    case 'group_conflict':
+      return 'קבוצת זכאות';
+    case 'over_budget_gap':
+      return FIELD_NAME_HE.overBudgetPolicy;
+    case 'new_car_participation':
+      return FIELD_NAME_HE.alternativeParticipation;
+    default:
+      return 'נתון';
+  }
+}

@@ -31,7 +31,7 @@ import {
 const MAX_BODY_BYTES = 20_000;
 const BASE_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 
-function json(body: unknown, status = 200, setCookie?: string): Response {
+export function json(body: unknown, status = 200, setCookie?: string): Response {
   const headers = new Headers(BASE_HEADERS);
   if (setCookie) headers.set('set-cookie', setCookie);
   return new Response(JSON.stringify(body), { status, headers });
@@ -50,7 +50,7 @@ function errorResponse(err: unknown): Response {
   return json({ error: { code: 'internal_error' } }, 500);
 }
 
-async function run(fn: () => Promise<Response>): Promise<Response> {
+export async function run(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (err) {
@@ -59,7 +59,7 @@ async function run(fn: () => Promise<Response>): Promise<Response> {
 }
 
 /** Validates a JSON body with Zod. Unknown keys (such as userId / role) are stripped by the schemas. */
-async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T> {
+export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T> {
   if (!(req.headers.get('content-type') ?? '').toLowerCase().includes('application/json')) {
     throw new ServiceError(415, 'unsupported_media_type');
   }
@@ -99,7 +99,7 @@ interface Authed {
  *  - a valid cookie of an EMPLOYEE whose user row does not exist (e.g. made before the repo mode changed) -> a brand-new
  *    anonymous session: new user, new cookie. The old id is never adopted, so it can never reach anyone's data.
  */
-async function authenticate(req: Request, mode: Mode): Promise<Authed> {
+export async function authenticate(req: Request, mode: Mode): Promise<Authed> {
   const secret = getSessionSecret(); // throws if missing: no fallback secret, ever
   const read = readSession(req, secret);
   if (read.kind === 'invalid') throw new ServiceError(401, 'unauthorized');

@@ -84,8 +84,8 @@ describe('conversation continuity around a representative question', () => {
     expect(after.pendingQuestionId).toBeUndefined();
     const texts = applied.body.messages.map((m: Json) => `${m.role}: ${m.content}`);
     expect(texts).toHaveLength(3);
-    expect(texts[0]).toBe('system: נציג התחבורה ענה על השאלה שלך.');
-    expect(texts[1]).toContain('system: התקבל עדכון מנציג התחבורה');
+    expect(texts[0]).toBe('system: הנציג ענה על השאלה שלך.');
+    expect(texts[1]).toContain('system: הנציג עדכן את הנתון');
     expect(texts[1]).toContain('350 ₪');
     expect(texts[2]).toContain('assistant: ');
     expect(texts[2]).toContain('11,643 ₪');

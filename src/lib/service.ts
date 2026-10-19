@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { carLabel, getCatalogCar, getOccupation } from '../data/catalog';
 import { getUsageIndex, lookupUsageValue } from '../data/usageValues';
 import type { Repo } from '../db/repo';
@@ -18,6 +18,7 @@ import { loadRules } from '../config/rules';
 import { flushPendingEscalations, openQuestionNow, requestEscalations, type EscalationResult } from './escalation';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisionalPolicy';
 import { applyRepAnswer } from './repApply';
+import { gapReasonText, REP_ANSWER_REJECTED_TEXT, STATUS_TEXT, type QuestionStatus } from './repTemplates';
 import { participationFromRepresentative } from './flags';
 import { REP_ANSWER_NOTICE, REP_FIELD_PARTICIPATION } from './repFields';
 import {
@@ -25,6 +26,8 @@ import {
   EMPLOYEE_REF_MAX,
   isUnknowableField,
   kindOf,
+  MAX_CAR_CANDIDATES,
+  MAX_CURRENT_CAR_ATTEMPTS,
   MAX_REJECTED_ATTEMPTS,
   parseStoredAnswer,
   parseTypedAnswer,
@@ -64,13 +67,13 @@ export interface Actor {
 function requireEmployee(actor: Actor): void {
   if (actor.role !== 'employee') throw new ServiceError(403, 'forbidden');
 }
-function requireRep(actor: Actor): void {
+export function requireRep(actor: Actor): void {
   if (actor.role !== 'rep') throw new ServiceError(403, 'forbidden');
 }
 
 // ---- per-key serialisation: one writer at a time per employee, so an answer is applied exactly once ----
 const locks = new Map<string, Promise<unknown>>();
-async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+export async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = locks.get(key) ?? Promise.resolve();
   const run = prev.then(fn);
   const tail = run.catch(() => undefined);
@@ -127,6 +130,8 @@ export interface Updates {
 export interface ProfileView {
   /** Fields whose current value was entered by a representative (the employee can still correct them). */
   fieldSources: Record<string, 'representative'>;
+  /** Fields that will not be filled (the representative could not provide them): never asked again. */
+  fieldGaps: Record<string, 'unavailable' | 'not_found' | 'referred' | 'unresolved'>;
   group: string | null;
   occupation: string | null;
   childrenUnder23: number | null;
@@ -157,6 +162,10 @@ export interface RepQuestionView {
   field: string;
   /** The one kind of answer this question accepts (the UI renders it, the server enforces it). */
   answerSpec: AnswerSpec;
+  /** Set when the question was answered in free text: where the interpretation stands. null for typed answers / no answer. */
+  freeText: { state: string; submittedAt?: string } | null;
+  /** On a follow-up question: the id of the original question it clarifies. */
+  followUpOf?: string;
   questionText: string;
   status: 'open' | 'answered';
   answer: string | null;
@@ -173,14 +182,17 @@ export interface RepQuestionView {
     occupation?: string;
     wroteAbout?: string;
     employeeRef?: string;
+    /** Always true when employeeRef is present: it was typed by the employee and is NOT verified. */
+    employeeRefUnverified?: true;
     employeeRefMissing?: boolean;
   };
 }
 
 const noUpdates = (): Updates => ({ newAnswers: false, updatedFields: [] });
 
-function toRepQuestionView(q: RepQuestion): RepQuestionView {
+export function toRepQuestionView(q: RepQuestion): RepQuestionView {
   const c = q.context;
+  const wf = c.workflow;
   const kind = kindOf(q);
   return {
     id: q.id,
@@ -189,7 +201,10 @@ function toRepQuestionView(q: RepQuestion): RepQuestionView {
     answerSpec: answerSpecFor(kind, q.missingField),
     questionText: q.questionText,
     status: q.status,
-    answer: q.answer,
+    // a free-text answer is shown back to the representative as THEY wrote it (never to the employee)
+    answer: wf?.text ?? (q.answer !== null && q.answer.startsWith('closed:') ? null : q.answer),
+    freeText: wf && wf.state !== 'awaiting' ? { state: wf.state, ...(wf.submittedAt ? { submittedAt: wf.submittedAt } : {}) } : null,
+    ...(wf?.rootId ? { followUpOf: wf.rootId } : {}),
     createdAt: q.createdAt,
     answeredAt: q.answeredAt,
     // explicit copy of the whitelisted keys (the internal car id is not shown)
@@ -199,7 +214,7 @@ function toRepQuestionView(q: RepQuestion): RepQuestionView {
       ...(c.tableGroup !== undefined ? { tableGroup: c.tableGroup } : {}),
       ...(c.occupation !== undefined ? { occupation: c.occupation } : {}),
       ...(c.wroteAbout !== undefined ? { wroteAbout: c.wroteAbout } : {}),
-      ...(c.employeeRef !== undefined ? { employeeRef: c.employeeRef } : {}),
+      ...(c.employeeRef !== undefined ? { employeeRef: c.employeeRef, employeeRefUnverified: true as const } : {}),
       ...(c.employeeRefMissing ? { employeeRefMissing: true } : {}),
     },
   };
@@ -303,10 +318,14 @@ function finalizeView(view: ComparisonView, alt: OptionRef, questions: RepQuesti
   if (alt.kind === 'car' && state.repAnswers[alt.carId] !== undefined) {
     entered.push({ field: 'alternativeParticipation', label: missingFieldLabel('alternativeParticipation', age) });
   }
+  const unavailable = Object.keys(state.fieldGaps)
+    .filter((field) => view.missingFields.includes(field))
+    .map((field) => gapReasonText(missingFieldLabel(field, age)));
   return {
     ...view,
     ...(blocking ? { pendingQuestionId: blocking.id } : {}),
     ...(entered.length > 0 ? { representativeEntered: entered } : {}),
+    ...(unavailable.length > 0 ? { unavailableText: unavailable } : {}),
   };
 }
 
@@ -391,8 +410,14 @@ async function applyAnsweredQuestions(
   const applied: { field: string; carLabel: string; value: number | string; message: string }[] = [];
   for (const q of pending) {
     state.appliedAnswerIds.push(q.id); // a stored answer that cannot be applied is still never tried twice
-    const done = applyRepAnswer(q, profile, state);
+    const done = isSuperseded(q, profile, state) ? null : applyRepAnswer(q, profile, state);
     if (done) applied.push(done);
+  }
+  // Nothing was applied (every answer was superseded by the employee's own value, or could not be applied): only the "applied"
+  // marks are saved. No recomputation and no message: the employee is not told about an answer that changed nothing.
+  if (applied.length === 0) {
+    await repo.saveConversationState(conv.id, state);
+    return { conv: { ...conv, state }, profile: profile0, updates: noUpdates() };
   }
   // 1. the values (profile) and the "applied" marks (state) are saved before anything is shown, so a crash can never
   //    apply an answer twice (re-writing the same value would be harmless anyway)
@@ -438,6 +463,7 @@ function profileView(profile: ProfileRecord, state: ConversationState): ProfileV
   }
   return {
     fieldSources: { ...state.fieldSources },
+    fieldGaps: { ...state.fieldGaps },
     group: profile.groupCode ?? null,
     occupation: profile.occupation ?? null,
     childrenUnder23: profile.childrenCount ?? null,
@@ -600,7 +626,7 @@ export async function selectAlternative(repo: Repo, actor: Actor, alternative: O
 
 // ---------------------------------------------------------------- representative API
 
-export const REP_ANSWER_REJECTED_NOTICE = 'נציג התחבורה ניסה להשיב, אבל התשובה לא הייתה תקינה. השאלה עדיין פתוחה וממתינה לתשובה.';
+export const REP_ANSWER_REJECTED_NOTICE = REP_ANSWER_REJECTED_TEXT;
 
 /** Tells the employee that the question is still open after an invalid answer (once per run of rejections). */
 async function tellEmployeeStillOpen(repo: Repo, conversationId: string): Promise<void> {
@@ -629,6 +655,8 @@ export async function answerRepQuestion(
   const q = await repo.getRepQuestion(input.questionId);
   if (!q) throw new ServiceError(404, 'question_not_found');
   if (q.status !== 'open') throw new ServiceError(409, 'already_answered');
+  const wfState = q.context.workflow?.state;
+  if (wfState !== undefined && wfState !== 'awaiting' && wfState !== 'will_check_later') throw new ServiceError(409, 'answer_in_progress');
   const value = parseTypedAnswer(answerSpecFor(kindOf(q), q.missingField), input.answer);
   if (value === null) {
     await tellEmployeeStillOpen(repo, q.conversationId);
@@ -676,8 +704,22 @@ export async function askRepresentativeParticipation(
 /** Outcome per case, as reported to the bot. "already_known" = the profile already has the value, so nothing is asked. */
 export type EscalationReport = { kind: string; field: string; carId?: string; outcome: EscalationResult['outcome'] | 'already_known' | 'server_only' };
 
+/** A car the employee named that is not on the company's list, and what the server did about it this turn. */
+export interface CarIssue {
+  role: 'current' | 'alternative';
+  /** How many times the CURRENT car failed to match (this turn included). Always 0 for an alternative car. */
+  attempt: number;
+  /** True when the representative question was opened (or is already open) because of it. Never true for an alternative car. */
+  opened: boolean;
+  /** Catalogue labels of cars from the same maker (at most MAX_CAR_CANDIDATES). */
+  candidates: string[];
+  /** What the employee wrote about the car. Its digits are trusted by the response guard (she wrote them). */
+  text: string;
+}
+
 export interface EscalationReply {
   results: EscalationReport[];
+  carIssues?: CarIssue[];
   /** True while the bot must ask the employee (once) for the optional reference before the questions are sent. */
   needsReference: boolean;
 }
@@ -686,7 +728,7 @@ export interface EscalationReply {
 async function escalate(
   repo: Repo,
   actor: Actor,
-  fn: (turn: Turn) => Promise<{ state: ConversationState; results: EscalationReport[] } | null>,
+  fn: (turn: Turn) => Promise<{ state: ConversationState; results: EscalationReport[]; carIssues?: CarIssue[] } | null>,
 ): Promise<EscalationReply> {
   requireEmployee(actor);
   return withLock(actor.userId, async () => {
@@ -694,12 +736,12 @@ async function escalate(
     const out = await fn(turn);
     if (!out) return { results: [], needsReference: turn.conv.state.escalation.pending.length > 0 };
     if (JSON.stringify(out.state) !== JSON.stringify(turn.conv.state)) await repo.saveConversationState(turn.conv.id, out.state);
-    return { results: out.results, needsReference: out.state.escalation.pending.length > 0 };
+    return { results: out.results, needsReference: out.state.escalation.pending.length > 0, ...(out.carIssues ? { carIssues: out.carIssues } : {}) };
   });
 }
 
 /** Does the employee's saved data already have this field? Then there is nothing to ask a representative. */
-function hasValue(profile: ProfileRecord, state: ConversationState, f: UnknowableField): boolean {
+export function hasValue(profile: ProfileRecord, state: ConversationState, f: UnknowableField): boolean {
   switch (f) {
     case 'group':
       return profile.groupCode !== undefined;
@@ -722,6 +764,33 @@ function hasValue(profile: ProfileRecord, state: ConversationState, f: Unknowabl
       return false;
     default:
       return profile.salaryInputs[f] !== undefined;
+  }
+}
+
+/**
+ * The employee provided (or corrected) this field herself AFTER the question was opened: her value wins, so a representative's
+ * answer to that question is recorded but not applied, and the employee is not told.
+ */
+export function isSuperseded(q: RepQuestion, profile: ProfileRecord, state: ConversationState): boolean {
+  const field = q.missingField;
+  switch (kindOf(q)) {
+    case 'profile_field_unknown':
+    case 'other_missing_field':
+      return isUnknowableField(field) && hasValue(profile, state, field);
+    case 'unresolved_occupation':
+      return profile.occupation !== undefined;
+    case 'unresolved_current_car':
+      return state.currentCar !== undefined;
+    case 'unresolved_alternative_car':
+      return false;
+    case 'group_conflict': {
+      const occ = profile.occupation ? getOccupation(profile.occupation) : undefined;
+      return !(profile.groupCode && occ && occ.group !== profile.groupCode); // the conflict is gone
+    }
+    case 'over_budget_gap':
+      return q.context.carId !== undefined && state.gapPolicy[q.context.carId] !== undefined;
+    case 'new_car_participation':
+      return q.context.carId !== undefined && state.repAnswers[q.context.carId] !== undefined;
   }
 }
 
@@ -794,13 +863,24 @@ export function noteRejectedFields(repo: Repo, actor: Actor, fields: string[]): 
   });
 }
 
-/** The employee answered (or skipped) the reference prompt: store it (sanitised, untrusted) and open what was waiting. */
+/**
+ * The employee VOLUNTEERED a name or an employee number (nobody asks for it). It is sanitised, stored as untrusted text and
+ * attached to the questions that are already open and later questions; the representative only ever sees it as unverified.
+ */
 export function provideEmployeeReference(repo: Repo, actor: Actor, employeeRef: string | undefined): Promise<EscalationReply> {
   return escalate(repo, actor, async ({ conv }) => {
     const ref = employeeRef === undefined ? '' : sanitizeEmployeeRef(employeeRef).slice(0, EMPLOYEE_REF_MAX);
     const state: ConversationState = structuredClone(conv.state);
-    if (ref !== '') state.escalation.employeeRef = ref;
-    const flushed = await flushPendingEscalations(repo, conv.id, state);
+    if (ref !== '') {
+      state.escalation.employeeRef = ref;
+      for (const q of await repo.listRepQuestions({ conversationId: conv.id, status: 'open' })) {
+        if (q.context.employeeRef !== undefined) continue;
+        const { employeeRefMissing: _missing, ...context } = q.context;
+        void _missing;
+        await repo.updateRepQuestionContext(q.id, { ...context, employeeRef: ref });
+      }
+    }
+    const flushed = await flushPendingEscalations(repo, conv.id, state); // normally nothing is waiting
     return { state: flushed.state, results: flushed.results };
   });
 }
@@ -841,13 +921,16 @@ export interface UnresolvedCar {
   text: string;
   /** Identifies the car itself (maker/model words + year), so the same car described twice is ONE case. */
   key: string;
+  /** Catalogue labels of cars from the same maker, found by the caller (at most MAX_CAR_CANDIDATES). */
+  candidates?: string[];
 }
 
-const shortHash = (s: string) => createHash('sha256').update(s.toLowerCase()).digest('hex').slice(0, 8);
 
 /**
  * Deterministic triggers evaluated at the start of every employee turn:
- *  - a car that could not be found after full details (maker, model, year) were given;
+ *  - a CURRENT car that could not be found after full details (maker, model, year) were given: the 1st and 2nd failure only
+ *    count (the employee is asked again, with candidates); the 3rd opens the representative question;
+ *  - an ALTERNATIVE car that is not on the list: NEVER a question (the employee is shown the eligible options);
  *  - the stated group contradicts the occupation table: the bot asks the employee ONCE, and if it is still contradicting
  *    on a later turn the representative is asked.
  */
@@ -857,19 +940,27 @@ export function evaluateTurnTriggers(repo: Repo, actor: Actor, input: { unresolv
     const results: EscalationReport[] = [];
     const specs: EscalationSpec[] = [];
 
+    const carIssues: CarIssue[] = [];
+    if (state.currentCar !== undefined) delete state.escalation.attempts.currentCar; // resolved: the count starts over
     for (const c of input.unresolvedCars) {
       const wroteAbout = sanitizeWroteAbout(c.text);
       if (wroteAbout === '') continue;
-      specs.push({
-        kind: c.role === 'current' ? 'unresolved_current_car' : 'unresolved_alternative_car',
-        // the employee has ONE current car; alternatives are told apart by the car named
-        field: c.role === 'current' ? 'currentCar' : `alternativeCar:${shortHash(c.key)}`,
-        source: {
-          wroteAbout,
-          ...(profile.occupation ? { occupation: profile.occupation } : {}),
-          ...(c.role === 'alternative' && profile.groupCode ? { group: profile.groupCode } : {}),
-        },
-      });
+      const candidates = (c.candidates ?? []).slice(0, MAX_CAR_CANDIDATES);
+      if (c.role === 'alternative') {
+        // never a representative question: the employee is told what is on the list for her group
+        carIssues.push({ role: 'alternative', attempt: 0, opened: false, candidates, text: c.text });
+        continue;
+      }
+      const attempt = (state.escalation.attempts.currentCar ?? 0) + 1;
+      state.escalation.attempts.currentCar = attempt;
+      if (attempt >= MAX_CURRENT_CAR_ATTEMPTS) {
+        specs.push({
+          kind: 'unresolved_current_car',
+          field: 'currentCar',
+          source: { wroteAbout, ...(profile.occupation ? { occupation: profile.occupation } : {}) },
+        });
+      }
+      carIssues.push({ role: 'current', attempt, opened: false, candidates, text: c.text });
     }
 
     const occupation = profile.occupation ? getOccupation(profile.occupation) : undefined;
@@ -891,7 +982,12 @@ export function evaluateTurnTriggers(repo: Repo, actor: Actor, input: { unresolv
       state = asked.state;
       results.push(...asked.results);
     }
-    return { state, results };
+    for (const issue of carIssues) {
+      if (issue.role === 'current') {
+        issue.opened = results.some((r) => r.kind === 'unresolved_current_car' && (r.outcome === 'question_sent' || r.outcome === 'waiting'));
+      }
+    }
+    return { state, results, carIssues };
   });
 }
 
@@ -899,7 +995,25 @@ export interface QuestionStatusView {
   kind: RepKind;
   field: string;
   carId?: string;
-  status: 'open' | 'answered';
+  status: QuestionStatus;
+  /** The fixed Hebrew sentence for this status. The bot may quote it and must not describe the answer itself. */
+  statusText: string;
+}
+
+/**
+ * What the employee may be told about a question, from the STORED state only. A free-text answer that has not been
+ * interpreted yet is still just "open"; a superseded answer and a replaced question are not reported at all.
+ */
+function statusOf(q: RepQuestion): QuestionStatus | null {
+  const wf = q.context.workflow;
+  if (q.status === 'open') {
+    if (wf?.state === 'will_check_later') return 'checking';
+    if (wf?.rootId) return 'clarification';
+    return 'open';
+  }
+  if (wf?.state === 'superseded' || wf?.state === 'clarification_requested') return null;
+  if (wf?.state === 'unresolved') return 'unresolved';
+  return 'answered';
 }
 
 /** What the bot may report about questions: kind, field and status only. It cannot open one. */
@@ -909,7 +1023,10 @@ export async function listQuestionStatus(repo: Repo, actor: Actor): Promise<{ qu
     const { conv } = await prepare(repo, actor);
     const all = await repo.listRepQuestions({ conversationId: conv.id });
     return {
-      questions: all.map((q) => ({ kind: kindOf(q), field: q.missingField, ...(q.context.carId ? { carId: q.context.carId } : {}), status: q.status })),
+      questions: all.flatMap((q) => {
+        const status = statusOf(q);
+        return status === null ? [] : [{ kind: kindOf(q), field: q.missingField, ...(q.context.carId ? { carId: q.context.carId } : {}), status, statusText: STATUS_TEXT[status] }];
+      }),
       needsReference: conv.state.escalation.pending.length > 0,
     };
   });

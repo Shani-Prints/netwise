@@ -2,7 +2,8 @@ import { carLabel, getCatalogCar, getOccupation } from '../data/catalog';
 import type { ConversationState, ProfileRecord, RepQuestion } from '../db/types';
 import { fmt, missingFieldLabel } from './explain';
 import { loadRules } from '../config/rules';
-import { GAP_POLICY_OPTIONS, FIELD_NAME_HE, isUnknowableField, kindOf, parseStoredAnswer } from './repQuestions';
+import { repBudgetPolicyText, repParticipationUpdatedText, repUpdatedText } from './repTemplates';
+import { GAP_POLICY_OPTIONS, FIELD_NAME_HE, isUnknowableField, kindOf, parseStoredAnswer, WAIVER_LABEL_HE, WAIVER_VALUE } from './repQuestions';
 
 /**
  * Where a validated representative answer is WRITTEN. Pure: it changes the profile and the conversation state it is given
@@ -22,9 +23,6 @@ const SALARY_FIELDS = ['base', 'commissions', 'bonus', 'pensionPct', 'studyFundP
 type SalaryField = (typeof SALARY_FIELDS)[number];
 const isSalaryField = (f: string): f is SalaryField => (SALARY_FIELDS as readonly string[]).includes(f);
 
-const PREFIX = 'התקבל עדכון מנציג התחבורה:';
-const TAIL = 'הערך נשמר בפרופיל שלך (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.';
-
 const labelOf = (field: string): string =>
   isUnknowableField(field) ? FIELD_NAME_HE[field] : missingFieldLabel(field, loadRules().familyTrack.childMaxAge);
 
@@ -33,6 +31,9 @@ function valueText(field: string, n: number): string {
   if (field === 'creditPoints' || field === 'childrenUnder23') return String(n);
   return `${fmt(n)} ₪`;
 }
+
+const CURRENT_CAR_LABEL = 'הרכב הנוכחי';
+const ALTERNATIVE_LABEL = 'הרכב להשוואה';
 
 export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: ConversationState): AppliedAnswer | null {
   const stored = parseStoredAnswer(q);
@@ -51,9 +52,17 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
     mark('occupation');
   };
   const car = (id: string) => {
+    if (id === WAIVER_VALUE) return WAIVER_LABEL_HE;
     const c = getCatalogCar(id);
     return c ? carLabel(c) : id;
   };
+  // every message is the fixed template repUpdatedText(label, value): no agreement between the label and the value
+  const done = (value: number | string, label: string, shown: string, quoted: boolean, carLabelText = ''): AppliedAnswer => ({
+    field,
+    carLabel: carLabelText,
+    value,
+    message: repUpdatedText(label, shown, quoted),
+  });
 
   switch (kind) {
     case 'new_car_participation': {
@@ -65,7 +74,7 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
         field,
         carLabel: q.context.carLabel ?? '',
         value,
-        message: `התקבל עדכון מנציג התחבורה: ההשתתפות שלך ברכב "${q.context.carLabel ?? ''}" היא ${fmt(value)} ₪. החישוב עודכן בהתאם.`,
+        message: repParticipationUpdatedText(q.context.carLabel ?? '', `${fmt(value)} ₪`),
       };
     }
     case 'profile_field_unknown':
@@ -73,49 +82,49 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
       if (isSalaryField(field)) {
         profile.salaryInputs[field] = Number(stored);
         mark(field);
-        return { field, carLabel: '', value: Number(stored), message: `${PREFIX} ${labelOf(field)} הוא ${valueText(field, Number(stored))}. ${TAIL}` };
+        return done(Number(stored), labelOf(field), valueText(field, Number(stored)), false);
       }
       if (field === 'childrenUnder23') {
         profile.childrenCount = Number(stored);
         mark(field);
-        return { field, carLabel: '', value: Number(stored), message: `${PREFIX} ${labelOf(field)} הוא ${stored}. ${TAIL}` };
+        return done(Number(stored), labelOf(field), valueText(field, Number(stored)), false);
       }
       if (field === 'group') {
         profile.groupCode = stored as ProfileRecord['groupCode'];
         mark('group');
-        return { field, carLabel: '', value: stored, message: `${PREFIX} ${labelOf(field)} היא ${stored}. ${TAIL}` };
+        return done(stored, labelOf(field), stored, true);
       }
       if (field === 'currentParticipation') {
         state.currentParticipation = Number(stored);
         mark(field);
-        return { field, carLabel: '', value: Number(stored), message: `${PREFIX} ${labelOf(field)} הוא ${valueText(field, Number(stored))}. ${TAIL}` };
+        return done(Number(stored), labelOf(field), valueText(field, Number(stored)), false);
       }
       if (field === 'occupation' || field === 'occupationDetails') {
         setOccupation(stored);
-        return { field, carLabel: '', value: stored, message: `${PREFIX} העיסוק שלך הוא "${stored}". ${TAIL}` };
+        return done(stored, labelOf('occupation'), stored, true);
       }
       if (field === 'alternative') {
-        state.alternative = { kind: 'car', carId: stored };
+        state.alternative = stored === WAIVER_VALUE ? { kind: 'waiver' } : { kind: 'car', carId: stored };
         mark('alternative');
-        return { field, carLabel: car(stored), value: stored, message: `${PREFIX} הרכב להשוואה הוא "${car(stored)}". ${TAIL}` };
+        return done(stored, ALTERNATIVE_LABEL, car(stored), true, car(stored));
       }
       return null;
     }
     case 'unresolved_occupation':
       setOccupation(stored);
-      return { field, carLabel: '', value: stored, message: `${PREFIX} העיסוק שלך זוהה כ"${stored}". ${TAIL}` };
+      return done(stored, labelOf('occupation'), stored, true);
     case 'unresolved_current_car':
       state.currentCar = { kind: 'car', carId: stored };
       mark('currentCar');
-      return { field, carLabel: car(stored), value: stored, message: `${PREFIX} הרכב הנוכחי שלך זוהה כ"${car(stored)}". ${TAIL}` };
+      return done(stored, CURRENT_CAR_LABEL, car(stored), true, car(stored));
     case 'unresolved_alternative_car':
-      state.alternative = { kind: 'car', carId: stored };
+      state.alternative = stored === WAIVER_VALUE ? { kind: 'waiver' } : { kind: 'car', carId: stored };
       mark('alternative');
-      return { field, carLabel: car(stored), value: stored, message: `${PREFIX} הרכב שביקשת להשוות זוהה כ"${car(stored)}". ${TAIL}` };
+      return done(stored, ALTERNATIVE_LABEL, car(stored), true, car(stored));
     case 'group_conflict':
       profile.groupCode = stored as ProfileRecord['groupCode'];
       mark('group');
-      return { field, carLabel: '', value: stored, message: `${PREFIX} קבוצת הזכאות שלך היא ${stored}. ${TAIL}` };
+      return done(stored, labelOf('group'), stored, true);
     case 'over_budget_gap': {
       const carId = q.context.carId;
       if (!carId) return null;
@@ -125,7 +134,7 @@ export function applyRepAnswer(q: RepQuestion, profile: ProfileRecord, state: Co
         field,
         carLabel: q.context.carLabel ?? '',
         value: stored,
-        message: `${PREFIX} לגבי הרכב "${q.context.carLabel ?? ''}" הנציג השיב: ${label}. הכללים במערכת עדיין לא כוללים הסדר לפער מעל התקציב, ולכן לא חישבתי נטו לרכב הזה.`,
+        message: repBudgetPolicyText(q.context.carLabel ?? '', label),
       };
     }
   }

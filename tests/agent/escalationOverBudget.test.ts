@@ -39,20 +39,21 @@ const compare = (e: Client) => {
 const repList = async () => (await (await loggedInRep()).repQuestions()).body.questions as Json[];
 
 describe('trigger (i): a regular car above the group budget', () => {
-  it('opens exactly ONE question (after the reference prompt), never a number, never a duplicate', async () => {
+  it('opens exactly ONE question in the same turn, never a number, never a duplicate', async () => {
     const e = new Client();
     await e.updateProfile(PROFILE);
 
     const first = await compare(e);
     expect(first.r.status).toBe(200);
-    expect(toolResult(first.m)).toContain('needs_reference'); // the bot is told to ask for the optional reference
+    expect(toolResult(first.m)).toContain('"representative":"sent"'); // the server opened it in this very call
     expect(toolResult(first.m)).toContain('missing_fields');
     expect(toolResult(first.m)).not.toContain('alternativeNet');
     expect(first.r.body.comparison.status).toBe('missing');
     expect(first.r.body.comparison.alternative).toBeUndefined();
     expect(first.r.body.comparison.difference).toBeUndefined();
-    expect(await repList()).toEqual([]);
-    expect((await e.state()).body.escalation).toEqual({ needsReference: true });
+    expect(await repList()).toHaveLength(1);
+    expect((await repList())[0].context.employeeRefMissing).toBe(true);
+    expect((await e.state()).body.escalation).toEqual({ needsReference: false });
 
     const ref = fake(call('provide_employee_reference', { employeeRef: 'יוסי' }), say('תודה.'));
     await chat(e, 'יוסי', { providers: [provider(ref)] });
@@ -84,8 +85,6 @@ describe('trigger (i): a regular car above the group budget', () => {
   it('a car within the budget opens nothing', async () => {
     const e = new Client();
     await e.updateProfile(PROFILE);
-    const r = await e.select({ kind: 'car', carId: 'CAR-09' }); // a group ג car, but check a cheaper group א car too
-    expect(r.status).toBe(200);
     const cheap = await e.select({ kind: 'car', carId: 'CAR-01' });
     expect(cheap.body.comparison.status).toBe('ok');
     expect(await repList()).toEqual([]);

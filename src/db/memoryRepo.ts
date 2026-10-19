@@ -87,6 +87,12 @@ export function createMemoryRepo(seed: MemoryRepoSeed = {}): Repo {
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       );
     },
+    async updateRepQuestionContext(id, context) {
+      const q = questions.get(id);
+      if (!q) return null;
+      q.context = clone(context);
+      return clone(q);
+    },
     async answerRepQuestion(id, answer) {
       const q = questions.get(id);
       if (!q || q.status !== 'open') return null;

@@ -3,11 +3,14 @@ import { loadRules } from '../config/rules';
 import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
 import { missingFieldLabel } from '../lib/explain';
+import { FIELD_NAME_HE, labelForCase, isRepKind } from '../lib/repQuestions';
+import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, repQuestionSentText } from '../lib/repTemplates';
 import { participationFromRepresentative } from '../lib/flags';
-import { noteRejectedFields, prepareEmployeeTurn, type Actor, type TurnContext } from '../lib/service';
+import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_ASK, askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
-import { guardLogCode, guardResponse, type GuardReason } from './guard';
+import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
+import { listAllowedOptions } from './eligibleCars';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
 import { newCollector, createTools, SaveInputSchema, type TurnCollector } from './tools';
@@ -17,7 +20,7 @@ const MAX_STEPS = 8;
 // Per model request 25s (a blocked provider is given up on quickly), and 45s for the whole multi-step call.
 const CALL_TIMEOUT = { stepMs: 25_000, totalMs: 45_000 } as const;
 
-export const NEUTRAL_FALLBACK_HE = 'לא הצלחתי לנסח תשובה מדויקת. אפשר לנסח את השאלה מחדש או לספר לי מה חסר לך?';
+export const NEUTRAL_FALLBACK_HE = 'לא הצלחתי לענות כמו שצריך. אפשר לנסח את השאלה מחדש או לספר לי מה חסר?';
 
 export interface AgentTurnArgs {
   repo: Repo;
@@ -31,6 +34,10 @@ export interface AgentTurnArgs {
   participationFromRepresentative?: boolean;
   /** The employee's message of this turn. Used only to let the SERVER resolve a named car when the model gave no usable answer. */
   userMessage?: string;
+  /** Cars the employee named that are not on the company's list, as found by the server at the start of the turn. */
+  carIssues?: CarIssue[];
+  /** Questions the server opened at the start of the turn (before the model ran). */
+  openedAtStart?: { kind: string; field: string }[];
   fallback?: FallbackOptions;
 }
 
@@ -83,19 +90,20 @@ export function derivedGroupSentence(collector: TurnCollector): string {
 }
 
 /** Deterministic Hebrew text built only from tool results (which come from src/lib/explain.ts and the rules engine). */
-export function deterministicText(collector: TurnCollector): string {
+export function deterministicText(collector: TurnCollector, opts: { skipCurrentCar?: boolean } = {}): string {
   const parts: string[] = [];
+  const age0 = loadRules().familyTrack.childMaxAge;
+  const carLabelHe = missingFieldLabel('currentCar', age0);
+  const without = (labels: string[]) => (opts.skipCurrentCar ? labels.filter((l) => l !== carLabelHe) : labels);
   // A refusal always wins: it is the one thing the employee must not miss.
   for (const f of ineligibleFacts(collector)) parts.push(`אין זכאות לחלופה "${f.label}".\n${f.reason}.`);
   const view = collector.lastView;
   if (view && view.status !== 'ineligible') {
     // Data missing (no net to show): ask for the next items TOGETHER, at most MAX_ASK, instead of listing everything.
     // A "missing" view that still shows today's net (a representative question is open) keeps its own explanation.
-    parts.push(
-      view.status === 'missing' && !view.today && view.missingFields.length > 0
-        ? `חסר לי מידע כדי להמשיך: ${askNextLabels(view.missingFields).join(', ')}.`
-        : view.explanation.join('\n'),
-    );
+    const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askNextLabels(view.missingFields)) : null;
+    if (askLabels === null) parts.push(view.explanation.join('\n'));
+    else if (askLabels.length > 0) parts.push(`כדי להמשיך נצטרך עוד קצת מידע: ${askLabels.join(', ')}.`);
   }
   if (parts.length > 0) return parts.join('\n');
 
@@ -115,18 +123,19 @@ export function deterministicText(collector: TurnCollector): string {
       const labels = [...new Set(o.issues.map((i) => missingFieldLabel(i.path.split('.')[0] ?? '', age)))].filter((l) => l !== 'פרט נוסף');
       if (labels.length > 0) {
         return o.error === 'value_not_stated_by_employee'
-          ? `לא שמרתי את הנתונים כי לא מצאתי בהודעות שלך את: ${labels.join(', ')}. אפשר לכתוב לי אותם?`
-          : `הערכים הבאים אינם תקינים: ${labels.join(', ')}. אפשר לכתוב אותם שוב?`;
+          ? `לא מצאתי בהודעות שלך את: ${labels.join(', ')}, ולכן לא שמרתי אותם. אפשר לכתוב לי אותם?`
+          : `נראה שיש בעיה בערכים האלה: ${labels.join(', ')}. אפשר לכתוב אותם שוב?`;
       }
     }
     // What is missing, grouped into ONE short question (at most MAX_ASK items).
     if (o?.missingText && o.missingText.length > 0) {
-      const labels = o.missingFields && o.missingFields.length > 0 ? askNextLabels(o.missingFields) : o.missingText.slice(0, MAX_ASK);
-      return [derivedGroupSentence(collector), `חסר לי מידע כדי להמשיך: ${labels.join(', ')}.`].filter(Boolean).join('\n');
+      const labels = without(o.missingFields && o.missingFields.length > 0 ? askNextLabels(o.missingFields) : o.missingText.slice(0, MAX_ASK));
+      if (labels.length === 0) continue;
+      return [derivedGroupSentence(collector), `כדי להמשיך נצטרך עוד קצת מידע: ${labels.join(', ')}.`].filter(Boolean).join('\n');
     }
     if (r.tool === 'check_eligibility' && o?.text) {
       return o.status === 'eligible' && o.alternativeLabel
-        ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אם תרצה, אחשב כמה זה ישנה בנטו.`
+        ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אם בא לך, אחשב כמה זה ישנה בנטו.`
         : `${o.text}.`;
     }
   }
@@ -146,6 +155,69 @@ export function ensureIneligibleReason(text: string, collector: TurnCollector): 
   if (missing.length === 0) return { text, appended: false };
   const lines = missing.map((f) => (facts.length > 1 && f.label ? `"${f.label}": ${f.reason}.` : `${f.reason}.`));
   return { text: [text, ...lines].filter(Boolean).join('\n'), appended: true };
+}
+
+/**
+ * Cars the employee named that are not on the company's list. The text comes from the SERVER (catalogue labels and the
+ * eligibility function, never the model): the current car -> "not found" with same-maker candidates (or, after the 3rd
+ * failure, the sentence that a question was sent); an alternative car -> the eligible options for her group. After a refusal
+ * (ineligible) the eligible options are appended too. Nothing here opens a question.
+ */
+export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 'repo' | 'actor' | 'carIssues'>, collector: TurnCollector): Promise<string> {
+  const issues = args.carIssues ?? [];
+  const refused = ineligibleFacts(collector).length > 0;
+  if (issues.length === 0 && !refused) return text;
+  const profile = (await args.repo.getProfile(args.actor.userId)) ?? { userId: args.actor.userId, salaryInputs: {} };
+  const opts = listAllowedOptions(profile);
+  const optionLines = opts.status === 'ok' ? opts.cars.map((c) => `${c.label}, ${c.drive}`) : [];
+  let out = issues.length > 0 && text === NEUTRAL_FALLBACK_HE ? '' : text; // the bare fallback says nothing the guidance does not
+  const add = (extra: string) => {
+    if (squash(out).includes(squash(extra))) return;
+    out = out === '' ? extra : `${out}\n${extra}`;
+  };
+  for (const issue of issues) {
+    if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates));
+    else add(altNotOnListText(optionLines));
+  }
+  const alternativeIssue = issues.some((i) => i.role === 'alternative');
+  if (refused && !alternativeIssue && optionLines.length > 0) {
+    const mentioned = optionLines.filter((l) => out.includes(l.split(',')[0] ?? l)).length;
+    if (mentioned < Math.min(3, optionLines.length)) add(eligibleOptionsText(optionLines));
+  }
+  return out;
+}
+
+/** Labels of the representative questions the SERVER opened in this turn (before the model ran, or through a tool). */
+function questionsOpenedThisTurn(collector: TurnCollector, atStart: { kind: string; field: string }[]): string[] {
+  const labels: string[] = [];
+  const add = (l: string) => {
+    if (!labels.includes(l)) labels.push(l);
+  };
+  for (const s of atStart) add(isRepKind(s.kind) ? labelForCase(s.kind, s.field) : FIELD_NAME_HE.overBudgetPolicy);
+  for (const e of collector.escalations) if (e.outcome === 'question_sent') add(isRepKind(e.kind) ? labelForCase(e.kind, e.field) : 'נתון');
+  for (const r of collector.results) {
+    const o = r.output as { status?: string; representative?: string; issues?: { path: string }[] } | null;
+    if (!o) continue;
+    if (r.tool === 'calculate_comparison' && o.representative === 'sent') {
+      add(collector.lastView?.missingFields.includes('overBudgetPolicy') ? FIELD_NAME_HE.overBudgetPolicy : FIELD_NAME_HE.alternativeParticipation);
+    }
+    if (r.tool === 'save_employee_data' && o.status === 'error' && o.representative === 'question_sent') {
+      const field = o.issues?.[0]?.path.split('.')[0] ?? '';
+      add(field === 'occupation' ? FIELD_NAME_HE.occupation : (FIELD_NAME_HE as Record<string, string>)[field] ?? 'נתון');
+    }
+  }
+  return labels;
+}
+
+/**
+ * Whenever the server opened a representative question in this turn, the final text says so - also after a guard replacement
+ * and in every deterministic fallback. A text that already says it (any wording the guard recognises) is left alone.
+ */
+export function ensureQuestionSentence(text: string, collector: TurnCollector, atStart: { kind: string; field: string }[]): string {
+  const labels = questionsOpenedThisTurn(collector, atStart);
+  if (labels.length === 0 || claimsRepQuestion(text)) return text;
+  const sentence = repQuestionSentText(labels);
+  return text === '' || text === NEUTRAL_FALLBACK_HE ? sentence : `${text}\n${sentence}`;
 }
 
 async function history(repo: Repo, conversationId: string): Promise<ModelMessage[]> {
@@ -227,7 +299,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
         : { ...(await prepareEmployeeTurn(repo, actor)), updates: args.context.updates };
       first = false;
       const collector = newCollector();
-      const stateBlock = buildStateBlock(ctx, showProvisional);
+      const stateBlock = buildStateBlock(ctx, showProvisional, args.carIssues);
       const result = await generateText({
         model: p.model,
         instructions: buildSystemPrompt(stateBlock, fromRep),
@@ -263,7 +335,8 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
     codes.push('empty_answer');
     assistantText = '';
   } else {
-    const g = guardResponse(text, collector, [value.stateBlock]);
+    // digits the employee wrote about a car that was not found ("3000" in a model name) may be quoted back to her
+    const g = guardResponse(text, collector, [value.stateBlock, ...(args.carIssues ?? []).map((i) => i.text)], { repOpen: value.ctx.openQuestions.length > 0 });
     if (!g.ok) {
       guardReason = g.reason;
       codes.push(guardLogCode(g));
@@ -273,13 +346,14 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
 
   if (assistantText === '') {
     // 1. whatever the tools already established (a refusal reason, an explanation, what is missing)
-    assistantText = deterministicText(collector);
+    const skipCar = (args.carIssues ?? []).some((i) => i.role === 'current');
+    assistantText = deterministicText(collector, { skipCurrentCar: skipCar });
     via = 'deterministic';
     // 2. nothing from the tools: let the SERVER check the car the employee named, with the same engine and rules
     if (assistantText === NEUTRAL_FALLBACK_HE) {
       try {
         if (await serverEligibility(args, collector)) {
-          assistantText = deterministicText(collector);
+          assistantText = deterministicText(collector, { skipCurrentCar: skipCar });
           via = 'server_eligibility';
         }
       } catch (err) {
@@ -296,9 +370,12 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
 
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
+  const guided = await ensureCarGuidance(ensured.text, args, collector);
+  const finalText = ensureQuestionSentence(guided, collector, args.openedAtStart ?? []);
+  if (finalText !== ensured.text) console.info(`[netwise] chat: server text appended (provider=${provider})`);
 
   return {
-    assistantText: ensured.text,
+    assistantText: finalText,
     collector,
     context: value.ctx,
     provider,

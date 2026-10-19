@@ -8,6 +8,7 @@ import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
 import { ProfileFieldsSchema, type ProfileFields } from '../lib/schemas';
 import { UNKNOWABLE_FIELDS } from '../lib/repQuestions';
+import { STATUS_TEXT } from '../lib/repTemplates';
 import {
   listQuestionStatus,
   noteRejectedFields,
@@ -190,12 +191,7 @@ function escalationOutput(ctx: ToolContext, reply: EscalationReply) {
   return {
     status: 'ok' as const,
     results: reply.results.map((r) => ({ field: r.field, outcome: r.outcome })),
-    askReference: reply.needsReference,
-    note: reply.needsReference
-      ? 'ask the employee ONE short sentence for an optional reference (name or employee number)'
-      : sent > 0
-        ? 'the question was sent to the transport representative'
-        : 'nothing new was sent',
+    note: sent > 0 ? 'the question was sent to the representative in this turn' : 'nothing new was sent',
   };
 }
 
@@ -430,9 +426,7 @@ export function createTools(ctx: ToolContext): ToolSet {
           ? pendingQuestion.createdAt >= startedAt
             ? 'sent'
             : 'waiting'
-          : state.escalation.needsReference && view.missingFields.includes('overBudgetPolicy')
-            ? 'needs_reference'
-            : 'none';
+          : 'none';
       const base = {
         representative,
         alternativeLabel: view.alternativeLabel,
@@ -462,19 +456,22 @@ export function createTools(ctx: ToolContext): ToolSet {
   const ask_representative = defineTool(
     ctx,
     'ask_representative',
-    'REPORT-ONLY. Tells you whether the SERVER has already sent a question to the transport representative (sent / waiting / answered / none_open). It never opens a question: only the server does, when information is truly missing and the employee cannot provide it. Never promise or claim a question that this tool did not report.',
+    'REPORT-ONLY. Tells you whether the SERVER has already sent a question to the representative (sent / waiting / answered / none_open). It never opens a question: only the server does, when information is truly missing and the employee cannot provide it. Never promise or claim a question that this tool did not report.',
     AskRepInputSchema,
     AskRepOutputSchema,
     async (a) => {
-      const { questions, needsReference } = await listQuestionStatus(repo, actor);
+      const { questions } = await listQuestionStatus(repo, actor);
       const about = a.alternative ? questions.filter((q) => q.carId === a.alternative) : questions;
       const sentNow = ctx.collector.escalations.some((e) => e.outcome === 'question_sent');
-      if (about.some((q) => q.status === 'open')) {
-        return { status: sentNow ? ('sent' as const) : ('waiting' as const), note: sentNow ? 'שאלה נשלחה לנציג התחבורה.' : 'השאלה לנציג כבר נשלחה וממתינה לתשובה.' };
+      // the note is ALWAYS a fixed template for the stored status: the bot never describes the representative's answer
+      const waiting = about.filter((q) => q.status === 'open' || q.status === 'clarification' || q.status === 'checking');
+      if (waiting.length > 0) {
+        const top = waiting.find((q) => q.status === 'clarification') ?? waiting.find((q) => q.status === 'checking') ?? waiting[0]!;
+        return { status: sentNow ? ('sent' as const) : ('waiting' as const), note: top.statusText };
       }
-      if (needsReference) return { status: 'needs_reference' as const, note: 'השאלה תישלח לנציג אחרי שהעובד ימסור (או ידלג על) מזהה אישי.' };
-      if (about.some((q) => q.status === 'answered')) return { status: 'already_answered' as const, note: 'הנציג כבר ענה.' };
-      return { status: 'none_open' as const, note: 'לא נשלחה שאלה לנציג.' };
+      if (about.some((q) => q.status === 'unresolved')) return { status: 'unresolved' as const, note: STATUS_TEXT.unresolved };
+      if (about.some((q) => q.status === 'answered')) return { status: 'already_answered' as const, note: STATUS_TEXT.answered };
+      return { status: 'none_open' as const, note: STATUS_TEXT.none };
     },
   );
 
@@ -482,7 +479,7 @@ export function createTools(ctx: ToolContext): ToolSet {
     ctx,
     'mark_field_unknown',
     'Report that the employee EXPLICITLY said she does not know or does not have one or more profile fields (pension %, study fund %, credit points, group, base salary, commissions, bonus, children). ' +
-      'Ask for the value first; call this ONLY after she said she cannot provide it. This is a structured report: the SERVER decides whether a question goes to the transport representative. Never use it for a value she simply has not been asked yet.',
+      'Ask for the value first; call this ONLY after she said she cannot provide it. This is a structured report: the SERVER decides, and when it opens the question it does so in this same turn (see the result). Never use it for a value she simply has not been asked yet.',
     MarkUnknownInputSchema,
     EscalationOutputSchema,
     async (a) => {
@@ -495,7 +492,7 @@ export function createTools(ctx: ToolContext): ToolSet {
   const provide_employee_reference = defineTool(
     ctx,
     'provide_employee_reference',
-    'Call this on the turn AFTER you asked the employee for the optional reference (a result had askReference=true). Pass exactly what she wrote to identify herself (employeeRef), or omit employeeRef if she gave none or declined. The server then sends the waiting questions to the representative.',
+    'Call this ONLY when the employee herself volunteered a name or an employee number in her own message. Pass exactly what she wrote (employeeRef). Never ask for it and never wait for it: questions are opened without it. The server attaches it to the open questions as unverified text.',
     ProvideReferenceInputSchema,
     EscalationOutputSchema,
     async (a) => {

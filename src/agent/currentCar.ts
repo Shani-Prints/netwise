@@ -1,7 +1,9 @@
+import { carLabel } from '../data/catalog';
 import { matchCatalogCar } from '../data/carMatch';
 import { getUsageIndex, lookupUsageValue, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
-import { evaluateTurnTriggers, prepareEmployeeTurn, updateProfile, type Actor, type TurnContext, type UnresolvedCar } from '../lib/service';
+import { MAX_CAR_CANDIDATES } from '../lib/repQuestions';
+import { evaluateTurnTriggers, prepareEmployeeTurn, updateProfile, type Actor, type CarIssue, type TurnContext, type UnresolvedCar } from '../lib/service';
 
 /**
  * The employee's CURRENT car, resolved on the server from her own words with the same deterministic matcher that is used
@@ -74,17 +76,21 @@ function datasetKnows(words: string[], year: number): boolean {
 
 /**
  * FULL details = a registration year plus at least two words that can be a maker and a model. If nothing in the catalogue
- * or the official dataset matches those details, the car is unresolved and the SERVER (not the model) asks the representative.
- * An unclear or partial description is never escalated: the employee is simply asked for the missing details.
+ * or the official dataset matches those details, the car is "not found". For a CURRENT car the server counts the failures
+ * (the representative is asked only on the 3rd); an ALTERNATIVE car never reaches a representative. If the maker is known the
+ * catalogue cars of that maker are the candidates. A partial description is never counted: the employee is just asked again.
  */
 function unresolved(clause: string | null, role: UnresolvedCar['role']): UnresolvedCar | null {
   if (!clause) return null;
   const year = clause.match(YEAR)?.[1];
   const words = nameWords(clause);
   if (year === undefined || words.length < 2) return null;
-  if (matchCatalogCar(clause).status !== 'none') return null; // found, or ambiguous (ask the employee)
-  if (datasetKnows(words, Number(year))) return null;
-  return { role, text: clause, key: `${words.map((w) => w.toLowerCase()).sort().join(' ')} ${year}` };
+  const match = matchCatalogCar(clause);
+  if (match.status === 'found') return null;
+  if (match.status === 'none' && datasetKnows(words, Number(year))) return null;
+  // "ambiguous" with full details = the maker is in the catalogue but not this model: offer the maker's cars
+  const candidates = match.status === 'ambiguous' ? match.cars.slice(0, MAX_CAR_CANDIDATES).map(carLabel) : [];
+  return { role, text: clause, key: `${words.map((w) => w.toLowerCase()).sort().join(' ')} ${year}`, candidates };
 }
 
 export function detectUnresolvedCars(message: string, currentAlreadySaved: boolean): UnresolvedCar[] {
@@ -103,20 +109,29 @@ export function detectUnresolvedCars(message: string, currentAlreadySaved: boole
  * server triggers (a car that cannot be found after full details, a stated group that contradicts the occupation table)
  * and build the turn context (so the state the model sees already contains all of it).
  */
-export async function prepareTurnWithCurrentCar(repo: Repo, actor: Actor, message: string): Promise<TurnContext & { pendingAtStart: number }> {
+/** What the start of the turn produced besides the context: cars that were not found, and questions the server opened. */
+export interface TurnPrep extends TurnContext {
+  pendingAtStart: number;
+  carIssues: CarIssue[];
+  openedAtStart: { kind: string; field: string }[];
+}
+
+export async function prepareTurnWithCurrentCar(repo: Repo, actor: Actor, message: string): Promise<TurnPrep> {
   const before = await prepareEmployeeTurn(repo, actor);
   const hadCar = before.state.currentCar !== undefined;
   if (!hadCar) {
     const car = resolveCurrentCar(message);
     if (car) await updateProfile(repo, actor, { currentCar: car });
   }
-  await evaluateTurnTriggers(repo, actor, { unresolvedCars: detectUnresolvedCars(message, hadCar) });
+  const triggers = await evaluateTurnTriggers(repo, actor, { unresolvedCars: detectUnresolvedCars(message, hadCar) });
   // Answers are applied by the FIRST prepare of the turn; the later ones see them as already applied, so keep that report.
   const after = await prepareEmployeeTurn(repo, actor);
   return {
     ...after,
     // questions that were already waiting for the reference prompt BEFORE this turn's triggers ran
     pendingAtStart: before.state.escalation.pending.length,
+    carIssues: triggers.carIssues ?? [],
+    openedAtStart: triggers.results.filter((r) => r.outcome === 'question_sent').map((r) => ({ kind: r.kind, field: r.field })),
     updates: {
       newAnswers: before.updates.newAnswers || after.updates.newAnswers,
       updatedFields: [...before.updates.updatedFields, ...after.updates.updatedFields],

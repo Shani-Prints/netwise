@@ -1,5 +1,5 @@
 /**
- * Questions the agent / app can send to a transport representative. The question TEXT is always generated here from
+ * Questions the agent / app can send to a representative. The question TEXT is always generated here from
  * a template (never by the model) and the ANSWER is parsed here into a number (never copied as free text).
  */
 
@@ -29,4 +29,4 @@ export function participationQuestionText(carLabel: string, group: string | unde
   return `מה גובה ההשתתפות החודשית של העובד ברכב "${carLabel}"${groupPart}? נא להשיב בשקלים.`;
 }
 
-export const REP_ANSWER_NOTICE = 'נציג התחבורה ענה על השאלה שלך.';
+export { REP_ANSWER_NOTICE_TEXT as REP_ANSWER_NOTICE } from './repTemplates';

@@ -123,7 +123,7 @@ describe('a derived group is stated once as an assumption, never asked', () => {
     const t = await runTurn(e, 'אני מהנדסת תוכנה, משכורת בסיס 20000', call('save_employee_data', { occupation: 'מפתח/ת תוכנה', base: 20000 }), say(''));
     const lines = t.turn.assistantText.split('\n');
     expect(lines[0]).toMatch(/^הנחתי שהקבוצה של. היא ב לפי טבלת העיסוקי.\.$/);
-    expect(lines[1]).toMatch(/^חסר לי מידע כדי להמשיך: /);
+    expect(lines[1]).toMatch(/^כדי להמשיך נצטרך עוד קצת מידע: /);
     expect(lines[0]).not.toContain('?');
   });
 });

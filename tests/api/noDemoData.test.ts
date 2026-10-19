@@ -43,6 +43,7 @@ describe('the 6 sample employees are test data only', () => {
       'src/app/api/chat/route.ts',
       'src/app/api/employee/state/route.ts',
       'src/app/api/health/route.ts',
+      'src/app/api/rep/answer-text/route.ts',
       'src/app/api/rep/answer/route.ts',
       'src/app/api/rep/questions/route.ts',
       'src/app/api/session/rep/route.ts',

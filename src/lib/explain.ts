@@ -144,6 +144,6 @@ export function explainResult(
     `חסר מידע כדי לחשב: ${[...new Set(labels)].join(', ')}.`,
     conflicts.length > 0
       ? `${conflicts.join('; ')}.`
-      : 'לא חישבתי נטו כדי לא להמציא מספר; אשאל את העובד או את נציג התחבורה.',
+      : 'לכן לא הצגתי נטו עד שיהיה מידע מלא.',
   ];
 }

@@ -5,7 +5,9 @@ import { flushEscalations, getEmployeeState, ServiceError, type EmployeeQuestion
 import { describeError } from '../lib/errorLog';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
+import { retryPendingInterpretations, type Interpreter } from '../lib/repTextService';
 import { runAgentTurn } from './agent';
+import { createInterpreter } from './interpretRepText';
 import { prepareTurnWithCurrentCar } from './currentCar';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisional';
 import { AllProvidersFailedError, BUSY_MESSAGE_HE, buildProviders, type FallbackOptions, type ProviderEntry } from './providers';
@@ -64,6 +66,8 @@ export interface ChatDeps {
   /** Tests inject fake models here; production builds them from env. */
   providers?: ProviderEntry[];
   fallback?: FallbackOptions;
+  /** The isolated interpretation of representative free text (tests inject a fake one). */
+  interpret?: Interpreter;
   now?: () => number;
   env?: Record<string, string | undefined>;
 }
@@ -111,6 +115,13 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
     }
 
     await repo.addMessage(conv.id, 'user', message); // saved first: never lost if every provider fails
+    // Representative answers that are still waiting for their interpretation (row 11/12) are retried on every employee turn.
+    // Nothing here can fail the turn, and nothing about it is shown to the employee until it is interpreted.
+    try {
+      await retryPendingInterpretations(repo, { interpret: deps.interpret ?? createInterpreter(providers) }, { conversationId: conv.id, limit: 2 });
+    } catch (err) {
+      console.error(`[netwise] chat: retry of pending representative answers failed (${err instanceof Error ? err.name : 'unknown'})`);
+    }
     // start of the turn: rep answers applied, and a current car the employee named is resolved on the server
     const context = await prepareTurnWithCurrentCar(repo, actor, message);
 
@@ -125,6 +136,8 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
         providers,
         showProvisional: show,
         participationFromRepresentative: participationFromRepresentative(env),
+        carIssues: context.carIssues,
+        openedAtStart: context.openedAtStart,
         userMessage: message,
         fallback: deps.fallback,
       });

@@ -18,7 +18,7 @@ export function demoUsers(): User[] {
     role: 'employee' as const,
     displayName: e.name,
   }));
-  return [...employees, { id: REP_USER_ID, role: 'rep', displayName: 'נציג/ת תחבורה (דמה)' }];
+  return [...employees, { id: REP_USER_ID, role: 'rep', displayName: 'נציג/ת (דמה)' }];
 }
 
 export function demoProfiles(): ProfileRecord[] {

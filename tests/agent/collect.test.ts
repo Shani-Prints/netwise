@@ -113,7 +113,7 @@ describe('half a message: ONE grouped question for exactly what is missing', () 
   it('if the model says nothing, the server still asks ONE grouped question (max 4 items), never the whole list', async () => {
     const e = await newEmployee();
     const t = await runTurn(e, HALF, call('save_employee_data', { occupation: 'מפתח/ת תוכנה', base: 21000, pensionPct: 6.5 }), say(''));
-    expect(t.turn.assistantText).toBe('הנחתי שהקבוצה שלך היא ב לפי טבלת העיסוקים.\nחסר לי מידע כדי להמשיך: עמלות, בונוס, אחוז קרן השתלמות של העובד, נקודות זיכוי.');
+    expect(t.turn.assistantText).toBe('הנחתי שהקבוצה שלך היא ב לפי טבלת העיסוקים.\nכדי להמשיך נצטרך עוד קצת מידע: עמלות, בונוס, אחוז קרן השתלמות של העובד, נקודות זיכוי.');
     expect(t.turn.via).toBe('deterministic');
   });
 
@@ -380,7 +380,7 @@ describe('partial data never produces a comparison number', () => {
     );
     expect(t.turn.guardReason).toBe('unknown_number');
     expect(t.turn.assistantText).not.toMatch(/\d/);
-    expect(t.turn.assistantText).toMatch(/^חסר לי מידע כדי להמשיך: /);
+    expect(t.turn.assistantText).toMatch(/^כדי להמשיך נצטרך עוד קצת מידע: /);
   });
 });
 

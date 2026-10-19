@@ -49,10 +49,12 @@ export interface ComparisonView {
   /** Set when an open representative question blocks (or affects) this comparison: the missing part is waiting for it. */
   pendingQuestionId?: string;
   /**
-   * Inputs of this comparison whose value was entered by a transport representative, not by the employee.
+   * Inputs of this comparison whose value was entered by a representative, not by the employee.
    * The UI shows REPRESENTATIVE_BADGE_HE ("הוזן על ידי נציג") next to them. The employee can still correct them.
    */
   representativeEntered?: { field: string; label: string }[];
+  /** Hebrew reasons for inputs that will NOT become available (the representative could not provide them). The comparison stays missing. */
+  unavailableText?: string[];
   meta?: ComparisonMeta;
 }
 

@@ -82,6 +82,11 @@ export const ConversationStateSchema = z.object({
   fieldSources: z.record(z.string(), z.literal('representative')).default({}),
   /** The representative's answer about a car above its group budget, by car id (stored; the engine has no rule that uses it yet). */
   gapPolicy: z.record(z.string(), z.string()).default({}),
+  /**
+   * Fields that will NOT be filled: the representative said the value is unavailable / the employee was not found / it is handled
+   * elsewhere, or the clarification attempts ran out. The bot never asks the employee for them again.
+   */
+  fieldGaps: z.record(z.string(), z.enum(['unavailable', 'not_found', 'referred', 'unresolved'])).default({}),
 });
 export type ConversationState = z.infer<typeof ConversationStateSchema>;
 
@@ -122,6 +127,45 @@ export interface RepQuestionContext {
   employeeRef?: string;
   /** True when the employee gave no reference. */
   employeeRefMissing?: boolean;
+  /**
+   * Server-side workflow of a FREE-TEXT answer. Internal: it is never part of a representative or employee view, and
+   * `text` (what the representative wrote) is never copied into an employee-facing message or prompt.
+   */
+  workflow?: RepWorkflow;
+}
+
+export type RepWorkflowState =
+  /** A follow-up question that nobody has answered yet. */
+  | 'awaiting'
+  /** The text is stored and waits for the interpreting model (or a retry). */
+  | 'interpretation_pending'
+  /** Non-final: the representative is checking; the question stays open and may be answered again. */
+  | 'will_check_later'
+  /** The employee provided the value herself in the meantime: the representative's value is recorded, not applied. */
+  | 'superseded'
+  /** The question was closed by an outcome (not found, unavailable, approved ...) or by a value that was applied. */
+  | 'closed'
+  /** A follow-up question replaced this one. */
+  | 'clarification_requested'
+  /** The follow-ups ran out. */
+  | 'unresolved';
+
+export interface RepWorkflow {
+  state: RepWorkflowState;
+  /** What the representative wrote (max 500 characters). */
+  text?: string;
+  answeredBy?: string;
+  submittedAt?: string;
+  /** Interpretation attempts that failed because of an invalid model answer or a timeout. */
+  attempts: number;
+  /** A pending interpretation is owned by one worker until this time (ISO). */
+  leaseUntil?: string;
+  /** values_applied | outcome_<code> | not_understood | superseded (for logs and tests; never shown to the employee). */
+  result?: string;
+  /** On a follow-up: the original question. */
+  rootId?: string;
+  /** A valid value that was NOT applied because the employee provided that field herself (recorded only). */
+  recordedValue?: string;
 }
 
 export interface RepQuestion {

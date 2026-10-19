@@ -20,7 +20,7 @@ afterEach(() => {
 const { pensionPct: _p, studyFundPct: _s, ...WITHOUT_PENSION } = PROFILE;
 void _p;
 void _s;
-const SYSTEM_PREFIX = 'התקבל עדכון מנציג התחבורה';
+const SYSTEM_PREFIX = 'הנציג עדכן את הנתון';
 
 /** E-001 without the pension % and the study fund %, with the Atto 3 chosen: the comparison is missing exactly those. */
 async function waitingForPension(): Promise<Client> {
@@ -137,9 +137,8 @@ describe('3 rejected attempts for the same field -> ONE question instead of aski
     await chat(e, 'שלום', { providers: [provider(third)] });
     const toolPart = JSON.stringify((third.doGenerateCalls[1]?.prompt ?? []).filter((x: Json) => x.role === 'tool'));
     expect(toolPart).toContain('value_not_stated_by_employee');
-    expect(toolPart).toContain('needs_reference'); // the 3rd rejection: the server takes over (reference prompt first)
-    expect((await e.state()).body.escalation.needsReference).toBe(true);
-    await chat(e, 'אין לי', { providers: [provider(fake(call('provide_employee_reference', {}), say('תודה.')))] });
+    expect(toolPart).toContain('question_sent'); // the 3rd rejection: the server opens the question in this same turn
+    expect((await e.state()).body.escalation.needsReference).toBe(false);
     const qs = await repQuestions();
     expect(qs).toHaveLength(1);
     expect(qs[0]).toMatchObject({ kind: 'profile_field_unknown', field: 'pensionPct' });
@@ -165,8 +164,7 @@ describe('3 rejected attempts for the same field -> ONE question instead of aski
     const e = new Client();
     await e.session();
     for (let i = 0; i < 3; i++) await saveTurn(e, { pensionPct: 150 }, 'פנסיה 150');
-    expect((await e.state()).body.escalation.needsReference).toBe(true);
-    await chat(e, 'אין לי', { providers: [provider(fake(call('provide_employee_reference', {}), say('תודה.')))] });
+    expect((await e.state()).body.escalation.needsReference).toBe(false);
     expect(await repQuestions()).toHaveLength(1);
     expect((await repQuestions())[0]).toMatchObject({ field: 'pensionPct' });
   });
@@ -215,7 +213,7 @@ describe('the representative\'s answers are written to the profile, once, with t
   it('GET state and POST /api/chat tell the same story while a question blocks the comparison', async () => {
     const e = await waitingForPension();
     await openQuestion(e, ['pensionPct']);
-    const m = fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('חסר לי נתון ושלחתי שאלה לנציג התחבורה.'));
+    const m = fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('חסר לי נתון ושלחתי שאלה לנציג.'));
     const r = await chat(e, 'תשווה', { providers: [provider(m)] });
     const get = (await e.state()).body;
     expect(r.body.comparison).toEqual(get.comparison);

@@ -50,7 +50,7 @@ export function ruleNumbers(): number[] {
   ];
 }
 
-export type GuardReason = 'unknown_number' | 'unsupported_eligibility_claim';
+export type GuardReason = 'unknown_number' | 'unsupported_eligibility_claim' | 'unsupported_rep_claim';
 export interface GuardResult {
   ok: boolean;
   reason?: GuardReason;
@@ -63,6 +63,7 @@ export interface GuardResult {
 /** Short reason code for the server log (no keys, no payroll data, no text). */
 export function guardLogCode(g: GuardResult): string {
   if (g.reason === 'unknown_number') return 'guard:unknown_number';
+  if (g.reason === 'unsupported_rep_claim') return 'guard:no_rep_question';
   if (g.reason === 'unsupported_eligibility_claim') return g.hadFacts ? 'guard:claim_contradicts_tool' : 'guard:no_tool_result';
   return 'guard:ok';
 }
@@ -137,7 +138,41 @@ function trustedSentences(collector: TurnCollector): string[] {
   return [...out].sort((a, b) => b.length - a.length);
 }
 
-export function guardResponse(text: string, collector: TurnCollector, trustedTexts: string[] = []): GuardResult {
+/**
+ * "I sent a question to the representative" in Hebrew, active or passive (not preceded by "לא"):
+ * שלחתי [שאלה] ל/מ(ה)נציג · שאלתי את ה/הנציג · פניתי/הפניתי ל(ה)נציג · ביקשתי [הבהרה] מ(ה)נציג · נשלחה [השאלה] ל(ה)נציג.
+ * Written with Unicode escapes on purpose.
+ */
+const REP_CLAIM = new RegExp(
+  '(?<![\\u05D0-\\u05EA])(?<!\\u05DC\\u05D0\\s+)\\u05D5?(?:' +
+    '(?:\\u05E9\\u05DC\\u05D7\\u05EA\\u05D9(?:\\s+\\u05E9\\u05D0\\u05DC\\u05D4)?|\\u05E9\\u05D0\\u05DC\\u05EA\\u05D9|\\u05E4\\u05E0\\u05D9\\u05EA\\u05D9|\\u05D4\\u05E4\\u05E0\\u05D9\\u05EA\\u05D9|\\u05D1\\u05D9\\u05E7\\u05E9\\u05EA\\u05D9(?:\\s+\\u05D4\\u05D1\\u05D4\\u05E8\\u05D4)?)\\s+(?:\\u05D0\\u05EA\\s+|\\u05DC|\\u05DE)?' +
+    '|\\u05E0\\u05E9\\u05DC\\u05D7\\u05D4\\s+(?:\\u05D4\\u05E9\\u05D0\\u05DC\\u05D4\\s+)?\\u05DC' +
+    ')\\u05D4?\\u05E0\\u05E6\\u05D9\\u05D2',
+  'u',
+);
+
+/** Does the text say that a question was sent to the representative? */
+export const claimsRepQuestion = (text: string): boolean => REP_CLAIM.test(text);
+
+/** Did a question really go to the representative this turn, or is one already open? Only the server's records count. */
+function representativeFact(collector: TurnCollector, repOpen: boolean): boolean {
+  if (repOpen) return true;
+  if (collector.escalations.some((e) => e.outcome === 'question_sent' || e.outcome === 'waiting')) return true;
+  return collector.results.some((r) => {
+    const o = r.output as { status?: string; representative?: string } | null;
+    if (!o) return false;
+    if (r.tool === 'calculate_comparison') return o.representative === 'sent' || o.representative === 'waiting';
+    if (r.tool === 'ask_representative') return o.status === 'sent' || o.status === 'waiting';
+    return o.representative === 'question_sent' || o.representative === 'waiting';
+  });
+}
+
+export function guardResponse(
+  text: string,
+  collector: TurnCollector,
+  trustedTexts: string[] = [],
+  opts: { repOpen?: boolean } = {},
+): GuardResult {
   // 1. numbers: tool results, catalogue digits, the server state block, and a short list of rule facts
   const allowed = new Set<number>([...catalogNumbers(), ...ruleNumbers()]);
   for (const r of collector.results) collect(r.output, allowed);
@@ -159,5 +194,7 @@ export function guardResponse(text: string, collector: TurnCollector, trustedTex
     if (negative && !facts.includes(false)) return { ok: false, reason: 'unsupported_eligibility_claim', hadFacts };
     if (positive && !facts.includes(true)) return { ok: false, reason: 'unsupported_eligibility_claim', hadFacts };
   }
+  // 3. a claim that a question was sent to the representative needs a question that is really open
+  if (REP_CLAIM.test(text) && !representativeFact(collector, opts.repOpen ?? false)) return { ok: false, reason: 'unsupported_rep_claim' };
   return { ok: true };
 }

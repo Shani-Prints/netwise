@@ -41,6 +41,11 @@ export interface Repo {
   getRepQuestion(id: string): Promise<RepQuestion | null>;
   listRepQuestions(filter?: { status?: 'open' | 'answered'; conversationId?: string }): Promise<RepQuestion[]>;
   answerRepQuestion(id: string, answer: string): Promise<RepQuestion | null>;
+  /**
+   * Replaces the context (jsonb) of a question. Used to keep the server-side workflow of a free-text answer
+   * (RepQuestionContext.workflow). Returns the updated question, or null if it does not exist.
+   */
+  updateRepQuestionContext(id: string, context: RepQuestionContext): Promise<RepQuestion | null>;
 
   saveCalcResult(rec: CalcRecord): Promise<void>;
 

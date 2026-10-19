@@ -6,6 +6,22 @@ import { calculateScenario, type EmployeeProfile } from '../../src/engine';
 import { Client, freshRepo, PROFILE, restoreEnv, setupEnv } from '../api/harness';
 import { rules, usage } from '../helpers';
 import { call, captureConsole, chat, fake, groupGimelEmployee, MESSAGE, provider, REASON_CAR14, say } from './fakes';
+import { loadCatalog } from '../../src/data/catalog';
+
+const REFUSAL = `אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-14')!)}".\n${REASON_CAR14}.`;
+/**
+ * A refusal starts with the engine's reason and then lists what a group ג employee may choose (own group and lower), with
+ * labels from the catalogue and a fixed header: the server writes that part, never the model.
+ */
+function expectRefusalWithOptions(text: string) {
+  expect(text.startsWith(REFUSAL)).toBe(true);
+  const rest = text.slice(REFUSAL.length);
+  expect(rest).toContain('אלה הרכבים שמתאימים לקבוצה שלך:');
+  const allowed = loadCatalog().filter((c) => ['א', 'ב', 'ג'].includes(c.group));
+  expect(allowed.length).toBeGreaterThan(8);
+  for (const c of allowed) expect(rest).toContain(carLabel(c));
+  expect(rest).not.toContain(carLabel(getCatalogCar('CAR-14')!)); // the refused car is not offered
+}
 
 let con: ReturnType<typeof captureConsole>;
 
@@ -74,7 +90,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
   it('2. EMPTY model text after the tool: the deterministic explanation is used', async () => {
     const e = await groupGimelEmployee();
     const r = await chat(e, MESSAGE, { providers: [provider(fake(call('calculate_comparison', { alternative: 'CAR-14' }), say('')))] });
-    expect(r.body.assistantText).toBe(`אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-14')!)}".\n${REASON_CAR14}.`);
+    expectRefusalWithOptions(r.body.assistantText);
     expectNoTeslaNet(r.body.assistantText);
     expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=empty_answer, via=deterministic, provider=fake)');
   });
@@ -98,7 +114,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
       const model = fake(say(claim));
       const r = await chat(e, MESSAGE, { providers: [provider(model)] });
       expect(model.doGenerateCalls, claim).toHaveLength(1); // the model never called a tool
-      expect(r.body.assistantText, claim).toBe(`אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-14')!)}".\n${REASON_CAR14}.`);
+      expectRefusalWithOptions(r.body.assistantText);
       expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
       expectNoTeslaNet(r.body.assistantText);
       expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=guard:no_tool_result, via=server_eligibility, provider=fake)');
@@ -110,7 +126,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
     const model = fake(say(''));
     const r = await chat(e, MESSAGE, { providers: [provider(model)] });
     expect(model.doGenerateCalls).toHaveLength(1);
-    expect(r.body.assistantText).toBe(`אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-14')!)}".\n${REASON_CAR14}.`);
+    expectRefusalWithOptions(r.body.assistantText);
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
     expectNoTeslaNet(r.body.assistantText);
     expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=empty_answer, via=server_eligibility, provider=fake)');
@@ -125,7 +141,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
     const e = await groupGimelEmployee();
     const model = fake(call('check_eligibility', { alternative: 'CAR-14' }), say('אתה זכאי לרכב הזה.'));
     const r = await chat(e, MESSAGE, { providers: [provider(model)] });
-    expect(r.body.assistantText).toBe(`אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-14')!)}".\n${REASON_CAR14}.`);
+    expectRefusalWithOptions(r.body.assistantText);
   });
 
   it('an earlier refusal is not hidden by a later unrelated tool result', async () => {
@@ -152,7 +168,7 @@ describe('the server resolution does not invent answers', () => {
     const c = new Client();
     await c.session();
     const r = await chat(c, MESSAGE, { providers: [provider(fake(say('')))] });
-    expect(r.body.assistantText).toMatch(/^חסר לי מידע כדי להמשיך: /);
+    expect(r.body.assistantText).toMatch(/^כדי להמשיך נצטרך עוד קצת מידע: /);
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });
 

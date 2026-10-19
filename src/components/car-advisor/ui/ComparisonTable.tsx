@@ -32,7 +32,11 @@ export function ComparisonTable({ columns, highlighted }: ComparisonTableProps) 
         <tr>
           <td />
           {columns.map((column) => (
-            <th key={column.option} scope="col" className={cx(column.option === highlighted && styles.tableHeadHighlight)}>
+            <th
+              key={column.option}
+              scope="col"
+              className={cx(column.option === highlighted && styles.tableHeadHighlight)}
+            >
               {COLUMN_LABEL[column.option]}
             </th>
           ))}
@@ -47,7 +51,10 @@ export function ComparisonTable({ columns, highlighted }: ComparisonTableProps) 
             {columns.map((column) => (
               <td
                 key={column.option}
-                className={cx(row.strong && styles.tableStrong, column.option === highlighted && styles.tableHighlight)}
+                className={cx(
+                  row.strong && styles.tableStrong,
+                  column.option === highlighted && styles.tableHighlight,
+                )}
               >
                 <bdi dir="ltr">{formatCell(column[row.key])}</bdi>
               </td>

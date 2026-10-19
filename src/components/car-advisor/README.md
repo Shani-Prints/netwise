@@ -5,18 +5,18 @@ A self-contained React component. Copy this folder to the host and import from `
 ```tsx
 import { FloatingChat } from './car-advisor';
 
-<FloatingChat client={myClient} position="bottom-left" />
+<FloatingChat client={myClient} position="bottom-left" />;
 ```
 
 ## Public API (`index.ts`)
 
-| Export | What it is |
-| --- | --- |
-| `FloatingChat` | Launcher button plus chat window, rendered through a portal into `document.body`. |
-| `ChatWidget` | The chat window content only (fills its container). Use it if the host has its own container. |
-| `CarAdvisorClient` | TypeScript interface the host implements with the real API and its own auth. |
-| `createMockClient` | Demo client with fixtures. It is the default `client` until the host provides one. |
-| view-model types | `AnswerView`, `HandoffView`, `ReturnedAnswerView`, ... |
+| Export             | What it is                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| `FloatingChat`     | Launcher button plus chat window, rendered through a portal into `document.body`.             |
+| `ChatWidget`       | The chat window content only (fills its container). Use it if the host has its own container. |
+| `CarAdvisorClient` | TypeScript interface the host implements with the real API and its own auth.                  |
+| `createMockClient` | Demo client with fixtures. It is the default `client` until the host provides one.            |
+| view-model types   | `AnswerView`, `HandoffView`, `ReturnedAnswerView`, ...                                        |
 
 `FloatingChat` props: `client`, `position` (`"bottom-left"` default, or `"bottom-right"`), `zIndex`
 (default `2147483000 - 1000`), `defaultOpen`, `onOpenChange`, `onUnreadChange`.

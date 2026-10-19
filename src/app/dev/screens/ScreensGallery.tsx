@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import { ChatWidget } from '../../../components/car-advisor';
 import { he } from '../../../components/car-advisor/content/he';
-import { answerFixture } from '../../../components/car-advisor/contract/fixtures';
+import {
+  answerFixture,
+  confirmationFixture,
+  handoffFixture,
+} from '../../../components/car-advisor/contract/fixtures';
 import { Launcher } from '../../../components/car-advisor/Launcher';
 import { PreviewBubble } from '../../../components/car-advisor/PreviewBubble';
 import { ScopeRoot } from '../../../components/car-advisor/ScopeRoot';
@@ -13,7 +17,15 @@ import './hostile-host.css';
 /** Explicit display so the box keeps its size even inside the hostile host wrapper. */
 const WINDOW_BOX = { display: 'block', width: 380, height: 600 } as const;
 
-function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+function Panel({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <section style={{ flex: '0 0 auto' }}>
       <h2 style={{ font: '600 14px system-ui', margin: '0 0 8px' }}>{title}</h2>
@@ -23,6 +35,25 @@ function Panel({ title, children, className }: { title: string; children: React.
 }
 
 function noop() {}
+
+const HANDOFF_QUESTION: ChatMessage = { id: 'gallery-user', kind: 'user', text: handoffFixture.questionText };
+
+const handoffMessage = (sent: boolean): ChatMessage => ({
+  id: 'gallery-handoff',
+  kind: 'handoff',
+  handoff: handoffFixture,
+  channel: handoffFixture.defaultChannel,
+  sending: false,
+  sent,
+});
+
+const HANDOFF_MESSAGES: ChatMessage[] = [HANDOFF_QUESTION, handoffMessage(false)];
+
+const CONFIRMATION_MESSAGES: ChatMessage[] = [
+  HANDOFF_QUESTION,
+  handoffMessage(true),
+  { id: 'gallery-confirmation', kind: 'confirmation', confirmation: confirmationFixture },
+];
 
 const ANSWER_MESSAGES: ChatMessage[] = [
   { id: 'gallery-user', kind: 'user', text: answerFixture.questionText },
@@ -46,8 +77,22 @@ export function ScreensGallery() {
         </div>
       </Panel>
 
+      <Panel title="Screen 3: no answer, hand-off to a rep">
+        <div style={WINDOW_BOX}>
+          <ChatWidget onClose={noop} initialMessages={HANDOFF_MESSAGES} />
+        </div>
+      </Panel>
+
+      <Panel title="Screen 4: confirmation">
+        <div style={WINDOW_BOX}>
+          <ChatWidget onClose={noop} initialMessages={CONFIRMATION_MESSAGES} />
+        </div>
+      </Panel>
+
       <Panel title="Launcher: closed, unread badge, preview bubble">
-        <ScopeRoot style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', width: 300 }}>
+        <ScopeRoot
+          style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', width: 300 }}
+        >
           <Launcher expanded={launcherOpen} unread={false} onClick={() => setLauncherOpen(!launcherOpen)} />
           <Launcher expanded={false} unread onClick={noop} />
           <PreviewBubble text={he.notification.title} onOpen={noop} />

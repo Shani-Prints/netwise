@@ -93,13 +93,14 @@ export const he = {
     },
     submit: 'העבר לנציג',
     submitBusy: 'מעביר…',
+    submitted: 'הועבר לנציג',
     expectedTime: 'זמן מענה צפוי של הנציג: [SLA] ימי עבודה',
   },
 
   confirmation: {
     subtitle: 'הפנייה נשלחה',
     title: 'הפנייה הועברה לנציג',
-    text: 'התשובה תחזור אליך כאן בצ׳אט. מספר פנייה: {ticketNumber}',
+    text: 'התשובה תחזור אליך כאן בצ׳אט. מספר פנייה:',
     step1Title: 'הפנייה התקבלה',
     step1Detail: 'השאלה והבדיקות שלי צורפו',
     step2Title: 'הנציג משיב ליועץ',
@@ -177,8 +178,7 @@ export const he = {
     ],
     sources:
       'שכר ברוטו ונקודות זיכוי: [מערכת השכר]. מחירון הרכב: [מקור]. נוסחאות מס: [שנת מס]. עודכן ב[תאריך].',
-    usageTaxDefinitionPlaceholder:
-      '[הגדרת ״מס וב״ל על השווי״ – ממתינה לאישור מחלקת השכר]',
+    usageTaxDefinitionPlaceholder: '[הגדרת ״מס וב״ל על השווי״ – ממתינה לאישור מחלקת השכר]',
     repExplanation: '[ההסבר של הנציג, בנוסח היועץ]',
     teamName: '[שם הצוות]',
     timeLabel: '[שעה]',

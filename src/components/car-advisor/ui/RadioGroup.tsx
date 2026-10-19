@@ -11,12 +11,20 @@ interface RadioGroupProps<T extends string> {
   options: RadioOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }
 
 /** Native radio inputs inside a fieldset: keyboard and screen-reader behavior comes for free. */
-export function RadioGroup<T extends string>({ legend, name, options, value, onChange }: RadioGroupProps<T>) {
+export function RadioGroup<T extends string>({
+  legend,
+  name,
+  options,
+  value,
+  onChange,
+  disabled,
+}: RadioGroupProps<T>) {
   return (
-    <fieldset>
+    <fieldset disabled={disabled}>
       <legend className={styles.radioLegend}>{legend}</legend>
       <div className={styles.radioRow}>
         {options.map((option) => (

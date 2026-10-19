@@ -29,6 +29,11 @@ export function createMockClient(): CarAdvisorClient {
       return { kind: 'answer', answer: { ...answerFixture, questionText: question } };
     },
 
+    async prepareHandoff(question) {
+      await delay(300);
+      return { ...handoffFixture, questionText: question };
+    },
+
     async sendToRep(_question, channel) {
       await delay(400);
       return { ...confirmationFixture, channel };

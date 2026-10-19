@@ -19,7 +19,8 @@ export function StepList({ items, variant }: StepListProps) {
   return (
     <ol className={styles.steps}>
       {items.map((item, index) => {
-        const tone = variant === 'numbered' ? styles.stepDark : index === 0 ? styles.stepActive : styles.stepIdle;
+        const tone =
+          variant === 'numbered' ? styles.stepDark : index === 0 ? styles.stepActive : styles.stepIdle;
         return (
           <li key={item.title} className={styles.step}>
             <span className={cx(styles.stepNumber, tone)} aria-hidden="true">

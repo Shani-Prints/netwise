@@ -82,9 +82,9 @@
   transform: translateY(12px) scale(0.98);
   transform-origin: bottom center;
   transition:
-      opacity 0.18s ease,
-      transform 0.18s ease,
-      visibility 0s linear 0.18s;
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0s linear 0.18s;
 }
 [data-car-advisor][data-car-advisor] .window:focus {
   outline: none;
@@ -95,9 +95,9 @@
   pointer-events: auto;
   transform: none;
   transition:
-      opacity 0.18s ease,
-      transform 0.18s ease,
-      visibility 0s;
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0s;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-car-advisor][data-car-advisor] .window,

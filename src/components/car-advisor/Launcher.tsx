@@ -27,7 +27,11 @@ export const Launcher = forwardRef<HTMLButtonElement, LauncherProps>(function La
       onClick={onClick}
     >
       <CarIcon size={28} />
-      {unread ? <span className={styles.badge} aria-hidden="true">1</span> : null}
+      {unread ? (
+        <span className={styles.badge} aria-hidden="true">
+          1
+        </span>
+      ) : null}
     </button>
   );
 });

@@ -1,0 +1,126 @@
+/*
+ * Floating shell. This is the only file that uses viewport sizing (dvh and viewport media queries).
+ * z-index is never set here: it comes from the zIndex prop as an inline style.
+ */
+
+/* Launcher and preview bubble anchors */
+[data-car-advisor][data-car-advisor] .anchor {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+[data-car-advisor][data-car-advisor] .anchorBubble {
+  position: fixed;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 56px + 12px);
+}
+[data-car-advisor][data-car-advisor] .left {
+  left: max(16px, env(safe-area-inset-left));
+}
+[data-car-advisor][data-car-advisor] .right {
+  right: max(16px, env(safe-area-inset-right));
+}
+[data-car-advisor][data-car-advisor] .launcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ca-blue);
+  color: var(--ca-white);
+  box-shadow: 0 6px 20px rgba(11, 42, 61, 0.3);
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .launcher:hover {
+  filter: brightness(1.08);
+}
+[data-car-advisor][data-car-advisor] .badge {
+  position: absolute;
+  top: -2px;
+  inset-inline-end: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid var(--ca-white);
+  border-radius: 999px;
+  background: var(--ca-danger-text);
+  color: var(--ca-white);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+[data-car-advisor][data-car-advisor] .bubble {
+  display: block;
+  max-width: 260px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+  box-shadow: 0 6px 20px rgba(11, 42, 61, 0.2);
+  color: var(--ca-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Window */
+[data-car-advisor][data-car-advisor] .window {
+  position: fixed;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 56px + 12px);
+  width: 380px;
+  height: 600px;
+  max-height: calc(100dvh - 6.5rem);
+  max-width: calc(100vw - 2rem);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(12px) scale(0.98);
+  transform-origin: bottom center;
+  transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      visibility 0s linear 0.18s;
+}
+[data-car-advisor][data-car-advisor] .window:focus {
+  outline: none;
+}
+[data-car-advisor][data-car-advisor] .windowOpen {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-car-advisor][data-car-advisor] .window,
+  [data-car-advisor][data-car-advisor] .windowOpen {
+    transition: none;
+  }
+}
+
+/* Small viewports: nearly full-screen window, launcher hidden while it is open */
+@media (max-width: 480px) {
+  [data-car-advisor][data-car-advisor] .window,
+  [data-car-advisor][data-car-advisor] .window.left,
+  [data-car-advisor][data-car-advisor] .window.right {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+  }
+  [data-car-advisor][data-car-advisor] .launcherHidden {
+    visibility: hidden;
+  }
+}

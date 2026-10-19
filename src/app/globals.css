@@ -1,10 +1,20 @@
 @import 'tailwindcss';
 
-:root {
-  color-scheme: light;
+/*
+ * Global styles of our own dev app only. The car advisor component ships its own scoped styles
+ * (src/components/car-advisor) and does not rely on anything in this file except that the host may load Heebo.
+ */
+
+/* Self-hosted font. The file is added to public/fonts/ by the project owner; until then the system font is used. */
+@font-face {
+  font-family: 'Heebo';
+  src: url('/fonts/Heebo.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
+
 body {
-  background: #f6f7f9;
-  color: #14213d;
-  font-family: system-ui, 'Segoe UI', Arial, sans-serif;
+  background: #eceff1;
+  color: #222;
 }

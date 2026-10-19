@@ -1,0 +1,56 @@
+/*
+ * Base reset for everything inside the scope root. Plain (non-module) CSS because it targets element selectors.
+ * Every selector starts with [data-car-advisor][data-car-advisor] (doubled to raise specificity above typical host
+ * rules such as ".host button"), so nothing here can affect the host page. No html, body or :root selectors.
+ */
+[data-car-advisor][data-car-advisor] * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: inherit;
+  line-height: inherit;
+}
+[data-car-advisor][data-car-advisor] div,
+[data-car-advisor][data-car-advisor] section,
+[data-car-advisor][data-car-advisor] header,
+[data-car-advisor][data-car-advisor] form,
+[data-car-advisor][data-car-advisor] p,
+[data-car-advisor][data-car-advisor] h1,
+[data-car-advisor][data-car-advisor] h2,
+[data-car-advisor][data-car-advisor] h3,
+[data-car-advisor][data-car-advisor] ul,
+[data-car-advisor][data-car-advisor] ol,
+[data-car-advisor][data-car-advisor] fieldset {
+  display: block;
+}
+[data-car-advisor][data-car-advisor] ul,
+[data-car-advisor][data-car-advisor] ol {
+  list-style: none;
+}
+[data-car-advisor][data-car-advisor] li {
+  display: list-item;
+  list-style: none;
+}
+[data-car-advisor][data-car-advisor] button,
+[data-car-advisor][data-car-advisor] textarea,
+[data-car-advisor][data-car-advisor] input {
+  appearance: none;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  text-indent: 0;
+}
+[data-car-advisor][data-car-advisor] svg {
+  display: inline-block;
+  width: auto;
+  height: auto;
+  flex: none;
+}
+[data-car-advisor][data-car-advisor] :focus-visible {
+  outline: 3px solid var(--ca-action);
+  outline-offset: 2px;
+}

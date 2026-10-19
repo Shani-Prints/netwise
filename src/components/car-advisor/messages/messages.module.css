@@ -1,0 +1,38 @@
+[data-car-advisor][data-car-advisor] .greetingTitle {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+[data-car-advisor][data-car-advisor] .greetingText {
+  margin-top: 6px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .userBubble {
+  align-self: flex-start;
+  max-width: 90%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-end-start-radius: 4px;
+  background: var(--ca-ink);
+  color: var(--ca-white);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+[data-car-advisor][data-car-advisor] .chipsLabel {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+[data-car-advisor][data-car-advisor] .note {
+  padding: 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-white);
+  font-size: 13px;
+  color: var(--ca-muted);
+}

@@ -1,0 +1,27 @@
+/*
+ * Scope root classes. Everything the component renders lives under an element with [data-car-advisor].
+ * Selectors are written as [data-car-advisor][data-car-advisor] (doubled on purpose) to raise specificity, so a
+ * host rule such as ".host button" or ".host div" cannot override the component. No selector targets html, body or :root.
+ */
+[data-car-advisor][data-car-advisor].root {
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  font-family: var(--ca-font);
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ca-ink);
+  color-scheme: light;
+  text-align: start;
+  -webkit-text-size-adjust: 100%;
+}
+[data-car-advisor][data-car-advisor].fill {
+  width: 100%;
+  height: 100%;
+}
+
+/* Portal container: no box of its own, only the scope for tokens and direction */
+[data-car-advisor][data-car-advisor].contents {
+  display: contents;
+}

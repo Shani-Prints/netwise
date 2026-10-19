@@ -1,0 +1,48 @@
+{
+  "id": "15-all-data-in-one-message",
+  "description": "Everything in one message: saved in one call and the comparison is produced in the same turn",
+  "tags": [
+    "one-message"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300. מה יקרה אם אעבור לקיה EV3?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪, הפרש של {{difference}} ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true,
+          "alternativeLabelContains": "EV3"
+        },
+        "openQuestions": [],
+        "replaced": false,
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    }
+  ]
+}

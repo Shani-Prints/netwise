@@ -1,0 +1,66 @@
+{
+  "id": "04-stated-field-not-escalated",
+  "description": "\"אין לי מידע\" for fields the employee already stated must not escalate them",
+  "tags": [
+    "real-failure",
+    "escalation"
+  ],
+  "steps": [
+    {
+      "employee": "פנסיה 6% וקרן השתלמות 2.5%",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "pensionPct": 6,
+            "studyFundPct": 2.5
+          }
+        },
+        {
+          "say": "תודה, רשמתי."
+        }
+      ],
+      "expect": {
+        "profile": {
+          "salaryInputs": {
+            "pensionPct": 6,
+            "studyFundPct": 2.5
+          }
+        },
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "אין לי מידע",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct",
+              "studyFundPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "totalQuestions": 0,
+        "profile": {
+          "salaryInputs": {
+            "pensionPct": 6,
+            "studyFundPct": 2.5
+          }
+        },
+        "text": {
+          "notMatches": [
+            "שלחתי"
+          ]
+        }
+      }
+    }
+  ]
+}

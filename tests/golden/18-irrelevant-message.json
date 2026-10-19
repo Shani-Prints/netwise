@@ -1,0 +1,26 @@
+{
+  "id": "18-irrelevant-message",
+  "description": "An unrelated question: no tool, nothing saved, nothing escalated",
+  "tags": [
+    "irrelevant"
+  ],
+  "steps": [
+    {
+      "employee": "מה מזג האוויר מחר בתל אביב?",
+      "model": [
+        {
+          "say": "אני יכול לעזור רק בשאלות על הנטו ועל החלפת הרכב. אפשר לספר לי מה תרצי לבדוק?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "totalQuestions": 0,
+        "currentCar": null,
+        "replaced": false,
+        "comparison": {
+          "status": "none"
+        }
+      }
+    }
+  ]
+}

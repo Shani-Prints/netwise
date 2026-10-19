@@ -43,16 +43,29 @@ export function splitFromTo(sentence: string): { from: string; to: string | null
   return null;
 }
 
-/** The part of the message that talks about the current car, or null. */
+/** Sentences of a message. A full stop between digits ("2.5%", "2.75") is a decimal point, not the end of a sentence. */
+const sentencesOf = (message: string): string[] => message.split(/[!?;\n]+|\.(?!\d)/);
+
+/**
+ * The part of the message that talks about the current car, or null. Several sentences may contain a cue ("נקודות זיכוי יש לי" is
+ * not about the car): the first one in which a catalogue car is named wins, otherwise the first cue sentence.
+ */
 export function currentCarClause(message: string): string | null {
-  for (const sentence of message.split(/[.!?;\n]+/)) {
+  let firstCue: string | null = null;
+  for (const sentence of sentencesOf(message)) {
     const ft = splitFromTo(sentence);
-    if (ft) return ft.from.replace(PARTICIPATION_NUMBER, ' ');
-    const cut = sentence.search(ALTERNATIVE_CUE);
-    const head = (cut >= 0 ? sentence.slice(0, cut) : sentence).replace(PARTICIPATION_NUMBER, ' ');
-    if (CURRENT_CUE.test(head)) return head;
+    let clause: string | null = null;
+    if (ft) clause = ft.from.replace(PARTICIPATION_NUMBER, ' ');
+    else {
+      const cut = sentence.search(ALTERNATIVE_CUE);
+      const head = (cut >= 0 ? sentence.slice(0, cut) : sentence).replace(PARTICIPATION_NUMBER, ' ');
+      if (CURRENT_CUE.test(head)) clause = head;
+    }
+    if (clause === null) continue;
+    if (matchCatalogCar(clause).status !== 'none') return clause;
+    firstCue ??= clause;
   }
-  return null;
+  return firstCue;
 }
 
 export type CurrentCarFields = { kind: 'car'; carId: string } | { kind: 'dataset'; makerCode: string; modelCode: string; vehicleTypeCode: string; registrationYear: number };
@@ -90,7 +103,7 @@ function nameWords(clause: string): string[] {
 
 /** The part of a message that names the car the employee wants to move to, or null. */
 export function alternativeClause(message: string): string | null {
-  for (const sentence of message.split(/[.!?;\n]+/)) {
+  for (const sentence of sentencesOf(message)) {
     const ft = splitFromTo(sentence);
     if (ft) {
       if (ft.to) return ft.to.replace(PARTICIPATION_NUMBER, ' ');

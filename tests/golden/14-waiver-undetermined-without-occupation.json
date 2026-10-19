@@ -1,0 +1,47 @@
+{
+  "id": "14-waiver-undetermined-without-occupation",
+  "description": "A group without an occupation: whether the car may be given up stays undetermined (no net, no guess), the occupation is asked",
+  "tags": [
+    "waiver",
+    "occupation"
+  ],
+  "steps": [
+    {
+      "employee": "אני בקבוצה א, שכר בסיס 12000. מה יקרה אם אוותר על הרכב?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "group": "א",
+            "base": 12000
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "waiver"
+          }
+        },
+        {
+          "say": "כדי לדעת אם אפשר לוותר על הרכב אני צריך עוד פרטים."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "missing",
+          "hasNumbers": false,
+          "missingFieldsInclude": [
+            "occupation"
+          ]
+        },
+        "openQuestions": [],
+        "text": {
+          "notMatches": [
+            "אפשר לוותר על הרכב\\.",
+            "אתה זכאי"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "id": "10-rep-value-unavailable",
+  "description": "The representative says the value is not available: nothing is applied and the employee is told once",
+  "tags": [
+    "rep-outcome"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "questionLabels": [
+          "אחוז הפנסיה שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "הנתון לא זמין",
+        "interpretation": {
+          "result": "outcome",
+          "outcome": "value_unavailable"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "openQuestions": [],
+        "fieldGaps": {
+          "pensionPct": "unavailable"
+        },
+        "notices": {
+          "contains": [
+            "לא זמין"
+          ]
+        }
+      }
+    }
+  ]
+}

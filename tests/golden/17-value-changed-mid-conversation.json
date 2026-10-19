@@ -1,0 +1,76 @@
+{
+  "id": "17-value-changed-mid-conversation",
+  "description": "The employee corrects a value: her new value replaces the old one and the comparison changes",
+  "tags": [
+    "change"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300. מה יקרה אם אעבור לקיה EV3?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪, הפרש של {{difference}} ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true
+        }
+      }
+    },
+    {
+      "employee": "בעצם השכר הבסיסי שלי הוא 19000",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "base": 19000
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪, הפרש של {{difference}} ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "profile": {
+          "salaryInputs": {
+            "base": 19000
+          }
+        },
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true
+        },
+        "openQuestions": []
+      }
+    }
+  ]
+}

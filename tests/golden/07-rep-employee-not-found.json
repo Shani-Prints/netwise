@@ -1,0 +1,96 @@
+{
+  "id": "07-rep-employee-not-found",
+  "description": "The representative says the employee is not found: only the fixed template reaches the employee, nothing is applied, the case is closed",
+  "tags": [
+    "rep-outcome"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "questionLabels": [
+          "אחוז הפנסיה שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "העובד לא קיים אצלנו במאגר",
+        "interpretation": {
+          "result": "outcome",
+          "outcome": "employee_not_found"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "repInterpretation": "closed",
+        "openQuestions": [],
+        "notices": {
+          "contains": [
+            "לא מצא רשומה"
+          ],
+          "notContains": [
+            "במאגר"
+          ]
+        },
+        "profile": {
+          "salaryInputs": {
+            "studyFundPct": 2.5
+          }
+        }
+      }
+    }
+  ]
+}

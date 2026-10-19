@@ -1,0 +1,30 @@
+{
+  "id": "27-guard-invented-number",
+  "description": "The model states a net that no tool produced: the guard replaces the text",
+  "tags": [
+    "guard"
+  ],
+  "steps": [
+    {
+      "employee": "מה הנטו שלי?",
+      "model": [
+        {
+          "say": "הנטו שלך הוא 12,345 ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "replaced": {
+          "reason": "unknown_number"
+        },
+        "text": {
+          "notContains": [
+            "12,345"
+          ]
+        },
+        "comparison": {
+          "status": "none"
+        }
+      }
+    }
+  ]
+}

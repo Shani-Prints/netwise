@@ -1,0 +1,127 @@
+{
+  "id": "11-rep-unclear-answer-follow-ups",
+  "description": "An unclear answer produces a follow-up question (at most 2), then the field is closed as unresolved",
+  "tags": [
+    "rep-outcome",
+    "follow-up"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "questionLabels": [
+          "אחוז הפנסיה שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "אולי, לא בטוחה",
+        "interpretation": {
+          "result": "not_understood"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "repInterpretation": "clarification_requested",
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "totalQuestions": 2
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "לא יודעת",
+        "interpretation": {
+          "result": "not_understood"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "repInterpretation": "clarification_requested",
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "totalQuestions": 3
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "עדיין לא ברור",
+        "interpretation": {
+          "result": "not_understood"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "repInterpretation": "unresolved",
+        "openQuestions": [],
+        "totalQuestions": 3,
+        "fieldGaps": {
+          "pensionPct": "unresolved"
+        }
+      }
+    }
+  ]
+}

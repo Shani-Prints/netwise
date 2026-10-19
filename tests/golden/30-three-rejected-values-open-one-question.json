@@ -1,0 +1,74 @@
+{
+  "id": "30-three-rejected-values-open-one-question",
+  "description": "The same field is rejected three times: the server opens ONE question for it and the employee is not asked again",
+  "tags": [
+    "escalation",
+    "rejected-values"
+  ],
+  "steps": [
+    {
+      "employee": "נקודות זיכוי 99",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "creditPoints": 99
+          }
+        },
+        {
+          "say": "הערך נראה גבוה, אפשר לכתוב שוב?"
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "נקודות זיכוי 99",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "creditPoints": 99
+          }
+        },
+        {
+          "say": "הערך נראה גבוה, אפשר לכתוב שוב?"
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "נקודות זיכוי 99",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "creditPoints": 99
+          }
+        },
+        {
+          "say": "הערך נראה גבוה."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "creditPoints"
+          }
+        ],
+        "questionLabels": [
+          "נקודות הזיכוי שלך"
+        ],
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    }
+  ]
+}

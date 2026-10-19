@@ -1,0 +1,150 @@
+{
+  "id": "16-one-field-at-a-time",
+  "description": "The employee gives one or two facts per message; nothing is escalated; the comparison comes at the end",
+  "tags": [
+    "step-by-step"
+  ],
+  "steps": [
+    {
+      "employee": "אני בקבוצה ג",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "group": "ג"
+          }
+        },
+        {
+          "say": "תודה. מה שכר הבסיס?"
+        }
+      ],
+      "expect": {
+        "profile": {
+          "group": "ג"
+        }
+      }
+    },
+    {
+      "employee": "שכר הבסיס שלי 18500",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "base": 18500
+          }
+        },
+        {
+          "say": "תודה. מה העיסוק, ויש עמלות או בונוס?"
+        }
+      ],
+      "expect": {
+        "profile": {
+          "salaryInputs": {
+            "base": 18500
+          }
+        }
+      }
+    },
+    {
+      "employee": "אני מנהלת מוצר ואין לי עמלות ובונוסים",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "commissions": 0,
+            "bonus": 0
+          }
+        },
+        {
+          "say": "תודה. מה אחוזי הפנסיה והקרן?"
+        }
+      ],
+      "expect": {
+        "profile": {
+          "occupation": "מנהל/ת מוצר",
+          "salaryInputs": {
+            "commissions": 0,
+            "bonus": 0
+          }
+        }
+      }
+    },
+    {
+      "employee": "פנסיה 6% וקרן השתלמות 2.5%",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "pensionPct": 6,
+            "studyFundPct": 2.5
+          }
+        },
+        {
+          "say": "תודה. כמה נקודות זיכוי וילדים?"
+        }
+      ],
+      "expect": {}
+    },
+    {
+      "employee": "נקודות זיכוי 2.75 ו 2 ילדים",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "creditPoints": 2.75,
+            "childrenUnder23": 2
+          }
+        },
+        {
+          "say": "תודה. איזה רכב יש לך היום ומה ההשתתפות?"
+        }
+      ],
+      "expect": {
+        "profile": {
+          "childrenUnder23": 2
+        }
+      }
+    },
+    {
+      "employee": "הרכב שלי קורולה קרוס עם השתתפות 300",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה. לאיזה רכב תרצי לעבור?"
+        }
+      ],
+      "expect": {
+        "currentCarLabelContains": "COROLLA CROSS",
+        "todayOnly": "ok"
+      }
+    },
+    {
+      "employee": "ואם אעבור לקיה EV3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪, הפרש של {{difference}} ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true
+        },
+        "openQuestions": [],
+        "totalQuestions": 0
+      }
+    }
+  ]
+}

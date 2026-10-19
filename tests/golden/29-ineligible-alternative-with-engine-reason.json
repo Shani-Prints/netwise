@@ -1,0 +1,64 @@
+{
+  "id": "29-ineligible-alternative-with-engine-reason",
+  "description": "A car of a higher group: the engine refuses, the reason is the engine text, the eligible cars are listed, nothing is escalated",
+  "tags": [
+    "eligibility"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה, רשמתי. לאיזה רכב תרצי להשוות?"
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "ואם אעבור לטסלה מודל 3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-14"
+          }
+        },
+        {
+          "say": "חבל."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ineligible",
+          "hasNumbers": false
+        },
+        "openQuestions": [],
+        "totalQuestions": 0,
+        "text": {
+          "contains": [
+            "הרכב שייך לקבוצה ד והזכאות שלך היא לקבוצה ג",
+            "אלה הרכבים שמתאימים לקבוצה שלך",
+            "ATTO 3"
+          ]
+        }
+      }
+    }
+  ]
+}

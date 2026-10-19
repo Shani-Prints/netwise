@@ -1,5 +1,5 @@
 import { loadCatalog, type CatalogCar } from './catalog';
-import { fold, isHebrewWord, plene, textCost, variantsOf } from './fuzzy';
+import { editDistance, fold, isHebrewWord, plene, skeleton, textCost, variantsOf, wordCost } from './fuzzy';
 
 /**
  * Deterministic "which catalogue car does this sentence name?" - no model, no guessing.
@@ -181,11 +181,32 @@ function matchByNames(text: string, catalog: CatalogCar[]): CarMatch {
     };
   });
 
+  const queryWords = applyPhrases(fold(text)).split(' ').filter(Boolean);
+  /**
+   * A word of the sentence that matches nothing of the best car but looks like a mangled word of a MORE specific car of the same
+   * maker ("COROLLA ROSS": the Corolla, or the Corolla Cross?). Such a car is never picked silently: both are offered.
+   */
+  const nearMisses = (best: Cand): CatalogCar[] => {
+    const bp = profileOf(best.car);
+    const known = [...bp.brand, ...bp.required, ...bp.digits, ...fold(best.car.modelName).split(' ').map(canon), ...OPTIONAL_WORDS];
+    const stray = queryWords.filter((q) => q.length >= 3 && /[a-zא-ת]/.test(q) && known.every((n) => wordCost(q, n) === null && wordCost(canon(q), n) === null));
+    if (stray.length === 0) return [];
+    return cands
+      .filter((o) => o.car.id !== best.car.id && o.brand === best.brand)
+      .filter((o) => {
+        const extra = profileOf(o.car).required.filter((w) => !bp.required.includes(w));
+        return extra.length > 0 && stray.some((q) => extra.some((e) => editDistance(canon(q), e) <= 2 || e.includes(canon(q)) || (skeleton(q).length >= 3 && skeleton(q) === skeleton(e))));
+      })
+      .map((o) => o.car);
+  };
+
   const pick = (list: Cand[]): CarMatch => {
     const sorted = [...list].sort((a, b) => b.hits - a.hits || a.cost - b.cost); // stable: catalogue order among equals
     const best = sorted[0]!;
     const close = sorted.filter((c) => c.hits === best.hits && c.cost - best.cost < MARGIN);
     if (close.length > 1) return { status: 'ambiguous', cars: close.map((c) => c.car) };
+    const near = nearMisses(best);
+    if (near.length > 0) return { status: 'ambiguous', cars: [best.car, ...near] };
     // the best candidate wins on its own (unique, more words matched, or clearly cheaper); a typo still asks for confirmation
     return best.worst > CONFIRM_ABOVE ? { status: 'ambiguous', cars: [best.car] } : { status: 'found', car: best.car };
   };

@@ -17,3 +17,6 @@ CLAUDE.md
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# local state of pnpm scenarios (resume)
+.scenario-state.json

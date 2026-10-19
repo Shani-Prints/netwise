@@ -1,0 +1,24 @@
+{
+  "id": "19-hostile-message",
+  "description": "A hostile message gets a calm answer and changes nothing",
+  "tags": [
+    "hostile"
+  ],
+  "steps": [
+    {
+      "employee": "אתה סתם בוט מטומטם ולא מבין כלום",
+      "model": [
+        {
+          "say": "מצטער שזה מרגיש כך. אשמח לעזור אם תרצי לבדוק איך החלפת רכב משפיעה על הנטו."
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "totalQuestions": 0,
+        "comparison": {
+          "status": "none"
+        }
+      }
+    }
+  ]
+}

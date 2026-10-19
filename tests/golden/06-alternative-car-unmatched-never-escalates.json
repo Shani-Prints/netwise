@@ -1,0 +1,71 @@
+{
+  "id": "06-alternative-car-unmatched-never-escalates",
+  "description": "An alternative car that is not on the list never reaches a representative; the eligible cars of her group are listed",
+  "tags": [
+    "alternative-car",
+    "escalation"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה, רשמתי. לאיזה רכב תרצי להשוות?"
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "ואם אעבור לזוזמוביל סופר 3000 שנת 2025?",
+      "model": [
+        {
+          "say": "בכיף!"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "totalQuestions": 0,
+        "text": {
+          "contains": [
+            "לא ברשימה של החברה לקבוצה שלך",
+            "ATTO 3",
+            "באיזה מהם תרצו להשוות?"
+          ],
+          "notContains": [
+            "נציג",
+            "MODEL 3"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "ואם אעבור לזוזמוביל סופר 3000 שנת 2025?",
+      "model": [
+        {
+          "say": "בכיף!"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "totalQuestions": 0
+      }
+    }
+  ]
+}

@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "data:generate": "tsx scripts/excel-to-json.ts",
     "calc:explain": "tsx scripts/explain-calc.ts",
+    "scenarios": "tsx scripts/run-scenarios.ts",
     "calc:show": "tsx scripts/show-explanation.ts",
     "data:load-usage": "tsx --env-file=.env.local scripts/load-usage-values.ts",
     "db:seed": "tsx --env-file=.env.local scripts/seed-demo.ts",

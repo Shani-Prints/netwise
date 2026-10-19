@@ -1,0 +1,90 @@
+{
+  "id": "32-rep-answer-in-first-turn-after-answer",
+  "description": "After a typed answer the next employee turn tells the news once and nothing is asked again",
+  "tags": [
+    "rep-typed"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {}
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ]
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "typed": "6"
+      },
+      "expect": {
+        "openQuestions": [],
+        "fieldSources": {
+          "pensionPct": "representative"
+        }
+      }
+    },
+    {
+      "employee": "ואם אעבור לקיה EV3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true
+        },
+        "openQuestions": [],
+        "awaitingRepresentative": false
+      }
+    }
+  ]
+}

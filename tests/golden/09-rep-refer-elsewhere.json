@@ -1,0 +1,104 @@
+{
+  "id": "09-rep-refer-elsewhere",
+  "description": "The representative refers the employee elsewhere: a fixed sentence, the field is never asked again",
+  "tags": [
+    "rep-outcome"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "questionLabels": [
+          "אחוז הפנסיה שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "text": "צריך לפנות למשאבי אנוש",
+        "interpretation": {
+          "result": "outcome",
+          "outcome": "refer_elsewhere"
+        }
+      },
+      "expect": {
+        "repStatus": 200,
+        "openQuestions": [],
+        "fieldGaps": {
+          "pensionPct": "referred"
+        },
+        "notices": {
+          "contains": [
+            "לפנות לגורם אחר"
+          ],
+          "notContains": [
+            "משאבי אנוש"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "בוא נמשיך",
+      "model": [
+        {
+          "say": "בסדר, נמשיך עם מה שיש."
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    }
+  ]
+}

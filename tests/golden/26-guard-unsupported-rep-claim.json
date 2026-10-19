@@ -1,0 +1,28 @@
+{
+  "id": "26-guard-unsupported-rep-claim",
+  "description": "The model claims a question was sent although none is open: the guard replaces the text",
+  "tags": [
+    "guard"
+  ],
+  "steps": [
+    {
+      "employee": "שלום, מה קורה?",
+      "model": [
+        {
+          "say": "שלחתי שאלה לנציג והוא יחזור אליך בקרוב."
+        }
+      ],
+      "expect": {
+        "replaced": {
+          "reason": "no_rep_question"
+        },
+        "openQuestions": [],
+        "text": {
+          "notContains": [
+            "שלחתי שאלה לנציג"
+          ]
+        }
+      }
+    }
+  ]
+}

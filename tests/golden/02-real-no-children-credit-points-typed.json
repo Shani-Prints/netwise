@@ -1,0 +1,110 @@
+{
+  "id": "02-real-no-children-credit-points-typed",
+  "description": "REAL failure: children=0 is saved, only creditPoints goes to the representative; typed answer 2.75 then comparison",
+  "tags": [
+    "real-failure",
+    "children-zero",
+    "credit-points"
+  ],
+  "steps": [
+    {
+      "employee": "אני מהנדסת תוכנה, משכורת בסיס 20000, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, אני לא יודעת כמה נקודות זיכוי יש לי, בלי ילדים. הרכב שלי כרגע קורולה קרוס 2025 עם השתתפות 300. מה יקרה אם אעבור לקיה נירו?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מפתח/ת תוכנה",
+            "base": 20000,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "childrenUnder23": 0,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "creditPoints",
+              "childrenUnder23"
+            ]
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-05"
+          }
+        },
+        {
+          "say": "בסדר, תודה."
+        }
+      ],
+      "expect": {
+        "profile": {
+          "childrenUnder23": 0,
+          "occupation": "מפתח/ת תוכנה",
+          "currentParticipation": 300,
+          "salaryInputs": {
+            "base": 20000,
+            "commissions": 0,
+            "bonus": 0
+          }
+        },
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "creditPoints"
+          }
+        ],
+        "questionLabels": [
+          "נקודות הזיכוי שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "נקודות הזיכוי שלך",
+            "שלחתי פנייה לנציג"
+          ],
+          "notMatches": [
+            "מספר עובד",
+            "שם מלא",
+            "תעודת זהות"
+          ]
+        },
+        "comparison": {
+          "status": "missing",
+          "hasNumbers": false
+        }
+      }
+    },
+    {
+      "rep": {
+        "field": "creditPoints",
+        "typed": "2.75"
+      },
+      "expect": {
+        "repStatus": 200,
+        "fieldSources": {
+          "creditPoints": "representative"
+        },
+        "profile": {
+          "salaryInputs": {
+            "creditPoints": 2.75
+          },
+          "childrenUnder23": 0
+        },
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true,
+          "representativeEntered": [
+            "creditPoints"
+          ]
+        },
+        "openQuestions": []
+      }
+    }
+  ]
+}

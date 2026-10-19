@@ -1,0 +1,51 @@
+{
+  "id": "12-waiver-allowed-same-group",
+  "description": "Group א, an occupation that may give up the car: the waiver comparison is produced",
+  "tags": [
+    "waiver",
+    "occupation"
+  ],
+  "steps": [
+    {
+      "employee": "אני מפקחת איכות במפעל בקבוצה א, שכר בסיס 12000, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.25, בלי ילדים, הרכב שלי כרגע פיקנטו עם השתתפות 200. מה יקרה אם אוותר על הרכב?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מפקח/ת איכות במפעל",
+            "group": "א",
+            "base": 12000,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.25,
+            "childrenUnder23": 0,
+            "currentParticipation": 200
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "waiver"
+          }
+        },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, אחרי המעבר נטו {{alternativeNet}} ₪, הפרש של {{difference}} ₪ בחודש."
+        }
+      ],
+      "expect": {
+        "currentCarLabelContains": "PICANTO",
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true
+        },
+        "openQuestions": [],
+        "profile": {
+          "occupation": "מפקח/ת איכות במפעל",
+          "group": "א"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "id": "24-rep-typed-answer-then-comparison",
+  "description": "A field the employee does not know goes to the representative; the typed answer completes the comparison",
+  "tags": [
+    "rep-typed",
+    "comparison"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה! מה אחוז הפנסיה שלך?"
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "currentCarLabelContains": "COROLLA CROSS"
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        {
+          "tool": "mark_field_unknown",
+          "input": {
+            "fields": [
+              "pensionPct"
+            ]
+          }
+        },
+        {
+          "say": "בסדר."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ],
+        "questionLabels": [
+          "אחוז הפנסיה שלך"
+        ],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "ואם אעבור לקיה EV3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-11"
+          }
+        },
+        {
+          "say": "אני ממתין לנציג."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "missing",
+          "hasNumbers": false,
+          "missingFieldsInclude": [
+            "pensionPct"
+          ]
+        },
+        "openQuestions": [
+          {
+            "kind": "profile_field_unknown",
+            "field": "pensionPct"
+          }
+        ]
+      }
+    },
+    {
+      "rep": {
+        "field": "pensionPct",
+        "typed": "6"
+      },
+      "expect": {
+        "repStatus": 200,
+        "openQuestions": [],
+        "fieldSources": {
+          "pensionPct": "representative"
+        },
+        "comparison": {
+          "status": "ok",
+          "hasNumbers": true,
+          "representativeEntered": [
+            "pensionPct"
+          ]
+        },
+        "notices": {
+          "contains": [
+            "הוזן על ידי נציג"
+          ]
+        }
+      }
+    }
+  ]
+}

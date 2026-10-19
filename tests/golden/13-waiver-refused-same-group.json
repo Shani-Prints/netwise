@@ -1,0 +1,55 @@
+{
+  "id": "13-waiver-refused-same-group",
+  "description": "Group א, an occupation that may NOT give up the car (same group as 12): the engine refuses with its reason",
+  "tags": [
+    "waiver",
+    "occupation"
+  ],
+  "steps": [
+    {
+      "employee": "אני טכנאית שירות בקבוצה א, שכר בסיס 12000, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.25, בלי ילדים, הרכב שלי כרגע פיקנטו עם השתתפות 200. מה יקרה אם אוותר על הרכב?",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "טכנאי/ת שירות",
+            "group": "א",
+            "base": 12000,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.25,
+            "childrenUnder23": 0,
+            "currentParticipation": 200
+          }
+        },
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "waiver"
+          }
+        },
+        {
+          "say": "לא ניתן לוותר על הרכב."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "ineligible",
+          "hasNumbers": false
+        },
+        "profile": {
+          "occupation": "טכנאי/ת שירות",
+          "group": "א"
+        },
+        "text": {
+          "notContains": [
+            "נטו"
+          ]
+        },
+        "openQuestions": []
+      }
+    }
+  ]
+}

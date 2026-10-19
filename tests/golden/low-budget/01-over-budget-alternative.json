@@ -1,0 +1,103 @@
+{
+  "id": "01-over-budget-alternative",
+  "description": "A car above its group budget: the server opens ONE over_budget_gap question, no net is shown for it, the typed policy answer closes the case",
+  "tags": [
+    "over-budget"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ג, שכר בסיס 18500, בלי עמלות ובונוס, פנסיה 6%, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ג",
+            "base": 18500,
+            "commissions": 0,
+            "bonus": 0,
+            "pensionPct": 6,
+            "studyFundPct": 2.5,
+            "creditPoints": 2.75,
+            "childrenUnder23": 2,
+            "currentParticipation": 300
+          }
+        },
+        {
+          "say": "תודה, רשמתי. לאיזה רכב תרצי להשוות?"
+        }
+      ],
+      "expect": {
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "ואם אעבור ל-BYD Atto 3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-10"
+          }
+        },
+        {
+          "say": "אני ממתין לתשובת הנציג."
+        }
+      ],
+      "expect": {
+        "comparison": {
+          "status": "missing",
+          "hasNumbers": false,
+          "pending": true
+        },
+        "openQuestions": [
+          {
+            "kind": "over_budget_gap",
+            "field": "overBudgetPolicy"
+          }
+        ],
+        "text": {
+          "contains": [
+            "שלחתי פנייה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "ואם אעבור ל-BYD Atto 3?",
+      "model": [
+        {
+          "tool": "calculate_comparison",
+          "input": {
+            "alternative": "CAR-10"
+          }
+        },
+        {
+          "say": "עדיין ממתין לנציג."
+        }
+      ],
+      "expect": {
+        "totalQuestions": 1,
+        "openQuestions": [
+          {
+            "kind": "over_budget_gap",
+            "field": "overBudgetPolicy"
+          }
+        ]
+      }
+    },
+    {
+      "rep": {
+        "kind": "over_budget_gap",
+        "typed": "car_not_allowed"
+      },
+      "expect": {
+        "repStatus": 200,
+        "openQuestions": [],
+        "notices": {
+          "contains": []
+        }
+      }
+    }
+  ]
+}

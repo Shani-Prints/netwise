@@ -1,0 +1,83 @@
+{
+  "id": "05-current-car-unmatched-third-attempt",
+  "description": "A current car that is not in the catalogue: attempts 1 and 2 only get a friendly message, the 3rd opens ONE question to the representative",
+  "tags": [
+    "current-car",
+    "escalation"
+  ],
+  "steps": [
+    {
+      "employee": "הרכב הנוכחי שלי הוא זוזמוביל סופר 3000 שנת 2025 עם השתתפות 300",
+      "model": [
+        {
+          "say": "רשמתי, תודה."
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "text": {
+          "contains": [
+            "לא מצאתי את הרכב הזה בקטלוג"
+          ],
+          "notContains": [
+            "נציג"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "הרכב הנוכחי שלי הוא זוזמוביל סופר 3000 שנת 2025 עם השתתפות 300",
+      "model": [
+        {
+          "say": "רשמתי, תודה."
+        }
+      ],
+      "expect": {
+        "openQuestions": [],
+        "text": {
+          "contains": [
+            "לא מצאתי את הרכב הזה בקטלוג"
+          ],
+          "notContains": [
+            "נציג"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "הרכב הנוכחי שלי הוא זוזמוביל סופר 3000 שנת 2025 עם השתתפות 300",
+      "model": [
+        {
+          "say": "רשמתי, תודה."
+        }
+      ],
+      "expect": {
+        "openQuestions": [
+          {
+            "kind": "unresolved_current_car",
+            "field": "currentCar"
+          }
+        ],
+        "questionLabels": [
+          "הרכב הנוכחי"
+        ],
+        "text": {
+          "contains": [
+            "שלחתי שאלה לנציג"
+          ]
+        }
+      }
+    },
+    {
+      "employee": "הרכב הנוכחי שלי הוא זוזמוביל סופר 3000 שנת 2025 עם השתתפות 300",
+      "model": [
+        {
+          "say": "רשמתי, תודה."
+        }
+      ],
+      "expect": {
+        "totalQuestions": 1
+      }
+    }
+  ]
+}

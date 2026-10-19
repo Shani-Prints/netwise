@@ -1,0 +1,30 @@
+{
+  "id": "31-group-conflicts-with-occupation",
+  "description": "The stated group differs from the occupations table: the group the employee stated is kept and a representative question is opened by the server",
+  "tags": [
+    "group-conflict"
+  ],
+  "steps": [
+    {
+      "employee": "אני מנהלת מוצר בקבוצה ד",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": {
+            "occupation": "מנהל/ת מוצר",
+            "group": "ד"
+          }
+        },
+        {
+          "say": "תודה, רשמתי."
+        }
+      ],
+      "expect": {
+        "profile": {
+          "group": "ד",
+          "occupation": "מנהל/ת מוצר"
+        }
+      }
+    }
+  ]
+}

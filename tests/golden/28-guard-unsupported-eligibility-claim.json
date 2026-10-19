@@ -1,0 +1,29 @@
+{
+  "id": "28-guard-unsupported-eligibility-claim",
+  "description": "The model says she is eligible without asking the engine: the guard replaces the text",
+  "tags": [
+    "guard",
+    "eligibility"
+  ],
+  "steps": [
+    {
+      "employee": "אפשר לעבור לטסלה מודל 3?",
+      "model": [
+        {
+          "say": "כן, אתה זכאי לטסלה מודל 3."
+        }
+      ],
+      "expect": {
+        "replaced": {
+          "reason": "guard"
+        },
+        "text": {
+          "notContains": [
+            "אתה זכאי"
+          ]
+        },
+        "openQuestions": []
+      }
+    }
+  ]
+}

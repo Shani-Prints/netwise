@@ -354,7 +354,9 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   const toolErrors = logToolErrors(collector, value.rejectedTools);
   if (value.rejectedFields.length > 0) {
     try {
-      await noteRejectedFields(repo, actor, value.rejectedFields);
+      // a question the server opens because of these rejections is reported like any other (the final text must say so)
+      const noted = await noteRejectedFields(repo, actor, value.rejectedFields);
+      for (const r of noted.results) collector.escalations.push({ kind: r.kind, field: r.field, outcome: r.outcome });
     } catch (err) {
       console.error(`[netwise] chat: counting rejected values failed (${err instanceof Error ? err.name : 'unknown'})`);
     }

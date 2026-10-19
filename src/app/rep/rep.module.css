@@ -1,0 +1,200 @@
+/*
+ * Rep console styles. Same convention as the car advisor component: every rule starts with the doubled scope
+ * attribute, so the component's base reset (which also applies inside this scope) never overrides these rules.
+ * These are normal full pages, so viewport media queries are fine here.
+ */
+[data-car-advisor][data-car-advisor] .page {
+  min-height: 100dvh;
+  background: var(--ca-surface);
+}
+
+[data-car-advisor][data-car-advisor] .strip {
+  display: flex;
+  height: 5px;
+}
+[data-car-advisor][data-car-advisor] .strip i {
+  display: block;
+  flex: 1;
+}
+[data-car-advisor][data-car-advisor] .stripRed {
+  background: var(--ca-red);
+}
+[data-car-advisor][data-car-advisor] .stripOrange {
+  background: var(--ca-orange);
+}
+[data-car-advisor][data-car-advisor] .stripLightGreen {
+  background: var(--ca-light-green);
+}
+[data-car-advisor][data-car-advisor] .stripGreen {
+  background: var(--ca-green);
+}
+[data-car-advisor][data-car-advisor] .stripCyan {
+  background: var(--ca-cyan);
+}
+[data-car-advisor][data-car-advisor] .stripBlue {
+  background: var(--ca-blue);
+}
+
+[data-car-advisor][data-car-advisor] .main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+[data-car-advisor][data-car-advisor] .header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .headerTitle {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+[data-car-advisor][data-car-advisor] .headerSubtitle {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--ca-muted);
+}
+
+[data-car-advisor][data-car-advisor] .backLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  color: var(--ca-action);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+[data-car-advisor][data-car-advisor] .message {
+  padding: 24px 0;
+  color: var(--ca-muted);
+}
+
+/* List view */
+[data-car-advisor][data-car-advisor] .ticketGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+[data-car-advisor][data-car-advisor] .ticketLink {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 44px;
+  padding: 16px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+  color: var(--ca-ink);
+  text-decoration: none;
+}
+[data-car-advisor][data-car-advisor] .ticketLink:hover {
+  background: var(--ca-tint);
+}
+[data-car-advisor][data-car-advisor] .ticketTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .ticketNumber {
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .ticketStatus {
+  font-size: 13px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .ticketQuestion {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Single ticket view: one column on mobile, two columns on a wide screen */
+[data-car-advisor][data-car-advisor] .detail {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  [data-car-advisor][data-car-advisor] .detail {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+[data-car-advisor][data-car-advisor] .column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+[data-car-advisor][data-car-advisor] .cardLabel {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .questionText {
+  font-size: 19px;
+  line-height: 1.4;
+}
+[data-car-advisor][data-car-advisor] .cardTitle {
+  margin-bottom: 12px;
+  font-size: 17px;
+  font-weight: 700;
+}
+[data-car-advisor][data-car-advisor] .answerLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .answerField {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  padding: 14px;
+  border: 1px solid var(--ca-line);
+  border-radius: var(--ca-radius-card);
+  background: var(--ca-white);
+  font-size: 17px;
+  line-height: 1.5;
+  resize: vertical;
+}
+[data-car-advisor][data-car-advisor] .answerField:focus-visible {
+  border-color: var(--ca-action);
+  outline: 2px solid var(--ca-blue);
+  outline-offset: 0;
+}
+[data-car-advisor][data-car-advisor] .answerField:disabled {
+  background: var(--ca-surface);
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .helper {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+[data-car-advisor][data-car-advisor] .actions > * {
+  flex: 1;
+}
+[data-car-advisor][data-car-advisor] .status {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--ca-radius-control);
+  background: var(--ca-tint);
+  color: var(--ca-action);
+  font-weight: 500;
+}

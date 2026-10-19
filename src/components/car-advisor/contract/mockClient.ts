@@ -51,9 +51,11 @@ export function createMockClient(): CarAdvisorClient {
 
     async getRepTicket(id) {
       await delay(200);
-      return tickets.find((t) => t.id === id) ?? null;
+      const ticket = tickets.find((t) => t.id === id);
+      return ticket ? { ...ticket, checked: ticket.checked.map((c) => ({ ...c })) } : null;
     },
 
+    // The answer text is deliberately not stored or logged by the mock: only the ticket status changes.
     async replyAsRep({ ticketId }: RepReplyInput) {
       await delay(400);
       const ticket = tickets.find((t) => t.id === ticketId);

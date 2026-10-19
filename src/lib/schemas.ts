@@ -55,5 +55,5 @@ export const RepLoginBodySchema = z.object({ code: z.string().min(1).max(200) })
 
 export const RepAnswerBodySchema = z.object({
   questionId: z.string().min(1).max(100),
-  answer: z.string().min(1).max(40),
+  answer: z.string().min(1).max(100),
 });

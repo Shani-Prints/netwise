@@ -1,5 +1,5 @@
 import { loadSampleEmployees } from '../data/catalog';
-import type { ConversationState, ProfileRecord, User } from '../db/types';
+import { ConversationStateSchema, type ConversationState, type ProfileRecord, type User } from '../db/types';
 
 /** Fixed fictional demo identities. IDs are stable so supabase/seed.sql and the in-memory seed agree. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -42,8 +42,7 @@ export function demoProfiles(): ProfileRecord[] {
 export function seedStateFor(userId: string): ConversationState {
   const e = loadSampleEmployees().find((s) => employeeUserId(s.id) === userId);
   return {
-    repAnswers: {},
-    appliedAnswerIds: [],
+    ...ConversationStateSchema.parse({}),
     ...(e ? { currentCar: e.currentCar, currentParticipation: e.currentParticipation } : {}),
   };
 }

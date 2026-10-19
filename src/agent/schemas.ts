@@ -8,6 +8,8 @@ export const ToolErrorSchema = z.object({
   status: z.literal('error'),
   error: z.string(),
   issues: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  /** Set when the SERVER sent (or queued) a question to the representative because of this value. */
+  representative: z.enum(['question_sent', 'waiting', 'needs_reference', 'already_answered', 'cap_reached']).optional(),
 });
 export type ToolError = z.infer<typeof ToolErrorSchema>;
 
@@ -47,6 +49,7 @@ export const ComparisonViewSchema = z.object({
   missingFields: z.array(z.string()),
   missingText: z.array(z.string()),
   pendingQuestionId: z.string().optional(),
+  representativeEntered: z.array(z.object({ field: z.string(), label: z.string() })).optional(),
   meta: z
     .object({
       rulesVersion: z.string(),
@@ -125,12 +128,36 @@ export const ComparisonOutputSchema = z.union([
     explanation: z.array(z.string()),
     assumptions: z.array(z.string()),
     pendingRepresentative: z.boolean(),
+    /** none | sent (opened by the server in this call) | waiting (already open) | needs_reference (will be sent after the reference prompt) */
+    representative: z.enum(['none', 'sent', 'waiting', 'needs_reference']),
     ...missing,
   }),
   ToolErrorSchema,
 ]);
 
+/** What the bot may say about the representative for one case. The bot can only REPORT this; the server decides it. */
+export const RepresentativeStatusSchema = z.enum(['none', 'sent', 'waiting', 'needs_reference']);
+export type RepresentativeStatus = z.infer<typeof RepresentativeStatusSchema>;
+
+/** ask_representative only reports: a question was sent by the server this turn, it is still waiting, or nothing is open. */
 export const AskRepOutputSchema = z.union([
-  z.object({ status: z.enum(['asked', 'already_open', 'already_answered']), note: z.string() }),
+  z.object({
+    status: z.enum(['sent', 'waiting', 'already_answered', 'none_open', 'needs_reference']),
+    note: z.string(),
+  }),
+  ToolErrorSchema,
+]);
+
+const EscalationOutcomeSchema = z.enum(['question_sent', 'waiting', 'already_answered', 'needs_reference', 'cap_reached', 'already_known', 'server_only', 'not_needed']);
+
+/** mark_field_unknown / provide_employee_reference: one outcome per case, decided by the server. */
+export const EscalationOutputSchema = z.union([
+  z.object({
+    status: z.literal('ok'),
+    results: z.array(z.object({ field: z.string(), outcome: EscalationOutcomeSchema })),
+    /** True: ask the employee, in ONE short sentence, for the optional reference (name or employee number). */
+    askReference: z.boolean(),
+    note: z.string(),
+  }),
   ToolErrorSchema,
 ]);

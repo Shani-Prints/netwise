@@ -46,7 +46,14 @@ export interface ComparisonView {
   assumptions: string[];
   missingFields: string[];
   missingText: string[];
-  /** Set when an open representative question affects this alternative. */
+  /** Set when an open representative question blocks (or affects) this comparison: the missing part is waiting for it. */
   pendingQuestionId?: string;
+  /**
+   * Inputs of this comparison whose value was entered by a transport representative, not by the employee.
+   * The UI shows REPRESENTATIVE_BADGE_HE ("הוזן על ידי נציג") next to them. The employee can still correct them.
+   */
+  representativeEntered?: { field: string; label: string }[];
   meta?: ComparisonMeta;
 }
+
+export const REPRESENTATIVE_BADGE_HE = 'הוזן על ידי נציג';

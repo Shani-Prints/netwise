@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getRepo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
-import { getEmployeeState, ServiceError, type EmployeeQuestionView } from '../lib/service';
+import { flushEscalations, getEmployeeState, ServiceError, type EmployeeQuestionView } from '../lib/service';
 import { describeError } from '../lib/errorLog';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
@@ -132,6 +132,8 @@ export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Res
       if (err instanceof AllProvidersFailedError) return fail(503, BUSY_MESSAGE_HE);
       throw err;
     }
+    // The reference prompt was shown in an earlier turn and the model did not finish it: the server opens the questions now.
+    if (context.pendingAtStart > 0) await flushEscalations(repo, actor);
     await repo.addMessage(conv.id, 'assistant', turn.assistantText);
 
     // 5. response per the contract

@@ -7,13 +7,19 @@ import { getUsageIndex, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import type { OptionRef } from '../db/types';
 import { ProfileFieldsSchema, type ProfileFields } from '../lib/schemas';
+import { UNKNOWABLE_FIELDS } from '../lib/repQuestions';
 import {
-  askRepresentativeParticipation,
+  listQuestionStatus,
+  noteRejectedFields,
+  noteUnresolved,
   prepareEmployeeTurn,
+  provideEmployeeReference,
+  reportUnknownFields,
   selectAlternative,
   ServiceError,
   updateProfile,
   type Actor,
+  type EscalationReply,
 } from '../lib/service';
 import type { ComparisonView } from '../lib/view';
 import { askNextLabels } from './askNext';
@@ -26,6 +32,7 @@ import {
   CatalogOutputSchema,
   ComparisonOutputSchema,
   EligibilityOutputSchema,
+  EscalationOutputSchema,
   SaveOutputSchema,
   UsageOutputSchema,
   type ToolError,
@@ -37,8 +44,10 @@ export interface TurnCollector {
   lastView?: ComparisonView;
   /** True when a tool changed saved data or a representative question this turn. */
   touchedState: boolean;
+  /** Questions the SERVER opened (or queued) during this turn, as reported to the tools. */
+  escalations: { kind: string; field: string; outcome: string }[];
 }
-export const newCollector = (): TurnCollector => ({ results: [], touchedState: false });
+export const newCollector = (): TurnCollector => ({ results: [], touchedState: false, escalations: [] });
 
 export interface ToolContext {
   repo: Repo;
@@ -98,7 +107,23 @@ export const UsageInputSchema = z.object({
 });
 export const ComparisonInputSchema = z.object({ alternative: AlternativeArg });
 export const AskRepInputSchema = z.object({
-  alternative: z.string().min(1).max(40).describe('Catalogue car id whose employee participation is unknown.'),
+  alternative: z.string().min(1).max(40).optional().describe('Optional catalogue car id to report about. Reporting only: this tool never opens a question.'),
+});
+
+export const MarkUnknownInputSchema = z.object({
+  fields: z
+    .array(z.enum(UNKNOWABLE_FIELDS))
+    .min(1)
+    .max(UNKNOWABLE_FIELDS.length)
+    .describe('ONLY the profile fields the employee EXPLICITLY said she does not know or does not have.'),
+});
+
+export const ProvideReferenceInputSchema = z.object({
+  employeeRef: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('Exactly what the employee wrote to identify herself (name or employee number). Omit it when she gave none or declined.'),
 });
 
 // ---------------------------------------------------------------- helpers
@@ -123,6 +148,8 @@ function defineTool<I extends z.ZodType, O extends z.ZodType>(
   input: I,
   output: O,
   run: (input: z.infer<I>) => Promise<z.infer<O>>,
+  /** Called with the field names of an input that failed the schema (the server counts rejected attempts per field). */
+  onInvalid?: (fields: string[]) => Promise<Record<string, unknown>>,
 ) {
   return tool({
     description,
@@ -131,7 +158,8 @@ function defineTool<I extends z.ZodType, O extends z.ZodType>(
       let result: unknown;
       const parsed = input.safeParse(raw);
       if (!parsed.success) {
-        result = invalidArguments(parsed.error.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code })));
+        const issues = parsed.error.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code }));
+        result = { ...invalidArguments(issues), ...(onInvalid ? await onInvalid(issues.map((i) => i.path.split('.')[0] ?? '')) : {}) };
       } else {
         try {
           result = await run(parsed.data);
@@ -151,10 +179,41 @@ function defineTool<I extends z.ZodType, O extends z.ZodType>(
   });
 }
 
+/** Remembers in the turn collector which questions the server opened or queued (ask_representative reports from it). */
+function recordEscalations(ctx: ToolContext, reply: EscalationReply): void {
+  for (const r of reply.results) ctx.collector.escalations.push({ kind: r.kind, field: r.field, outcome: r.outcome });
+}
+
+function escalationOutput(ctx: ToolContext, reply: EscalationReply) {
+  recordEscalations(ctx, reply);
+  const sent = reply.results.filter((r) => r.outcome === 'question_sent').length;
+  return {
+    status: 'ok' as const,
+    results: reply.results.map((r) => ({ field: r.field, outcome: r.outcome })),
+    askReference: reply.needsReference,
+    note: reply.needsReference
+      ? 'ask the employee ONE short sentence for an optional reference (name or employee number)'
+      : sent > 0
+        ? 'the question was sent to the transport representative'
+        : 'nothing new was sent',
+  };
+}
+
 // ---------------------------------------------------------------- tools
+
+const MARKERS = new Set(['question_sent', 'waiting', 'needs_reference', 'already_answered', 'cap_reached']);
 
 export function createTools(ctx: ToolContext): ToolSet {
   const { repo, actor } = ctx;
+
+  /** Counts a rejected attempt per field; the marker tells the bot a question went to the representative instead. */
+  const countRejected = async (fields: string[]): Promise<Record<string, unknown>> => {
+    const reply = await noteRejectedFields(repo, actor, fields.filter((f) => f !== ''));
+    recordEscalations(ctx, reply);
+    if (reply.results.length > 0) ctx.collector.touchedState = true;
+    const outcome = reply.results.map((r) => r.outcome).find((o) => MARKERS.has(o));
+    return outcome ? { representative: outcome } : {};
+  };
 
   const save_employee_data = defineTool(
     ctx,
@@ -177,10 +236,26 @@ export function createTools(ctx: ToolContext): ToolSet {
       } else if (currentCarDataset) {
         fields.currentCar = { kind: 'dataset', ...currentCarDataset };
       }
+      // 0. an occupation that is not in the occupations table is rejected like any invalid value (nothing from this call is
+      //    saved). The server counts it: the 1st time the employee is asked to pick from the list, the 2nd time the SERVER
+      //    asks the representative and the error says so.
+      let representative: string | undefined;
+      if (a.occupation !== undefined && !getOccupation(a.occupation)) {
+        const noted = await noteUnresolved(repo, actor, 'occupation', a.occupation);
+        ctx.collector.touchedState = true;
+        recordEscalations(ctx, noted);
+        const outcome = noted.results[0]?.outcome;
+        if (outcome !== undefined && MARKERS.has(outcome)) representative = outcome;
+      }
+
       // 1. ranges and shapes, server side
       const valid = ProfileFieldsSchema.safeParse(fields);
       if (!valid.success) {
-        return invalidArguments(valid.error.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code })));
+        const issues = valid.error.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code }));
+        return {
+          ...invalidArguments(issues),
+          ...(representative ? { representative } : await countRejected(issues.map((i) => i.path.split('.')[0] ?? ''))),
+        };
       }
 
       // 2. provenance: the employee must have written every numeric value. One unsupported value rejects the WHOLE call.
@@ -195,6 +270,7 @@ export function createTools(ctx: ToolContext): ToolSet {
             status: 'error' as const,
             error: 'value_not_stated_by_employee',
             issues: unsupported.map((path) => ({ path, code: 'not_in_employee_messages' })),
+            ...(await countRejected(unsupported)),
           };
         }
       }
@@ -229,6 +305,7 @@ export function createTools(ctx: ToolContext): ToolSet {
         ...(t.status === 'ok' && t.today ? { todayNet: t.today.components.net } : {}),
       };
     },
+    countRejected,
   );
 
   const search_catalog = defineTool(
@@ -340,13 +417,24 @@ export function createTools(ctx: ToolContext): ToolSet {
     async (a) => {
       const ref = toOptionRef(a.alternative);
       if (!ref) return unknownAlternative();
+      const startedAt = new Date().toISOString();
       const state = await selectAlternative(repo, actor, ref);
       ctx.collector.touchedState = true;
       const raw = state.comparison;
       if (!raw) return { status: 'error' as const, error: 'no_comparison' };
       const view = applyProvisionalPolicy(raw, ctx.showProvisional);
       ctx.collector.lastView = view;
+      const pendingQuestion = state.questions.find((q) => q.id === view.pendingQuestionId);
+      const representative: 'none' | 'sent' | 'waiting' | 'needs_reference' =
+        pendingQuestion !== undefined
+          ? pendingQuestion.createdAt >= startedAt
+            ? 'sent'
+            : 'waiting'
+          : state.escalation.needsReference && view.missingFields.includes('overBudgetPolicy')
+            ? 'needs_reference'
+            : 'none';
       const base = {
+        representative,
         alternativeLabel: view.alternativeLabel,
         eligibilityText: view.eligibilityText,
         explanation: view.explanation,
@@ -374,23 +462,48 @@ export function createTools(ctx: ToolContext): ToolSet {
   const ask_representative = defineTool(
     ctx,
     'ask_representative',
-    ctx.participationFromRepresentative
-      ? 'Ask the transport representative for the employee\'s participation in the new car, when the employee cannot know it. In this mode the server also opens this question automatically after a comparison. The question text is fixed by the server.'
-      : 'Ask the transport representative to CONFIRM the employee\'s participation in one specific catalogue car. By default the participation is the catalogue default, so do NOT call this tool for it and never say you asked the representative about it. Call it ONLY if the employee explicitly asks for a representative-confirmed value, or for a real missing value that has no default. The question text is fixed by the server.',
+    'REPORT-ONLY. Tells you whether the SERVER has already sent a question to the transport representative (sent / waiting / answered / none_open). It never opens a question: only the server does, when information is truly missing and the employee cannot provide it. Never promise or claim a question that this tool did not report.',
     AskRepInputSchema,
     AskRepOutputSchema,
     async (a) => {
-      const r = await askRepresentativeParticipation(repo, actor, a.alternative);
-      ctx.collector.touchedState = true;
-      const note =
-        r.status === 'already_answered'
-          ? 'הנציג כבר ענה על השאלה הזו.'
-          : r.status === 'already_open'
-            ? 'השאלה לנציג כבר נשלחה וממתינה לתשובה.'
-            : 'שאלה נשלחה לנציג התחבורה.';
-      return { status: r.status, note };
+      const { questions, needsReference } = await listQuestionStatus(repo, actor);
+      const about = a.alternative ? questions.filter((q) => q.carId === a.alternative) : questions;
+      const sentNow = ctx.collector.escalations.some((e) => e.outcome === 'question_sent');
+      if (about.some((q) => q.status === 'open')) {
+        return { status: sentNow ? ('sent' as const) : ('waiting' as const), note: sentNow ? 'שאלה נשלחה לנציג התחבורה.' : 'השאלה לנציג כבר נשלחה וממתינה לתשובה.' };
+      }
+      if (needsReference) return { status: 'needs_reference' as const, note: 'השאלה תישלח לנציג אחרי שהעובד ימסור (או ידלג על) מזהה אישי.' };
+      if (about.some((q) => q.status === 'answered')) return { status: 'already_answered' as const, note: 'הנציג כבר ענה.' };
+      return { status: 'none_open' as const, note: 'לא נשלחה שאלה לנציג.' };
     },
   );
 
-  return { save_employee_data, search_catalog, check_eligibility, get_usage_value, calculate_comparison, ask_representative };
+  const mark_field_unknown = defineTool(
+    ctx,
+    'mark_field_unknown',
+    'Report that the employee EXPLICITLY said she does not know or does not have one or more profile fields (pension %, study fund %, credit points, group, base salary, commissions, bonus, children). ' +
+      'Ask for the value first; call this ONLY after she said she cannot provide it. This is a structured report: the SERVER decides whether a question goes to the transport representative. Never use it for a value she simply has not been asked yet.',
+    MarkUnknownInputSchema,
+    EscalationOutputSchema,
+    async (a) => {
+      const reply = await reportUnknownFields(repo, actor, a.fields);
+      ctx.collector.touchedState = true;
+      return escalationOutput(ctx, reply);
+    },
+  );
+
+  const provide_employee_reference = defineTool(
+    ctx,
+    'provide_employee_reference',
+    'Call this on the turn AFTER you asked the employee for the optional reference (a result had askReference=true). Pass exactly what she wrote to identify herself (employeeRef), or omit employeeRef if she gave none or declined. The server then sends the waiting questions to the representative.',
+    ProvideReferenceInputSchema,
+    EscalationOutputSchema,
+    async (a) => {
+      const reply = await provideEmployeeReference(repo, actor, a.employeeRef);
+      ctx.collector.touchedState = true;
+      return escalationOutput(ctx, reply);
+    },
+  );
+
+  return { save_employee_data, search_catalog, check_eligibility, get_usage_value, calculate_comparison, ask_representative, mark_field_unknown, provide_employee_reference };
 }

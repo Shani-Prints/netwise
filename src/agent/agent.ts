@@ -4,13 +4,13 @@ import { matchCatalogCar } from '../data/carMatch';
 import type { Repo } from '../db/repo';
 import { missingFieldLabel } from '../lib/explain';
 import { participationFromRepresentative } from '../lib/flags';
-import { prepareEmployeeTurn, type Actor, type TurnContext } from '../lib/service';
+import { noteRejectedFields, prepareEmployeeTurn, type Actor, type TurnContext } from '../lib/service';
 import { MAX_ASK, askNextLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
 import { guardLogCode, guardResponse, type GuardReason } from './guard';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
-import { newCollector, createTools, type TurnCollector } from './tools';
+import { newCollector, createTools, SaveInputSchema, type TurnCollector } from './tools';
 
 const HISTORY_LIMIT = 20;
 const MAX_STEPS = 8;
@@ -196,6 +196,22 @@ function sdkToolErrors(steps: readonly { content: readonly { type: string; toolN
   return steps.flatMap((s) => s.content.filter((p) => p.type === 'tool-error').map((p) => p.toolName ?? 'unknown'));
 }
 
+/**
+ * save_employee_data calls that the AI SDK rejected BEFORE the tool ran (a value outside the schema's range): the fields that
+ * failed. The server counts these like any other rejected attempt (3 rejections of one field -> one representative question).
+ */
+function sdkRejectedSaveFields(steps: readonly { content: readonly { type: string; toolName?: string; input?: unknown }[] }[]): string[] {
+  const out: string[] = [];
+  for (const s of steps) {
+    for (const p of s.content) {
+      if (p.type !== 'tool-error' || p.toolName !== 'save_employee_data') continue;
+      const parsed = SaveInputSchema.safeParse(p.input);
+      if (!parsed.success) out.push(...parsed.error.issues.map((i) => String(i.path[0] ?? '')));
+    }
+  }
+  return out.filter((f) => f !== '');
+}
+
 /** One employee turn: model + tools with provider fallback, then the response guard. Throws AllProvidersFailedError. */
 export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult> {
   const { repo, actor, conversationId, providers, showProvisional } = args;
@@ -222,13 +238,20 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
         temperature: 0.2,
         timeout: CALL_TIMEOUT,
       });
-      return { text: result.text, collector, ctx, stateBlock, rejectedTools: sdkToolErrors(result.steps) };
+      return { text: result.text, collector, ctx, stateBlock, rejectedTools: sdkToolErrors(result.steps), rejectedFields: sdkRejectedSaveFields(result.steps) };
     },
     args.fallback,
   );
 
   const { collector } = value;
   const toolErrors = logToolErrors(collector, value.rejectedTools);
+  if (value.rejectedFields.length > 0) {
+    try {
+      await noteRejectedFields(repo, actor, value.rejectedFields);
+    } catch (err) {
+      console.error(`[netwise] chat: counting rejected values failed (${err instanceof Error ? err.name : 'unknown'})`);
+    }
+  }
   const codes: string[] = [];
   const text = value.text.trim();
   let assistantText = text;

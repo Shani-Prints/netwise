@@ -85,7 +85,7 @@ describe('system prompt', () => {
     expect(p).toContain('Do NOT ask the employee for it');
     expect(p).toContain('Do NOT call ask_representative for it');
     expect(p).toContain('NEVER say that you asked');
-    expect(p).toContain('ONLY if the employee explicitly asks');
+    expect(p).toContain('ask_representative never opens a question');
     expect(p).not.toContain('ושאלתי את נציג התחבורה'); // the sentence that claims a question was sent
     expect(p).not.toContain('representative mode');
   });
@@ -122,19 +122,13 @@ describe('ask_representative tool description', () => {
       showProvisional: true,
       participationFromRepresentative: fromRep,
     });
-  it('default mode: tells the model NOT to use it for the participation', () => {
-    for (const t of [tools(), tools(false)]) {
+  it('in every mode the tool is REPORT-ONLY: it cannot open a question, only the server does', () => {
+    for (const t of [tools(), tools(false), tools(true)]) {
       const d = t.ask_representative?.description ?? '';
-      expect(d).toContain('do NOT call this tool');
-      expect(d).toContain('never say you asked the representative');
-      expect(d).toContain('ONLY if the employee explicitly asks');
+      expect(d).toContain('REPORT-ONLY');
+      expect(d).toContain('It never opens a question');
+      expect(d).toContain('Never promise or claim a question that this tool did not report');
     }
-  });
-  it('representative mode: describes the original purpose', () => {
-    const d = tools(true).ask_representative?.description ?? '';
-    expect(d).toContain('when the employee cannot know it');
-    expect(d).toContain('automatically');
-    expect(d).not.toContain('do NOT call this tool');
   });
 });
 
@@ -171,17 +165,18 @@ describe('default mode, end to end through POST /api/chat (fake model)', () => {
     expect(r.body.comparison.alternative.components.net).toBe(11693);
   });
 
-  it('an EXPLICIT ask_representative still works (employee asked for a confirmed value)', async () => {
+  it('the model cannot open a question, not even when the employee asks for the representative: ask_representative only reports', async () => {
     const e = await readyEmployee();
-    const model = fake(call('ask_representative', { alternative: 'CAR-10' }), say('שלחתי את השאלה לנציג.'));
+    const model = fake(call('ask_representative', { alternative: 'CAR-10' }), say('לא נשלחה שאלה לנציג.'));
     const r = await chat(e, 'אני רוצה שהנציג יאשר את ההשתתפות ברכב החדש', { providers: [provider(model)] });
     expect(r.status).toBe(200);
-    expect(secondRequest(model)).toContain('asked');
-    expect(r.body.pendingQuestions).toHaveLength(1);
-    expect((await e.state()).body.questions).toHaveLength(1);
-    const again = fake(call('ask_representative', { alternative: 'CAR-10' }), say('השאלה כבר נשלחה.'));
+    expect(secondRequest(model)).toContain('none_open');
+    expect(r.body.pendingQuestions).toBeUndefined();
+    expect((await e.state()).body.questions).toEqual([]);
+    const again = fake(call('ask_representative', { alternative: 'CAR-10' }), say('עדיין לא נשלחה שאלה.'));
     await chat(e, 'שוב', { providers: [provider(again)] });
-    expect((await e.state()).body.questions).toHaveLength(1); // never duplicated
+    expect((await e.state()).body.questions).toEqual([]);
+    await expect((await getRepo()).listRepQuestions()).resolves.toEqual([]);
   });
 
   it('the bot never says it asked the representative when nothing was asked (guard is not involved: the text is neutral)', async () => {

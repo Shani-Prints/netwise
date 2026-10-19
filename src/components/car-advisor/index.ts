@@ -16,6 +16,7 @@ export type {
   Confidence,
   HandoffView,
   NotifyChannel,
+  NotifyTarget,
   NotificationView,
   OptionKey,
   RepReplyInput,

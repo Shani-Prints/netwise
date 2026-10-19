@@ -3,7 +3,7 @@ import styles from './ui.module.css';
 
 export interface StepItem {
   title: string;
-  detail?: string;
+  detail?: React.ReactNode;
 }
 
 interface StepListProps {

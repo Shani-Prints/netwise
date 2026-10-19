@@ -7,10 +7,24 @@ import styles from './messages.module.css';
 
 interface ConfirmationCardProps {
   confirmation: TicketConfirmationView;
+  /** Where the notification goes, already masked (for example only the last 2 digits of a phone number). */
+  maskedContact: string;
+}
+
+/** Replaces {contact} in a copy string with the masked value, isolated as left-to-right text. */
+function withContact(template: string, masked: string) {
+  const [before, after = ''] = template.split('{contact}');
+  return (
+    <>
+      {before}
+      <bdi dir="ltr">{masked}</bdi>
+      {after}
+    </>
+  );
 }
 
 /** Screen 4: the ticket was received. Ticket number and a three-step timeline. */
-export function ConfirmationCard({ confirmation }: ConfirmationCardProps) {
+export function ConfirmationCard({ confirmation, maskedContact }: ConfirmationCardProps) {
   return (
     <div className={styles.answer}>
       <div className={styles.confirmationHead}>
@@ -29,7 +43,10 @@ export function ConfirmationCard({ confirmation }: ConfirmationCardProps) {
           items={[
             { title: he.confirmation.step1Title, detail: he.confirmation.step1Detail },
             { title: he.confirmation.step2Title, detail: he.confirmation.step2Detail },
-            { title: he.confirmation.step3Title, detail: he.confirmation.step3Detail[confirmation.channel] },
+            {
+              title: he.confirmation.step3Title,
+              detail: withContact(he.confirmation.step3Detail[confirmation.channel], maskedContact),
+            },
           ]}
         />
       </Card>

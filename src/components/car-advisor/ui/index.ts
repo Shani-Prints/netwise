@@ -12,3 +12,4 @@ export { CarIcon, CheckIcon, CrossIcon, SendIcon } from './Icons';
 export { NotificationCard } from './NotificationCard';
 export { RadioGroup } from './RadioGroup';
 export { StepList } from './StepList';
+export { TextField } from './TextField';

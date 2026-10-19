@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { he } from '../../components/car-advisor/content/he';
 import { fill } from '../../components/car-advisor/content/fill';
+import { he } from '../../components/car-advisor/content/he';
 import { mockClient } from '../../components/car-advisor/contract/mockClient';
 import type { CarAdvisorClient, RepTicketSummary } from '../../components/car-advisor/contract/types';
 import { Badge } from '../../components/car-advisor/ui';
@@ -11,7 +11,7 @@ import { RepHeader, RepShell } from './RepShell';
 import { SLA_LABEL, STATUS_LABEL } from './repLabels';
 import styles from './rep.module.css';
 
-/** Rep console, list view: open tickets, most urgent first as delivered by the client. */
+/** Rep console, list view: an even grid of fixed-size ticket cards. */
 export function RepList({ client = mockClient }: { client?: CarAdvisorClient }) {
   const [tickets, setTickets] = useState<RepTicketSummary[] | null>(null);
 
@@ -25,19 +25,25 @@ export function RepList({ client = mockClient }: { client?: CarAdvisorClient }) 
     };
   }, [client]);
 
+  const openCount = tickets?.filter((ticket) => ticket.status !== 'answered').length ?? 0;
+  const subtitle =
+    tickets === null
+      ? he.rep.loading
+      : openCount === 0
+        ? he.rep.listEmpty
+        : openCount === 1
+          ? he.rep.listCountOne
+          : fill(he.rep.listCountMany, { count: String(openCount) });
+
   return (
     <RepShell>
-      <RepHeader title={he.rep.title} subtitle={he.rep.listSubtitle} />
-      {tickets === null ? (
-        <p role="status" className={styles.message}>
-          {he.rep.loading}
-        </p>
-      ) : tickets.length === 0 ? (
+      <RepHeader title={he.rep.title} subtitle={subtitle} />
+      {tickets === null ? null : tickets.length === 0 ? (
         <p className={styles.message}>{he.rep.listEmpty}</p>
       ) : (
         <ul className={styles.ticketGrid}>
           {tickets.map((ticket) => (
-            <li key={ticket.id}>
+            <li key={ticket.id} className={styles.ticketItem}>
               <Link href={`/rep/${ticket.id}`} className={styles.ticketLink}>
                 <span className={styles.ticketTop}>
                   <span className={styles.ticketNumber}>
@@ -47,6 +53,7 @@ export function RepList({ client = mockClient }: { client?: CarAdvisorClient }) 
                 </span>
                 <span className={styles.ticketStatus}>{STATUS_LABEL[ticket.status]}</span>
                 <span className={styles.ticketQuestion}>{ticket.questionText}</span>
+                <span className={styles.ticketOpen}>{he.rep.open}</span>
               </Link>
             </li>
           ))}

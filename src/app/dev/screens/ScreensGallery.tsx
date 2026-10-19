@@ -14,11 +14,14 @@ import {
 import { Launcher } from '../../../components/car-advisor/Launcher';
 import { PreviewBubble } from '../../../components/car-advisor/PreviewBubble';
 import { ScopeRoot } from '../../../components/car-advisor/ScopeRoot';
-import type { ChatMessage } from '../../../components/car-advisor/useChatController';
+import { EMPTY_CONTACTS, maskContact, UNTOUCHED } from '../../../components/car-advisor/messages/contact';
+import type { ChatMessage, HandoffMessage } from '../../../components/car-advisor/useChatController';
 import './hostile-host.css';
 
 /** Explicit display so the box keeps its size even inside the hostile host wrapper. */
 const WINDOW_BOX = { display: 'block', width: 380, height: 600 } as const;
+/** Taller window so the whole hand-off card, including the contact field, is visible. */
+const TALL_WINDOW_BOX = { display: 'block', width: 380, height: 1000 } as const;
 
 function Panel({
   title,
@@ -41,21 +44,47 @@ function noop() {}
 
 const HANDOFF_QUESTION: ChatMessage = { id: 'gallery-user', kind: 'user', text: handoffFixture.questionText };
 
-const handoffMessage = (sent: boolean): ChatMessage => ({
+/** Placeholder number only, never a real one. Used for the masked display in the confirmation. */
+const MASKED_CONTACT = maskContact('phone', '0500000000');
+
+const handoffMessage = (changes: Partial<HandoffMessage> = {}): ChatMessage => ({
   id: 'gallery-handoff',
   kind: 'handoff',
   handoff: handoffFixture,
   channel: handoffFixture.defaultChannel,
+  contacts: EMPTY_CONTACTS,
+  touched: UNTOUCHED,
   sending: false,
-  sent,
+  sent: false,
+  maskedContact: null,
+  ...changes,
 });
 
-const HANDOFF_MESSAGES: ChatMessage[] = [HANDOFF_QUESTION, handoffMessage(false)];
+const HANDOFF_MESSAGES: ChatMessage[] = [HANDOFF_QUESTION, handoffMessage()];
+
+const HANDOFF_PHONE_ERROR: ChatMessage[] = [
+  HANDOFF_QUESTION,
+  handoffMessage({ contacts: { phone: '12-345', email: '' }, touched: { phone: true, email: false } }),
+];
+
+const HANDOFF_EMAIL_ERROR: ChatMessage[] = [
+  HANDOFF_QUESTION,
+  handoffMessage({
+    channel: 'email',
+    contacts: { phone: '', email: 'name@' },
+    touched: { phone: false, email: true },
+  }),
+];
 
 const CONFIRMATION_MESSAGES: ChatMessage[] = [
   HANDOFF_QUESTION,
-  handoffMessage(true),
-  { id: 'gallery-confirmation', kind: 'confirmation', confirmation: confirmationFixture },
+  handoffMessage({ sent: true, maskedContact: MASKED_CONTACT }),
+  {
+    id: 'gallery-confirmation',
+    kind: 'confirmation',
+    confirmation: confirmationFixture,
+    maskedContact: MASKED_CONTACT,
+  },
 ];
 
 const RETURNED_MESSAGES: ChatMessage[] = [
@@ -130,13 +159,25 @@ export function ScreensGallery() {
             </div>
           </Panel>
 
-          <Panel title="Screen 3: no answer, hand-off to a rep">
-            <div style={WINDOW_BOX}>
+          <Panel title="Screen 3: no answer, hand-off to a rep (contact field)">
+            <div style={TALL_WINDOW_BOX}>
               <ChatWidget onClose={noop} initialMessages={HANDOFF_MESSAGES} />
             </div>
           </Panel>
 
-          <Panel title="Screen 4: confirmation">
+          <Panel title="Screen 3: invalid mobile number (error shown)">
+            <div style={TALL_WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={HANDOFF_PHONE_ERROR} />
+            </div>
+          </Panel>
+
+          <Panel title="Screen 3: email channel, invalid address (error shown)">
+            <div style={TALL_WINDOW_BOX}>
+              <ChatWidget onClose={noop} initialMessages={HANDOFF_EMAIL_ERROR} />
+            </div>
+          </Panel>
+
+          <Panel title="Screen 4: confirmation (contact masked)">
             <div style={WINDOW_BOX}>
               <ChatWidget onClose={noop} initialMessages={CONFIRMATION_MESSAGES} />
             </div>
@@ -195,13 +236,29 @@ export function ScreensGallery() {
         <h2 style={SECTION_TITLE_STYLE}>Screen 5: rep console (normal full pages, shown in frames)</h2>
         <div style={ROW_STYLE}>
           <Panel title="/rep list, wide">
-            <PageFrame title="Rep console list" src="/rep" width={760} height={420} />
+            <PageFrame title="Rep console list, wide" src="/rep" width={1040} height={560} />
+          </Panel>
+          <Panel title="/rep list, mobile (390)">
+            <PageFrame title="Rep console list, mobile" src="/rep" width={390} height={844} />
           </Panel>
           <Panel title="/rep/ticket-demo-1 single ticket, wide">
-            <PageFrame title="Rep console ticket, wide" src="/rep/ticket-demo-1" width={1000} height={560} />
+            <PageFrame title="Rep console ticket, wide" src="/rep/ticket-demo-1" width={1040} height={640} />
+          </Panel>
+          <Panel title="/rep/ticket-demo-4 long content (cards scroll), wide">
+            <PageFrame
+              title="Rep console long ticket, wide"
+              src="/rep/ticket-demo-4"
+              width={1040}
+              height={640}
+            />
           </Panel>
           <Panel title="/rep/ticket-demo-1 single ticket, mobile (390)">
-            <PageFrame title="Rep console ticket, mobile" src="/rep/ticket-demo-1" width={390} height={844} />
+            <PageFrame
+              title="Rep console ticket, mobile"
+              src="/rep/ticket-demo-1"
+              width={390}
+              height={1240}
+            />
           </Panel>
         </div>
       </section>

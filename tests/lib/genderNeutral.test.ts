@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NEUTRAL_FALLBACK_HE } from '../../src/agent/agent';
+import { MSG as CHAT_ERRORS } from '../../src/agent/chatHandler';
 import { PANEL_POINTER_HE, repBridgeLine } from '../../src/agent/flowText';
 import { BUSY_MESSAGE_HE } from '../../src/agent/providers';
 import { buildSystemPrompt } from '../../src/agent/prompt';
@@ -20,7 +21,7 @@ const R = '(?![א-ת])';
 const SLASH_FORMS = /[א-ת]\/[א-ת]|[א-ת]\([א-ת]\)|\([א-ת]\)[א-ת]/u;
 // imperative / future / participle forms that change with the gender of the person addressed
 const GENDERED = new RegExp(
-  `${L}(?:תרצה|תרצי|תוכל|תוכלי|תכתוב|תכתבי|תבחר|תבחרי|תספר|תספרי|כתוב|כתבי|בחר|בחרי|שלח|שלחי|בדוק|בדקי|ציין|ציינה|הזן|הזיני|ספר|ספרי|מעוניין|מעוניינת|צריך אתה|את צריכה)${R}`,
+  `${L}(?:תרצה|תרצי|תוכל|תוכלי|תכתוב|תכתבי|תבחר|תבחרי|תספר|תספרי|כתוב|כתבי|בחר|בחרי|שלח|שלחי|בדוק|בדקי|ציין|ציינה|הזן|הזיני|ספר|ספרי|מעוניין|מעוניינת|אתה|נסה|נסי|תנסה|תנסי|יכולה|צריך אתה|את צריכה)${R}`,
   'u',
 );
 
@@ -47,10 +48,11 @@ function fixedStrings(): { path: string; text: string }[] {
       }
     } else stringsOf(v, `repTemplates.${name}`, out);
   }
+  stringsOf(CHAT_ERRORS, 'chatHandler.MSG', out); // the error bodies of POST /api/chat
   out.push({ path: 'NEUTRAL_FALLBACK_HE', text: NEUTRAL_FALLBACK_HE });
   out.push({ path: 'BUSY_MESSAGE_HE', text: BUSY_MESSAGE_HE });
   out.push({ path: 'PANEL_POINTER_HE', text: PANEL_POINTER_HE });
-  out.push({ path: 'repBridgeLine', text: repBridgeLine(['אחוז הפנסיה']) });
+  out.push({ path: 'repBridgeLine', text: repBridgeLine(['אחוז פנסיה של העובד', 'עמלות', 'בונוס']) });
   out.push({ path: 'PICK_CAR_LEAD', text: PICK_CAR_LEAD });
   for (const field of ['pensionPct', 'base', 'occupation', 'currentParticipation', 'creditPoints', 'childrenUnder23']) {
     out.push({ path: `employeeLabelFor(${field})`, text: employeeLabelFor('profile_field_unknown', field) });
@@ -73,6 +75,13 @@ describe('gender-neutral wording of the fixed strings', () => {
   it('has no masculine/feminine imperative, future or participle forms addressed to the employee', () => {
     const bad = strings.filter((s) => GENDERED.test(s.text)).map((s) => `${s.path}: ${s.text}`);
     expect(bad).toEqual([]);
+  });
+
+  it('covers the UI error and retry messages', () => {
+    const errors = strings.filter((s) => s.path.startsWith('he.api.errors.'));
+    expect(errors.length).toBeGreaterThanOrEqual(12);
+    expect(strings.filter((s) => s.path.startsWith('chatHandler.MSG.')).length).toBeGreaterThanOrEqual(6);
+    for (const e of errors) expect(/אתה|יכול/.test(e.text), e.text).toBe(false);
   });
 
   it('the opening headline asks in a neutral form', () => {
@@ -100,9 +109,9 @@ describe('the system prompt carries the wording rule and the dialogue example fo
 
 describe('the scan itself', () => {
   it('flags gendered and slash forms (negative control)', () => {
-    for (const bad of ['באיזו קבוצה את/ה?', 'תוכל/י לכתוב', 'כתבי לי את השנה', 'מה תרצה לדעת?', 'עובד/ת']) {
+    for (const bad of ['אתה יכול לנסות שוב?', 'נסה שוב', 'באיזו קבוצה את/ה?', 'תוכל/י לכתוב', 'כתבי לי את השנה', 'מה תרצה לדעת?', 'עובד/ת']) {
       expect(SLASH_FORMS.test(bad) || GENDERED.test(bad), bad).toBe(true);
     }
-    for (const ok of ['אפשר לציין את השנה', 'מה התפקיד?', 'נשמח לדעת']) expect(SLASH_FORMS.test(ok) || GENDERED.test(ok), ok).toBe(false);
+    for (const ok of ['אפשר לנסות שוב', 'נסו שוב בעוד רגע', 'אפשר לציין את השנה', 'מה התפקיד?', 'נשמח לדעת']) expect(SLASH_FORMS.test(ok) || GENDERED.test(ok), ok).toBe(false);
   });
 });

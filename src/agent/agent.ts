@@ -93,7 +93,7 @@ export function derivedGroupSentence(collector: TurnCollector): string {
 }
 
 /** Deterministic Hebrew text built only from tool results (which come from src/lib/explain.ts and the rules engine). */
-export function deterministicText(collector: TurnCollector, opts: { skipCurrentCar?: boolean } = {}): string {
+export function deterministicText(collector: TurnCollector, opts: { skipCurrentCar?: boolean; skip?: string[] } = {}): string {
   const parts: string[] = [];
   const age0 = loadRules().familyTrack.childMaxAge;
   const carLabelHe = missingFieldLabel('currentCar', age0);
@@ -104,7 +104,7 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
   if (view && view.status !== 'ineligible') {
     // Data missing (no net to show): ask for the next items TOGETHER, at most MAX_BATCH, instead of listing everything.
     // A "missing" view that still shows today's net (a representative question is open) keeps its own explanation.
-    const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askBatchLabels(view.missingFields)) : null;
+    const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askBatchLabels(view.missingFields, opts.skip)) : null;
     if (askLabels === null) parts.push(view.status === 'ok' && view.today && view.alternative ? resultSummaryText(view as Parameters<typeof resultSummaryText>[0]) : view.explanation.join('\n'));
     else if (askLabels.length > 0) parts.push(`כדי להמשיך נצטרך עוד קצת מידע: ${askLabels.join(', ')}.`);
   }
@@ -132,7 +132,7 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
     }
     // What is missing, grouped into ONE short question (at most MAX_BATCH items).
     if (o?.missingText && o.missingText.length > 0) {
-      const labels = without(o.missingFields && o.missingFields.length > 0 ? askBatchLabels(o.missingFields) : o.missingText.slice(0, MAX_BATCH));
+      const labels = without(o.missingFields && o.missingFields.length > 0 ? askBatchLabels(o.missingFields, opts.skip) : o.missingText.slice(0, MAX_BATCH));
       if (labels.length === 0) continue;
       return [derivedGroupSentence(collector), `כדי להמשיך נצטרך עוד קצת מידע: ${labels.join(', ')}.`].filter(Boolean).join('\n');
     }
@@ -216,10 +216,10 @@ ${sentence}`;
  * of questions again). null when nothing is missing.
  */
 export async function shortMissingSentence(repo: Repo, actor: Actor): Promise<string | null> {
-  const { profile, state } = await prepareEmployeeTurn(repo, actor);
+  const { profile, state, openQuestions } = await prepareEmployeeTurn(repo, actor);
   const today = buildTodayOnly({ profile, state });
   if (today.status === 'ok') return null;
-  const labels = askBatchLabels(today.missingFields);
+  const labels = askBatchLabels(today.missingFields, [...openQuestions.map((q) => q.missingField), ...Object.keys(state.fieldGaps)]);
   return labels.length === 0 ? null : `מעולה, רשמתי. כדי להמשיך חסר לי עוד: ${labels.join(', ')}.`;
 }
 
@@ -385,13 +385,14 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   if (assistantText === '') {
     // 1. whatever the tools already established (a refusal reason, an explanation, what is missing)
     const skipCar = (args.carIssues ?? []).some((i) => i.role === 'current');
-    assistantText = deterministicText(collector, { skipCurrentCar: skipCar });
+    const skip = [...value.ctx.openQuestions.map((q) => q.missingField), ...Object.keys(value.ctx.state.fieldGaps)];
+    assistantText = deterministicText(collector, { skipCurrentCar: skipCar, skip });
     via = 'deterministic';
     // 2. nothing from the tools: let the SERVER check the car the employee named, with the same engine and rules
     if (assistantText === NEUTRAL_FALLBACK_HE) {
       try {
         if (await serverEligibility(args, collector)) {
-          assistantText = deterministicText(collector, { skipCurrentCar: skipCar });
+          assistantText = deterministicText(collector, { skipCurrentCar: skipCar, skip });
           via = 'server_eligibility';
         }
       } catch (err) {

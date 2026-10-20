@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { askBatchFields, askBatchLabels } from '../../src/agent/askNext';
 import { resetChatRateLimit } from '../../src/agent/chatHandler';
-import { ensureSingleResult, isHeadlineOnly, PANEL_POINTER_HE, resultSummaryText, updatedLabelsOf } from '../../src/agent/flowText';
+import { ensureSingleResult, isHeadlineOnly, PANEL_POINTER_HE, repBridgeLine, resultSummaryText, updatedLabelsOf } from '../../src/agent/flowText';
 import { guardResponse } from '../../src/agent/guard';
 import { buildSystemPrompt } from '../../src/agent/prompt';
 import { newCollector } from '../../src/agent/tools';
@@ -16,24 +16,28 @@ beforeEach(() => {
 });
 afterEach(() => restoreEnv());
 
-describe('questions come in batches of 2-3 related fields, in a logical order', () => {
+describe('questions come in batches of related fields, in a logical order', () => {
   it('nothing known: occupation and base salary first (the group is derived, never asked)', () => {
     const all = ['group', 'occupation', 'occupationDetails', 'base', 'commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar', 'currentParticipation'];
     expect(askBatchFields(all)).toEqual(['occupation', 'base']);
   });
 
-  it('then the pay components, then the deductions, then the children and the car', () => {
-    expect(askBatchFields(['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar'])).toEqual(['commissions', 'bonus']);
+  it('pay parts and deductions are ONE batch (as in the challenge script), then the children and the car', () => {
+    const pay = ['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'];
+    expect(askBatchFields([...pay, 'childrenUnder23', 'currentCar'])).toEqual(pay);
     expect(askBatchFields(['pensionPct', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar'])).toEqual(['pensionPct', 'studyFundPct', 'creditPoints']);
     expect(askBatchFields(['childrenUnder23', 'currentCar', 'currentParticipation'])).toEqual(['childrenUnder23', 'currentCar', 'currentParticipation']);
   });
 
-  it('a lone missing field is topped up from the next group, never above 3', () => {
-    expect(askBatchFields(['bonus', 'pensionPct', 'studyFundPct', 'creditPoints'])).toEqual(['bonus', 'pensionPct']);
-    expect(askBatchFields(['creditPoints', 'childrenUnder23', 'currentCar', 'currentParticipation'])).toEqual(['creditPoints', 'childrenUnder23']);
-    for (const missing of [['bonus', 'pensionPct', 'studyFundPct'], ['occupation', 'commissions', 'bonus', 'pensionPct']]) {
-      expect(askBatchFields(missing).length).toBeLessThanOrEqual(3);
-    }
+  it('a lone missing field is topped up from the next group to a pair', () => {
+    expect(askBatchFields(['bonus', 'childrenUnder23', 'currentCar', 'currentParticipation'])).toEqual(['bonus', 'childrenUnder23']);
+    expect(askBatchFields(['occupation', 'commissions', 'bonus'])).toEqual(['occupation', 'commissions']);
+  });
+
+  it('a field that cannot be asked again (open representative question or gap) is skipped, the rest of the batch is still asked', () => {
+    const pay = ['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'];
+    expect(askBatchFields(pay, ['pensionPct'])).toEqual(['commissions', 'bonus', 'studyFundPct', 'creditPoints']);
+    expect(askBatchFields(['pensionPct', 'childrenUnder23', 'currentCar'], ['pensionPct'])).toEqual(['childrenUnder23', 'currentCar']);
   });
 
   it('only fields that are missing are returned (known fields never appear)', () => {
@@ -146,6 +150,16 @@ describe('the bridge line after a representative answer', () => {
     expect(updatedLabelsOf([repParticipationUpdatedText('KIA EV3 (2025)', '350 ₪')])).toEqual(['ההשתתפות ברכב KIA EV3 (2025)']);
     const many = repUpdatedManyText([repUpdatedPart('נקודות זיכוי', '2.75', false), repUpdatedPart('העיסוק', 'X', true)]);
     expect(updatedLabelsOf([many])).toEqual(['נקודות זיכוי', 'העיסוק']);
+  });
+
+  it('is one short line with the definite article per label', () => {
+    expect(repBridgeLine(['בונוס', 'עמלות'])).toBe('הנציג עדכן את הבונוס ואת העמלות.');
+    expect(repBridgeLine(['אחוז פנסיה של העובד'])).toBe('הנציג עדכן את אחוז הפנסיה.');
+    expect(repBridgeLine(['אחוז פנסיה של העובד', 'אחוז קרן השתלמות של העובד', 'נקודות זיכוי'])).toBe(
+      'הנציג עדכן את אחוז הפנסיה, את אחוז קרן ההשתלמות ואת נקודות הזיכוי.',
+    );
+    expect(repBridgeLine(['ההשתתפות ברכב KIA EV3 (2025)'])).toBe('הנציג עדכן את ההשתתפות ברכב KIA EV3 (2025).');
+    expect(repBridgeLine(['עיסוק', 'קבוצת זכאות']).split('\n')).toHaveLength(1);
   });
 
   it('ignores system notices that are not updates', () => {

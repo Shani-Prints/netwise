@@ -30,17 +30,19 @@ export function ComparisonPanel({ comparison }: { comparison: ApiComparison }) {
   const rows = comparisonRows(c);
   const c18 = he.api.comparison;
   const showTable = c.status === 'ok' && rows.length > 0;
+  // The first line of a numeric result is the headline sentence the chat bubble already says; the panel keeps the reasons line.
+  const explanationLines = c.status === 'ok' ? c.explanation.slice(1) : c.explanation;
 
   return (
     <Card>
       <div className={styles.panel}>
         <h2 className={styles.panelTitle}>{c18.title}</h2>
-        <p className={styles.panelSub}>{fill(c18.caption, { alternative: c.alternativeLabel })}</p>
+        {showTable ? null : <p className={styles.panelSub}>{fill(c18.caption, { alternative: c.alternativeLabel })}</p>}
 
         {showTable ? (
           <>
             <table className={uiStyles.table}>
-              <caption className={uiStyles.srOnly}>{fill(c18.caption, { alternative: c.alternativeLabel })}</caption>
+              <caption className={styles.panelSub}>{fill(c18.caption, { alternative: c.alternativeLabel })}</caption>
               <thead>
                 <tr>
                   <th scope="col" className={styles.headCell}>
@@ -102,7 +104,7 @@ export function ComparisonPanel({ comparison }: { comparison: ApiComparison }) {
         ) : null}
 
         <div className={styles.lines}>
-          {c.explanation.map((line, index) => (
+          {explanationLines.map((line, index) => (
             <p key={`${index}-${line}`} className={styles.lineText}>
               {line}
             </p>

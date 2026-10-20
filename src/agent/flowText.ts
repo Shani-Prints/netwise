@@ -63,7 +63,26 @@ export function updatedLabelsOf(notices: string[]): string[] {
   return out;
 }
 
-export const repBridgeLine = (labels: string[]): string => `הנציג עדכן: ${labels.join(', ')}.`;
+/** The field labels of the notices, with the definite article as they are read in a sentence ("עמלות" -> "העמלות"). */
+const DEFINITE: Record<string, string> = {
+  'אחוז פנסיה של העובד': 'אחוז הפנסיה',
+  'אחוז קרן השתלמות של העובד': 'אחוז קרן ההשתלמות',
+  'נקודות זיכוי': 'נקודות הזיכוי',
+  'קבוצת זכאות': 'קבוצת הזכאות',
+  'שכר בסיס': 'שכר הבסיס',
+  'מספר ילדים בגיל הזכאות': 'מספר הילדים',
+  עמלות: 'העמלות',
+  בונוס: 'הבונוס',
+  עיסוק: 'העיסוק',
+};
+export const definiteLabel = (label: string): string => DEFINITE[label] ?? label;
+
+/** "הנציג עדכן את הבונוס ואת העמלות." One short line. */
+export function repBridgeLine(labels: string[]): string {
+  const items = labels.map((l) => `את ${definiteLabel(l)}`);
+  const list = items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} ו${items[items.length - 1]}`;
+  return `הנציג עדכן ${list}.`;
+}
 
 /**
  * One opening line when a representative answer was applied since the bot last spoke (the notice is a system message in the

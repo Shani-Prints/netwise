@@ -310,7 +310,7 @@ export function createTools(ctx: ToolContext): ToolSet {
         saved,
         missingFields: t.missingFields,
         missingText: t.missingText,
-        askNext: askBatchLabels(t.missingFields),
+        askNext: askBatchLabels(t.missingFields, [...state.questions.filter((q) => q.status === 'open').map((q) => q.field), ...Object.keys(state.profile.fieldGaps)]),
         ...(derivedGroup ? { derivedGroup } : {}),
         ...(t.status === 'ok' && t.today ? { todayNet: t.today.components.net } : {}),
       };

@@ -7,6 +7,7 @@ import { getSessionSecret, readSession, SessionConfigError } from '../lib/sessio
 import type { ComparisonView } from '../lib/view';
 import { retryPendingInterpretations, type Interpreter } from '../lib/repTextService';
 import { runAgentTurn } from './agent';
+import { applyStatedZeros } from './statedZeros';
 import { createInterpreter } from './interpretRepText';
 import { prepareTurnWithCurrentCar } from './currentCar';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisional';
@@ -26,7 +27,7 @@ export interface ChatResponse {
 
 const ChatBodySchema = z.object({ message: z.string().trim().min(1) });
 
-const MSG = {
+export const MSG = {
   invalidBody: 'הבקשה אינה תקינה. יש לשלוח הודעת טקסט.',
   tooLong: `ההודעה ארוכה מדי. אפשר לכתוב עד ${MAX_MESSAGE_CHARS} תווים.`,
   noSession: 'לא נמצאה הפעלה פעילה. יש לרענן את הדף ולנסות שוב.',
@@ -146,6 +147,12 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
       await retryPendingInterpretations(repo, { interpret: deps.interpret ?? createInterpreter(providers) }, { conversationId: conv.id, limit: 2 });
     } catch (err) {
       console.error(`[netwise] chat: retry of pending representative answers failed (${err instanceof Error ? err.name : 'unknown'})`);
+    }
+    // "אין לי X" for a field that is still missing is a stated zero: recorded here, never asked again ("is it 0%?")
+    try {
+      await applyStatedZeros(repo, actor, conv.id, message);
+    } catch (err) {
+      console.error(`[netwise] chat: recording stated zeros failed (${err instanceof Error ? err.name : 'unknown'})`);
     }
     // start of the turn: rep answers applied, and a current car the employee named is resolved on the server
     const context = await prepareTurnWithCurrentCar(repo, actor, message);

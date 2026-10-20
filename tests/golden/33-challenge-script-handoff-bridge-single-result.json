@@ -71,7 +71,7 @@
       "expect": {
         "comparison": { "status": "ok", "hasNumbers": true },
         "text": {
-          "matches": ["^הנציג עדכן: אחוז פנסיה של העובד\\.\\n"],
+          "matches": ["^הנציג עדכן את אחוז הפנסיה\\.\\n"],
           "contains": ["בלוח ההשוואה"],
           "notContains": ["שווי השימוש", "החזר חשמל", "השתתפות העובד"]
         },

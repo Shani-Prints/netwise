@@ -169,12 +169,18 @@ export function buildStateBlock(ctx: TurnContext, showProvisional: boolean, carI
       currentParticipation: state.currentParticipation ?? null,
     })}`,
   );
+  const payslipFields = state.payslipFields ?? [];
+  if (payslipFields.length > 0) {
+    lines.push(
+      `fromConfirmedPayslip: ${payslipFields.join(', ')} (taken from a payslip the employee confirmed; their values are in "saved"). Do NOT ask for these and do not ask for a confirmation of them. The payslip gross already includes all pay components, so never ask separately about base salary, commissions or bonus. The payslip does not contain the occupation, the children or the current car: those are still asked as usual. If the employee volunteers a correction, accept it and save it with save_employee_data as usual.`,
+    );
+  }
   const gaps = Object.keys(state.fieldGaps);
   if (gaps.length > 0) lines.push(`fieldsThatWillNotBeAvailable (never ask the employee for them again): ${gaps.join(', ')}`);
   const enteredByRepresentative = Object.keys(state.fieldSources);
   if (enteredByRepresentative.length > 0) lines.push(`enteredByRepresentative (final, saved, do not ask again): ${enteredByRepresentative.join(', ')}`);
   lines.push(`stillMissingForToday: ${today.status === 'ok' ? 'nothing' : today.missingText.join(', ')}`);
-  if (today.status !== 'ok') lines.push(`askNext (ask these TOGETHER in one short question): ${askBatchLabels(today.missingFields, [...openQuestions.map((q) => q.missingField), ...gaps]).join(', ')}`);
+  if (today.status !== 'ok') lines.push(`askNext (ask these TOGETHER in one short question): ${askBatchLabels(today.missingFields, [...openQuestions.map((q) => q.missingField), ...gaps, ...payslipFields]).join(', ')}`);
   if (today.status === 'ok' && today.today) lines.push(`todayNet: ${fmt(today.today.components.net)}`);
   if (state.alternative) {
     const alt = state.alternative.kind === 'car' ? getCatalogCar(state.alternative.carId) : undefined;

@@ -10,11 +10,12 @@ import { AssistantBubble } from './messages/AssistantBubble';
 import { ComparisonPanel } from './messages/ComparisonPanel';
 import { Greeting } from './messages/Greeting';
 import messageStyles from './messages/messages.module.css';
+import { PayslipCard } from './messages/PayslipCard';
 import { QuestionsCard } from './messages/QuestionsCard';
 import { SystemNotice } from './messages/SystemNotice';
 import { UserBubble } from './messages/UserBubble';
 import { ScopeRoot } from './ScopeRoot';
-import { CarIcon, CrossIcon, SendIcon } from './ui/Icons';
+import { CarIcon, CrossIcon, DocumentIcon, PaperclipIcon, SendIcon } from './ui/Icons';
 import { NotificationCard } from './ui/NotificationCard';
 import uiStyles from './ui/ui.module.css';
 import { useApiChatController } from './useApiChatController';
@@ -49,7 +50,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
     activeRef.current = active;
   }, [active]);
 
-  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit } = useApiChatController(
+  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit, payslip, attachPayslip, confirmPayslip, cancelPayslip } = useApiChatController(
     api,
     active,
     (notification) => {
@@ -60,6 +61,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
   const fieldId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function prefill(question: string) {
     setDraft(question);
@@ -67,7 +69,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
   }
 
   // Keep the newest content in view (scrolling happens inside the messages area only).
-  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}`;
+  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}|${payslip?.phase ?? ''}`;
   useEffect(() => {
     const area = messagesRef.current;
     if (area) area.scrollTop = area.scrollHeight;
@@ -137,7 +139,37 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
               <QuestionsCard questions={questions} />
             </div>
           ) : null}
-          {busy ? (
+          {payslip?.phase === 'review' ? (
+            <div data-message="" data-kind="payslip" className={messageStyles.message}>
+              <PayslipCard
+                initialData={payslip.data}
+                disabled={busy}
+                onConfirm={(data) => void confirmPayslip(data)}
+                onCancel={cancelPayslip}
+              />
+            </div>
+          ) : null}
+          {busy && payslip?.phase === 'parsing' ? (
+            <div role="status" aria-label={he.api.payslip.reading} className={styles.reading}>
+              <div className={styles.readingDoc} aria-hidden="true">
+                <DocumentIcon size={36} />
+                <span className={styles.readingScan} />
+              </div>
+              <p className={styles.readingSteps} aria-hidden="true">
+                {he.api.payslip.readingSteps.map((step) => (
+                  <span key={step} className={styles.readingStep}>
+                    {step}
+                  </span>
+                ))}
+              </p>
+              <div className={styles.readingRows} aria-hidden="true">
+                <span className={styles.readingRow} />
+                <span className={styles.readingRow} />
+                <span className={styles.readingRow} />
+                <span className={styles.readingRow} />
+              </div>
+            </div>
+          ) : busy ? (
             <p role="status" className={messageStyles.thinking}>
               {he.api.thinking}
             </p>
@@ -160,6 +192,28 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
           <label htmlFor={fieldId} className={uiStyles.srOnly}>
             {he.ask.fieldLabel}
           </label>
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              const picked = Array.from(event.target.files ?? []);
+              event.target.value = '';
+              void attachPayslip(picked);
+            }}
+          />
+          <button
+            type="button"
+            className={styles.attach}
+            disabled={busy || payslip !== null}
+            aria-label={he.api.payslip.attach}
+            title={he.api.payslip.attach}
+            onClick={() => fileRef.current?.click()}
+          >
+            <PaperclipIcon />
+          </button>
           <textarea
             id={fieldId}
             ref={fieldRef}

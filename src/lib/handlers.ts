@@ -161,7 +161,7 @@ export const handlePostEmployeeState = (req: Request) =>
     const repo = await getRepo();
     const state =
       body.action === 'update_profile'
-        ? await updateProfile(repo, a.actor, body.fields)
+        ? await updateProfile(repo, a.actor, body.fields, body.source === 'payslip' ? { source: 'payslip' } : {})
         : await selectAlternative(repo, a.actor, body.alternative);
     return json(state, 200, a.setCookie);
   });

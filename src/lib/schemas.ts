@@ -46,7 +46,12 @@ export const ProfileFieldsSchema = z
 export type ProfileFields = z.infer<typeof ProfileFieldsSchema>;
 
 export const EmployeeStateBodySchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('update_profile'), fields: ProfileFieldsSchema }),
+  z.object({
+    action: z.literal('update_profile'),
+    fields: ProfileFieldsSchema,
+    /** Set only by the payslip confirmation flow. Never part of any model tool's input. */
+    source: z.literal('payslip').optional(),
+  }),
   z.object({ action: z.literal('select_alternative'), alternative: OptionRefSchema }),
 ]);
 export type EmployeeStateBody = z.infer<typeof EmployeeStateBodySchema>;

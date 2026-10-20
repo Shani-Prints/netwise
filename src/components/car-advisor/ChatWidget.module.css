@@ -170,3 +170,138 @@
     padding: 8px 10px;
   }
 }
+
+[data-car-advisor][data-car-advisor] .attach {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ca-line);
+  border-radius: 50%;
+  background: var(--ca-white);
+  color: var(--ca-action);
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .attach:disabled {
+  color: var(--ca-muted);
+  cursor: not-allowed;
+}
+
+/* Payslip reading card: scanning line, rotating status text (pure CSS), skeleton rows */
+[data-car-advisor][data-car-advisor] .reading {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: 16px;
+  background: var(--ca-white);
+}
+[data-car-advisor][data-car-advisor] .readingDoc {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  color: var(--ca-action);
+}
+[data-car-advisor][data-car-advisor] .readingScan {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: var(--ca-action);
+  box-shadow: 0 0 8px var(--ca-action);
+  animation: readingScan 1.8s ease-in-out infinite alternate;
+}
+[data-car-advisor][data-car-advisor] .readingSteps {
+  display: grid;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+[data-car-advisor][data-car-advisor] .readingStep {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: readingStep 7.5s infinite;
+}
+[data-car-advisor][data-car-advisor] .readingStep:nth-child(1) {
+  animation-delay: 0s;
+}
+[data-car-advisor][data-car-advisor] .readingStep:nth-child(2) {
+  animation-delay: 2.5s;
+}
+[data-car-advisor][data-car-advisor] .readingStep:nth-child(3) {
+  animation-delay: 5s;
+}
+[data-car-advisor][data-car-advisor] .readingRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+[data-car-advisor][data-car-advisor] .readingRow {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--ca-step-idle) 25%, var(--ca-line) 50%, var(--ca-step-idle) 75%);
+  background-size: 200% 100%;
+  animation: readingShimmer 1.6s linear infinite;
+}
+[data-car-advisor][data-car-advisor] .readingRow:nth-child(2) {
+  width: 85%;
+}
+[data-car-advisor][data-car-advisor] .readingRow:nth-child(3) {
+  width: 92%;
+}
+[data-car-advisor][data-car-advisor] .readingRow:nth-child(4) {
+  width: 70%;
+}
+@keyframes readingScan {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(34px);
+  }
+}
+@keyframes readingStep {
+  0% {
+    opacity: 0;
+  }
+  4%,
+  30% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes readingShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-car-advisor][data-car-advisor] .readingScan,
+  [data-car-advisor][data-car-advisor] .readingRow {
+    animation: none;
+  }
+  [data-car-advisor][data-car-advisor] .readingScan {
+    display: none;
+  }
+  /* Static: show only the first status text */
+  [data-car-advisor][data-car-advisor] .readingStep {
+    animation: none;
+    opacity: 0;
+  }
+  [data-car-advisor][data-car-advisor] .readingStep:nth-child(1) {
+    opacity: 1;
+  }
+}

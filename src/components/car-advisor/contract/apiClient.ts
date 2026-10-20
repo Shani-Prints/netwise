@@ -1,3 +1,5 @@
+import type { Payslip } from '../../../lib/payslip-schema';
+import type { PayslipProfileFields } from '../../../lib/payslip-to-engine';
 import { fill } from '../content/fill';
 import { he } from '../content/he';
 import type {
@@ -35,6 +37,12 @@ export interface AdvisorApiClient {
   ensureSession(): Promise<void>;
   /** POST /api/chat. On a 401 the session is renewed and the message is sent once more. */
   sendMessage(message: string): Promise<ApiChatResponse>;
+  /** POST /api/payslip/parse with the prepared files (pages of one payslip). Nothing is stored by the server. */
+  parsePayslip(files: File[]): Promise<{ data: Payslip; warnings: string[] }>;
+  /** POST /api/employee/state (update_profile, source "payslip"): saves the confirmed payslip values. */
+  confirmPayslip(fields: PayslipProfileFields): Promise<void>;
+  /** POST /api/chat { event: "payslip_confirmed" }: the bot continues by itself (no user bubble). */
+  sendPayslipConfirmed(): Promise<ApiChatResponse>;
   /** GET /api/employee/state (messages, comparison, questions). On a 401 the session is renewed and it is read once more. */
   getState(): Promise<ApiEmployeeState>;
   /** POST /api/session/rep. The code is only sent, never stored or logged. */
@@ -124,6 +132,34 @@ export function createApiClient(options: ApiClientOptions = {}): AdvisorApiClien
       if (text.length > MAX_CHAT_CHARS) throw new ApiError(400, 'too_long');
       await ensureSession();
       return withSessionRetry(() => call<ApiChatResponse>('POST', '/api/chat', { message: text }));
+    },
+
+    async parsePayslip(files) {
+      await ensureSession();
+      const send = async () => {
+        const form = new FormData();
+        files.forEach((f) => form.append('files', f));
+        let response: Response;
+        try {
+          response = await doFetch(`${base}/api/payslip/parse`, { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: form });
+        } catch {
+          throw new ApiError(0, 'network');
+        }
+        const data: unknown = await response.json().catch(() => null);
+        if (!response.ok) throw toApiError(response.status, data);
+        return data as { data: Payslip; warnings: string[] };
+      };
+      return withSessionRetry(send);
+    },
+
+    async confirmPayslip(fields) {
+      await ensureSession();
+      await withSessionRetry(() => call('POST', '/api/employee/state', { action: 'update_profile', fields, source: 'payslip' }));
+    },
+
+    async sendPayslipConfirmed() {
+      await ensureSession();
+      return withSessionRetry(() => call<ApiChatResponse>('POST', '/api/chat', { event: 'payslip_confirmed' }));
     },
 
     async getState() {

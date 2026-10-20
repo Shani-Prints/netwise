@@ -44,6 +44,7 @@ automatically and is NOT shown to the employee as written.)
 | GET | `/api/employee/state` | employee | – | `EmployeeStateResponse` (below) | 401, 403 (rep cookie) |
 | POST | `/api/employee/state` | employee | `{ action: "update_profile", fields }` or `{ action: "select_alternative", alternative }` | `EmployeeStateResponse` | 400, 401, 403, 422 (`unknown_car`, `unknown_vehicle`) |
 | POST | `/api/chat` | employee | `{ message: string }` (1–1000 chars) | `{ assistantText, comparison?, pendingQuestions?, updates? }` | 400, 401 (no/invalid session or unknown user), 403 (rep), 429, 503 (all providers failed) |
+| POST | `/api/payslip/parse` | employee | `multipart/form-data`, field `files` (1–10 pages of ONE payslip: PDF, JPG, PNG, WebP; 4.5MB in total) | `{ data: Payslip, warnings: string[] }` (nothing is stored) | 401, 403, 413, 415, 422, 429 (per-session limit), 502 |
 | GET | `/api/rep/questions` | rep | – | `{ questions: RepQuestionView[] }` (open first) | 401, 403 |
 | POST | `/api/rep/answer` | rep | `{ questionId, answer }` (typed answer, 1–100 chars) | `{ question: RepQuestionView }` | 400 `invalid_answer`, 404, 409 (`already_answered`, `answer_in_progress`) |
 | POST | `/api/rep/answer-text` | rep | `{ questionId, text }` (1–500 chars, Hebrew or English) | `{ question: RepQuestionView, interpretation }` | 400, 401, 403, 404, 409, 429 |
@@ -129,6 +130,10 @@ both are `status: "missing"` with the Hebrew reason and without a net for the de
   `employeeRefMissing: true` means the employee gave no reference. **The bot never asks the employee for a name or an employee number**: a question is opened immediately, and `employeeRef` exists only if the employee volunteered one in her own message. The server sets `employeeRefUnverified: true` whenever `employeeRef` is present; the UI must still show it in quotes with an "unverified" label.
 * A question with `followUpOf` is a request for clarification: show it as a new question that refers to the earlier one.
 * The representative can answer either with the typed API (`/api/rep/answer`) or in free text (`/api/rep/answer-text`).
+
+## Payslip upload
+
+The employee attaches a payslip (paperclip in the chat). The browser prepares the files, `POST /api/payslip/parse` reads them and the employee confirms or edits the values in a card. On confirm the UI sends `POST /api/employee/state` `{ action: "update_profile", fields, source: "payslip" }` (only `base`, `commissions`, `bonus`, `pensionPct`, `studyFundPct`, `creditPoints` are accepted with this source, otherwise `400`) and then `POST /api/chat` `{ event: "payslip_confirmed" }`. That event has no employee message: nothing is stored as a user message, the bot thanks and asks only for what is still missing (the occupation is never in a payslip). The event is a no-op (`assistantText: ""`) when no payslip was confirmed. The bot itself never offers an upload.
 
 ## `POST /api/chat` response
 

@@ -51,3 +51,21 @@ export function CrossIcon({ size = 20, ...props }: IconProps & { size?: number }
     </svg>
   );
 }
+
+export function DocumentIcon({ size = 24, ...props }: IconProps & { size?: number }) {
+  return (
+    <svg {...base} {...sized(size)} {...props}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
+export function PaperclipIcon({ size = 20, ...props }: IconProps & { size?: number }) {
+  return (
+    <svg {...base} {...sized(size)} {...props}>
+      <path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+    </svg>
+  );
+}

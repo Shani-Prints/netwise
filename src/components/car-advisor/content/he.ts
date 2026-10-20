@@ -206,6 +206,32 @@ export const he = {
 
   /** The REAL chat (connected to the server). Server text itself is never copy: it is shown as plain text. */
   api: {
+    payslip: {
+      attach: 'צירוף תלוש שכר',
+      reading: 'קורא את התלוש...',
+      readingSteps: ['קורא את התלוש...', 'מזהה את השורות...', 'בודק שהחשבון מתאזן...'],
+      cardTitle: 'הנתונים שנקראו מהתלוש',
+      cardHint: 'בדקו שהנתונים נכונים. שדות מסומנים הם כאלה שלא היינו בטוחים בקריאתם.',
+      confirm: 'אישור',
+      edit: 'עריכה',
+      doneEditing: 'סיום עריכה',
+      cancel: 'ביטול',
+      notRead: 'לא נקרא',
+      noUsable: 'לא נמצאו בתלוש נתונים שניתן להשתמש בהם. נסו תמונה ברורה יותר, או כתבו לי את הנתונים.',
+      saveFailed: 'שמירת הנתונים מהתלוש נכשלה. נסו שוב.',
+      otherDeduction: 'ניכוי אחר',
+      fields: {
+        grossSalary: 'ברוטו',
+        carBenefitValue: 'שווי שימוש ברכב (כלול בברוטו)',
+        netToPay: 'נטו לתשלום',
+        incomeTax: 'מס הכנסה',
+        nationalInsurance: 'ביטוח לאומי',
+        healthTax: 'מס בריאות',
+        pensionEmployee: 'פנסיה (עובד)',
+        studyFundEmployee: 'קרן השתלמות (עובד)',
+        taxCreditPoints: 'נקודות זיכוי',
+      },
+    },
     errors: {
       network: 'אין חיבור לשרת. בדקו את החיבור ונסו שוב.',
       generic: 'משהו השתבש. נסו שוב בעוד רגע.',

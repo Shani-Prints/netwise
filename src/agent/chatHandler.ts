@@ -25,7 +25,16 @@ export interface ChatResponse {
   updates?: { newAnswers: boolean };
 }
 
-const ChatBodySchema = z.object({ message: z.string().trim().min(1) });
+const ChatBodySchema = z.union([
+  z.object({ message: z.string().trim().min(1) }),
+  z.object({ event: z.literal('payslip_confirmed') }),
+]);
+
+/** Fixed server text for the model after a payslip was confirmed. Not typed by the employee, never stored or displayed. */
+export const PAYSLIP_CONFIRMED_INSTRUCTION =
+  '[SYSTEM EVENT - not written by the employee] The employee just confirmed a payslip and the server saved its values (see fromConfirmedPayslip and "saved" in SERVER STATE). ' +
+  'Thank them in one short sentence and say what was filled from the payslip in a few words. Do not ask for anything listed in fromConfirmedPayslip. ' +
+  'Then ask ONLY for what is still missing (askNext), together in one short message; if nothing is missing, ask which car or waiver to compare.';
 
 export const MSG = {
   invalidBody: 'הבקשה אינה תקינה. יש לשלוח הודעת טקסט.',
@@ -125,7 +134,8 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
     }
     const body = ChatBodySchema.safeParse(raw);
     if (!body.success) return fail(400, MSG.invalidBody);
-    const message = body.data.message;
+    const isPayslipEvent = 'event' in body.data;
+    const message = 'message' in body.data ? body.data.message : '';
     if (message.length > MAX_MESSAGE_CHARS) return fail(400, MSG.tooLong);
 
     // 4. start of the turn: representative answers already applied are in context
@@ -140,7 +150,10 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
       return fail(503, BUSY_MESSAGE_HE);
     }
 
-    await repo.addMessage(conv.id, 'user', message); // saved first: never lost if every provider fails
+    // The event is only valid after a confirmed payslip was saved; otherwise nothing happens (no model call, no message).
+    if (isPayslipEvent && (conv.state.payslipFields ?? []).length === 0) return json({ assistantText: '' } satisfies ChatResponse);
+
+    if (!isPayslipEvent) await repo.addMessage(conv.id, 'user', message); // saved first: never lost if every provider fails
     // Representative answers that are still waiting for their interpretation (row 11/12) are retried on every employee turn.
     // Nothing here can fail the turn, and nothing about it is shown to the employee until it is interpreted.
     try {
@@ -150,12 +163,12 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
     }
     // "אין לי X" for a field that is still missing is a stated zero: recorded here, never asked again ("is it 0%?")
     try {
-      await applyStatedZeros(repo, actor, conv.id, message);
+      if (!isPayslipEvent) await applyStatedZeros(repo, actor, conv.id, message);
     } catch (err) {
       console.error(`[netwise] chat: recording stated zeros failed (${err instanceof Error ? err.name : 'unknown'})`);
     }
     // start of the turn: rep answers applied, and a current car the employee named is resolved on the server
-    const context = await prepareTurnWithCurrentCar(repo, actor, message);
+    const context = await prepareTurnWithCurrentCar(repo, actor, isPayslipEvent ? '' : message);
 
     const show = showProvisionalAlternative(env);
     let turn;
@@ -170,7 +183,8 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
         participationFromRepresentative: participationFromRepresentative(env),
         carIssues: context.carIssues,
         openedAtStart: context.openedAtStart,
-        userMessage: message,
+        userMessage: isPayslipEvent ? undefined : message,
+        transientInstruction: isPayslipEvent ? PAYSLIP_CONFIRMED_INSTRUCTION : undefined,
         fallback: deps.fallback,
       });
     } catch (err) {

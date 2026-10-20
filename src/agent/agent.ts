@@ -37,6 +37,8 @@ export interface AgentTurnArgs {
   participationFromRepresentative?: boolean;
   /** The employee's message of this turn. Used only to let the SERVER resolve a named car when the model gave no usable answer. */
   userMessage?: string;
+  /** A server-written instruction appended as the last user turn for the model only. It is never stored or shown. */
+  transientInstruction?: string;
   /** Cars the employee named that are not on the company's list, as found by the server at the start of the turn. */
   carIssues?: CarIssue[];
   /** Questions the server opened at the start of the turn (before the model ran). */
@@ -256,13 +258,14 @@ export function ensureQuestionSentence(text: string, collector: TurnCollector, a
   return text === '' || text === NEUTRAL_FALLBACK_HE ? sentence : `${text}\n${sentence}`;
 }
 
-async function history(repo: Repo, conversationId: string): Promise<ModelMessage[]> {
+async function history(repo: Repo, conversationId: string, transient?: string): Promise<ModelMessage[]> {
   const all = (await repo.listMessages(conversationId)).slice(-HISTORY_LIMIT);
   const msgs: ModelMessage[] = all.map((m) =>
     m.role === 'user'
       ? { role: 'user', content: m.content }
       : { role: 'assistant', content: m.role === 'system' ? `[הודעת מערכת] ${m.content}` : m.content },
   );
+  if (transient) msgs.push({ role: 'user', content: transient });
   while (msgs[0] && msgs[0].role !== 'user') msgs.shift();
   return msgs;
 }
@@ -339,7 +342,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
       const result = await generateText({
         model: p.model,
         instructions: buildSystemPrompt(stateBlock, fromRep),
-        messages: await history(repo, conversationId),
+        messages: await history(repo, conversationId, args.transientInstruction),
         tools: createTools({ repo, actor, collector, showProvisional, participationFromRepresentative: fromRep, conversationId }),
         stopWhen: stepCountIs(MAX_STEPS),
         maxRetries: 0, // retries and backoff are handled by withFallback
@@ -385,7 +388,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   if (assistantText === '') {
     // 1. whatever the tools already established (a refusal reason, an explanation, what is missing)
     const skipCar = (args.carIssues ?? []).some((i) => i.role === 'current');
-    const skip = [...value.ctx.openQuestions.map((q) => q.missingField), ...Object.keys(value.ctx.state.fieldGaps)];
+    const skip = [...value.ctx.openQuestions.map((q) => q.missingField), ...Object.keys(value.ctx.state.fieldGaps), ...(value.ctx.state.payslipFields ?? [])];
     assistantText = deterministicText(collector, { skipCurrentCar: skipCar, skip });
     via = 'deterministic';
     // 2. nothing from the tools: let the SERVER check the car the employee named, with the same engine and rules

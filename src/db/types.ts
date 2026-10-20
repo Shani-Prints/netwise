@@ -89,6 +89,11 @@ export const ConversationStateSchema = z.object({
    * elsewhere, or the clarification attempts ran out. The bot never asks the employee for them again.
    */
   fieldGaps: z.record(z.string(), z.enum(['unavailable', 'not_found', 'referred', 'unresolved'])).default({}),
+  /**
+   * Profile fields whose CURRENT value came from the employee's confirmed payslip. Set only by the payslip confirmation flow
+   * (never by a model tool); a later correction by the employee removes the field from this list.
+   */
+  payslipFields: z.array(z.string()).default([]),
 });
 export type ConversationState = z.infer<typeof ConversationStateSchema>;
 

@@ -572,14 +572,23 @@ function resolveCurrentCar(input: CurrentCarInput): NonNullable<ConversationStat
   };
 }
 
+/** Profile fields a confirmed payslip can fill. A payslip does not contain the occupation, children or the current car. */
+export const PAYSLIP_FIELDS = ['base', 'commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'] as const;
+
 /** Saves what the employee says about themselves and recomputes the chosen alternative, if any. */
 export async function updateProfile(
   repo: Repo,
   actor: Actor,
   fields: ProfileFields,
-  meta: { currentCarYearAssumed?: boolean } = {},
+  meta: { currentCarYearAssumed?: boolean; source?: 'payslip' } = {},
 ): Promise<EmployeeStateResponse> {
   requireEmployee(actor);
+  const fromPayslip = meta.source === 'payslip';
+  if (fromPayslip) {
+    const allowed: readonly string[] = PAYSLIP_FIELDS;
+    const given = Object.keys(fields).filter((k) => fields[k as keyof ProfileFields] !== undefined);
+    if (given.some((k) => !allowed.includes(k))) throw new ServiceError(400, 'invalid_payslip_fields');
+  }
   return withLock(actor.userId, async () => {
     const turn = await prepare(repo, actor);
     const { conv } = turn;
@@ -602,6 +611,9 @@ export async function updateProfile(
       delete state.fieldSources[field]; // the employee's own value replaces the representative's
       delete state.escalation.attempts[`reject:${field}`];
     }
+    // A confirmed payslip REPLACES the list; any other update removes the fields the employee corrected.
+    const givenFields = Object.keys(fields).filter((k) => fields[k as keyof ProfileFields] !== undefined);
+    state.payslipFields = fromPayslip ? givenFields : (state.payslipFields ?? []).filter((f) => !givenFields.includes(f));
     if (fields.currentCar !== undefined) {
       state.currentCar = resolveCurrentCar(fields.currentCar);
       // the catalogue's registration year is an assumption only when the employee did not state a year

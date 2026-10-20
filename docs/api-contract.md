@@ -80,6 +80,8 @@ Hebrew name of the missing item written by the server (for example "הרכב ה�
 representative reads, the car label, the representative's answer and the employee reference are NOT part of the employee view (they
 stay in `GET /api/rep/questions`). The UI shows only the label and "הפנייה נשלחה לנציג".
 
+**The result appears once.** When a turn produces a numeric comparison, `assistantText` is one short sentence with the headline numbers (today's net, the new net, the difference) and the pointer "הפירוט המלא מופיע בלוח ההשוואה."; the lines, assumptions and amounts are only in `comparison`. After a representative answer, the next `assistantText` opens with one line "הנציג עדכן: {labels}." (added by the server).
+
 When the server opens a question the bot says it with one fixed sentence: "חסר לי מידע לגבי {labels}, ולכן שלחתי פנייה לנציג. אעדכן אותך כשתהיה תשובה."
 
 ## `ComparisonView` (what the UI needs)

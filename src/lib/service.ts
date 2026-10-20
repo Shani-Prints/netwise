@@ -12,7 +12,7 @@ import {
   type RepQuestion,
   type Role,
 } from '../db/types';
-import { askNextFields } from '../agent/askNext';
+import { askBatchFields, askNextFields } from '../agent/askNext';
 import { buildComparison, buildTodayOnly, type TodayOnly } from './comparison';
 import { missingFieldLabel } from './explain';
 import { loadRules } from '../config/rules';
@@ -851,7 +851,7 @@ export function reportUnknownFields(
     // "I don't know" counts only for what the bot could have asked her NOW (the next items it was told to ask), never for a value
     // she already gave, and never for the technical details of a vehicle (maker / model / year): those come from the data.
     const today = buildTodayOnly({ profile, state: conv.state });
-    const askedNow = new Set(today.status === 'ok' ? [] : askNextFields(today.missingFields));
+    const askedNow = new Set(today.status === 'ok' ? [] : [...askNextFields(today.missingFields), ...askBatchFields(today.missingFields)]);
     for (const field of new Set(fields)) {
       if (TECHNICAL_CAR_PARTS.has(field)) {
         results.push({ kind: 'unresolved_current_car', field, outcome: conv.state.currentCar !== undefined ? 'already_known' : 'not_needed' });

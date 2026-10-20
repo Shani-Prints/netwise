@@ -12,7 +12,7 @@
       "expect": {
         "currentCarLabelContains": "COROLLA CROSS",
         "profile": { "group": "ג", "childrenUnder23": 2, "salaryInputs": { "base": 18500, "pensionPct": 6, "studyFundPct": 2.5, "creditPoints": 2.75 } },
-        "text": { "contains": ["לא ברור לי לאיזה רכב התכוונת", "DOLPHIN", "ATTO 3", "SEAL"], "notMatches": ["שנת רישום", "באיזו שנה", "מחיר הרכב"] },
+        "text": { "contains": ["לא ברור לאיזה רכב הכוונה", "DOLPHIN", "ATTO 3", "SEAL"], "notMatches": ["שנת רישום", "באיזו שנה", "מחיר הרכב"] },
         "openQuestions": [],
         "totalQuestions": 0,
         "awaitingRepresentative": false

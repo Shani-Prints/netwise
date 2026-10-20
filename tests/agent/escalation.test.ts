@@ -210,7 +210,7 @@ describe('triggers (ii) and (iii): server-detected cases', () => {
     const e = await employeeWithoutPension();
     for (let i = 0; i < 4; i++) {
       const r = await chat(e, 'ואם אעבור לזנדורה פלקס 2024?', { providers: [provider(fake(say('בסדר.')))] });
-      expect(r.body.assistantText).toContain('הרכב שביקשת לא ברשימה של החברה לקבוצה שלך');
+      expect(r.body.assistantText).toContain('הרכב המבוקש לא ברשימה של החברה לקבוצת הזכאות');
     }
     expect(await repView()).toEqual([]);
     expect((await e.state()).body.questions).toEqual([]);

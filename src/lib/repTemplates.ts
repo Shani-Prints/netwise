@@ -17,7 +17,7 @@ export type QuestionStatus = keyof typeof STATUS_TEXT;
 
 /** Row 3: no matching record. No value is applied. */
 export const EMPLOYEE_NOT_FOUND_TEXT =
-  'הנציג בדק ולא מצא רשומה שמתאימה לפרטים שלך, ולכן אי אפשר לחשב את ההשוואה כרגע. כדאי לבדוק את הפרטים מול מי שמטפל בענייני שכר בחברה.';
+  'הנציג בדק ולא מצא רשומה שמתאימה לפרטים, ולכן אי אפשר לחשב את ההשוואה כרגע. כדאי לבדוק את הפרטים מול מי שמטפל בענייני שכר בחברה.';
 
 /** Row 4: the value is not available at all. */
 export const valueUnavailableText = (label: string): string =>
@@ -63,14 +63,14 @@ export const gapReasonText = (label: string): string =>
  * `quoted` is for text values (a group letter, an occupation, a car): they are shown in quotes.
  */
 export const repUpdatedText = (label: string, value: string, quoted: boolean): string =>
-  `הנציג עדכן את הנתון "${label}" ל${quoted ? `"${value}"` : `-${value}`}. הערך נשמר בפרופיל שלך (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.`;
+  `הנציג עדכן את הנתון "${label}" ל${quoted ? `"${value}"` : `-${value}`}. הערך נשמר בפרופיל (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.`;
 
 /** One fact of a merged notice: "label" ל-value. */
 export const repUpdatedPart = (label: string, value: string, quoted: boolean): string => `"${label}" ל${quoted ? `"${value}"` : `-${value}`}`;
 
 /** ONE notice when several representative answers are applied together: it lists the fields. */
 export const repUpdatedManyText = (parts: string[]): string =>
-  `הנציג עדכן כמה נתונים: ${parts.join('; ')}. הערכים נשמרו בפרופיל שלך (הוזנו על ידי נציג) ואפשר לתקן אותם בכל שלב.`;
+  `הנציג עדכן כמה נתונים: ${parts.join('; ')}. הערכים נשמרו בפרופיל (הוזנו על ידי נציג) ואפשר לתקן אותם בכל שלב.`;
 
 /** The participation in the new car (kept on the conversation, not on the profile). */
 export const repParticipationUpdatedText = (carLabel: string, value: string): string =>
@@ -101,26 +101,30 @@ export const CAR_NOT_FOUND_SENT_TEXT =
 /** The car the employee wants to move to is not on the list for her group: the eligible options come from the rules. */
 export const altNotOnListText = (options: string[]): string =>
   options.length > 0
-    ? `הרכב שביקשת לא ברשימה של החברה לקבוצה שלך. אלה הרכבים שמתאימים לך:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`
-    : 'הרכב שביקשת לא נמצא ברשימת הרכבים של החברה. אפשר לכתוב שוב את היצרן והדגם?';
+    ? `הרכב המבוקש לא ברשימה של החברה לקבוצת הזכאות. אלה הרכבים שמתאימים:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`
+    : 'הרכב המבוקש לא נמצא ברשימת הרכבים של החברה. אפשר לכתוב שוב את היצרן והדגם?';
 
 /** Assumption line of a comparison: the current car is the catalogue row and the employee did not state its year. */
 export const currentCarYearAssumptionText = (year: number, label: string): string =>
-  `הנחתי שנת רישום ${year} עבור ${label} לפי הקטלוג. אם זו לא השנה הנכונה, כתבי לי את השנה.`;
+  `הנחתי שנת רישום ${year} עבור ${label} לפי הקטלוג. אם זו לא השנה הנכונה, אפשר לכתוב את השנה.`;
+
+/** The opening words of the two pick-lists; listDedupe uses them to recognise that the employee only picked from a list. */
+export const PICK_CAR_LEAD = 'לא ברור לאיזה רכב הכוונה';
+export const PICK_OCCUPATION_LEAD = 'לא ברור לי מה העיסוק';
 
 /** The description fits several cars (or one only through a typo): the options come from the catalogue. */
 export const pickCarText = (options: string[], more = false): string =>
-  `לא ברור לי לאיזה רכב התכוונת. אלה האפשרויות:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
+  `${PICK_CAR_LEAD}. אלה האפשרויות:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
 
 /** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
 export const pickOccupationText = (options: string[]): string =>
-  `לא ברור לי מה העיסוק שלך. אלה העיסוקים הקרובים בטבלה:
+  `${PICK_OCCUPATION_LEAD}. אלה העיסוקים הקרובים בטבלה:
 ${bullets(options)}
 איזה מהם?`;
 
 /** After a refusal: what she can choose. */
 export const eligibleOptionsText = (options: string[]): string =>
-  `אלה הרכבים שמתאימים לקבוצה שלך:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`;
+  `אלה הרכבים שמתאימים לקבוצת הזכאות:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`;
 
 /** Added to ANY final text when the server opened a question in this turn and the text does not say so. */
 export const repQuestionSentText = (labels: string[]): string => {

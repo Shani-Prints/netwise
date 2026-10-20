@@ -57,7 +57,7 @@ describe('item 1: the exact message of the report', () => {
     expect(profile.childrenUnder23).toBe(0);
     const qs = await repView();
     expect(qs.map((q) => q.field)).toEqual(['creditPoints']);
-    expect(r.body.assistantText).toContain('נקודות הזיכוי שלך');
+    expect(r.body.assistantText).toContain('נקודות הזיכוי');
     expect(r.body.assistantText).not.toContain('הילדים');
   });
 

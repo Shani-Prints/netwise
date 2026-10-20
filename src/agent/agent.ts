@@ -8,8 +8,9 @@ import { employeeLabelFor, FIELD_NAME_HE, isRepKind } from '../lib/repQuestions'
 import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
 import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
-import { MAX_ASK, askNextLabels } from './askNext';
+import { MAX_BATCH, askBatchLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
+import { ensureSingleResult, resultSummaryText, withRepBridge } from './flowText';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
 import { answeredAPick, dropListedNames, modelNamesOfLabels } from './listDedupe';
@@ -86,7 +87,7 @@ export function ineligibleFacts(collector: TurnCollector): IneligibleFact[] {
 export function derivedGroupSentence(collector: TurnCollector): string {
   for (const r of collector.results) {
     const g = (r.output as { derivedGroup?: string } | null)?.derivedGroup;
-    if (g) return `הנחתי שהקבוצה שלך היא ${g} לפי טבלת העיסוקים.`;
+    if (g) return `הנחתי שקבוצת הזכאות היא ${g} לפי טבלת העיסוקים.`;
   }
   return '';
 }
@@ -101,10 +102,10 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
   for (const f of ineligibleFacts(collector)) parts.push(`אין זכאות לחלופה "${f.label}".\n${f.reason}.`);
   const view = collector.lastView;
   if (view && view.status !== 'ineligible') {
-    // Data missing (no net to show): ask for the next items TOGETHER, at most MAX_ASK, instead of listing everything.
+    // Data missing (no net to show): ask for the next items TOGETHER, at most MAX_BATCH, instead of listing everything.
     // A "missing" view that still shows today's net (a representative question is open) keeps its own explanation.
-    const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askNextLabels(view.missingFields)) : null;
-    if (askLabels === null) parts.push(view.explanation.join('\n'));
+    const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askBatchLabels(view.missingFields)) : null;
+    if (askLabels === null) parts.push(view.status === 'ok' && view.today && view.alternative ? resultSummaryText(view as Parameters<typeof resultSummaryText>[0]) : view.explanation.join('\n'));
     else if (askLabels.length > 0) parts.push(`כדי להמשיך נצטרך עוד קצת מידע: ${askLabels.join(', ')}.`);
   }
   if (parts.length > 0) return parts.join('\n');
@@ -125,19 +126,19 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
       const labels = [...new Set(o.issues.map((i) => missingFieldLabel(i.path.split('.')[0] ?? '', age)))].filter((l) => l !== 'פרט נוסף');
       if (labels.length > 0) {
         return o.error === 'value_not_stated_by_employee'
-          ? `לא מצאתי בהודעות שלך את: ${labels.join(', ')}, ולכן לא שמרתי אותם. אפשר לכתוב לי אותם?`
+          ? `לא מצאתי בהודעות את: ${labels.join(', ')}, ולכן לא שמרתי אותם. אפשר לכתוב אותם כאן?`
           : `נראה שיש בעיה בערכים האלה: ${labels.join(', ')}. אפשר לכתוב אותם שוב?`;
       }
     }
-    // What is missing, grouped into ONE short question (at most MAX_ASK items).
+    // What is missing, grouped into ONE short question (at most MAX_BATCH items).
     if (o?.missingText && o.missingText.length > 0) {
-      const labels = without(o.missingFields && o.missingFields.length > 0 ? askNextLabels(o.missingFields) : o.missingText.slice(0, MAX_ASK));
+      const labels = without(o.missingFields && o.missingFields.length > 0 ? askBatchLabels(o.missingFields) : o.missingText.slice(0, MAX_BATCH));
       if (labels.length === 0) continue;
       return [derivedGroupSentence(collector), `כדי להמשיך נצטרך עוד קצת מידע: ${labels.join(', ')}.`].filter(Boolean).join('\n');
     }
     if (r.tool === 'check_eligibility' && o?.text) {
       return o.status === 'eligible' && o.alternativeLabel
-        ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אם בא לך, אחשב כמה זה ישנה בנטו.`
+        ? `אפשר לבחור את "${o.alternativeLabel}": ${o.text}. אפשר גם לחשב כמה זה ישנה בנטו.`
         : `${o.text}.`;
     }
   }
@@ -218,7 +219,7 @@ export async function shortMissingSentence(repo: Repo, actor: Actor): Promise<st
   const { profile, state } = await prepareEmployeeTurn(repo, actor);
   const today = buildTodayOnly({ profile, state });
   if (today.status === 'ok') return null;
-  const labels = askNextLabels(today.missingFields);
+  const labels = askBatchLabels(today.missingFields);
   return labels.length === 0 ? null : `מעולה, רשמתי. כדי להמשיך חסר לי עוד: ${labels.join(', ')}.`;
 }
 
@@ -405,6 +406,11 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
     console.warn(`[netwise] chat: answer replaced (reason=${codes.join('+')}, via=${via}, provider=${provider})`);
   }
 
+  // the result appears once: a short sentence here, the full breakdown only in the comparison panel
+  const single = ensureSingleResult(assistantText, collector);
+  if (single !== assistantText) console.info(`[netwise] chat: result bubble shortened (provider=${provider})`);
+  assistantText = single;
+
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
   const guided = await ensureCarGuidance(ensured.text, args, collector);
@@ -416,6 +422,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
     if (short) finalText = short;
   }
   if (finalText !== ensured.text) console.info(`[netwise] chat: server text appended (provider=${provider})`);
+  finalText = await withRepBridge(finalText, repo, conversationId);
 
   return {
     assistantText: finalText,

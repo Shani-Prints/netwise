@@ -1,0 +1,82 @@
+{
+  "id": "33-challenge-script-handoff-bridge-single-result",
+  "description": "The challenge script: short opening (occupation + base salary), related items in batches, an unknown field goes straight to the representative (no payslip, no ID), the representative's answer opens the next message with one bridge line, and the result appears once (headline in the bubble, breakdown in the panel)",
+  "tags": ["flow", "handoff", "bridge", "single-result"],
+  "steps": [
+    {
+      "employee": "אני שוקל לעבור לרכב חשמלי. כמה זה ישנה לי בנטו?",
+      "model": [{ "say": "בכיף! נתחיל מהבסיס: מה התפקיד, ומה שכר הבסיס החודשי?" }],
+      "expect": {
+        "text": { "contains": ["מה התפקיד", "שכר הבסיס"], "notContains": ["תלוש", "תעודת זהות", "מספר עובד"] },
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "מנהלת מוצר, 18,500",
+      "model": [
+        { "tool": "save_employee_data", "input": { "occupation": "מנהל/ת מוצר", "base": 18500 } },
+        { "say": "תודה. יש עמלות או בונוס?" }
+      ],
+      "expect": {
+        "profile": { "occupation": "מנהל/ת מוצר", "group": "ג" },
+        "text": { "contains": ["עמלות"], "notContains": ["תלוש"] },
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "model": [
+        {
+          "tool": "save_employee_data",
+          "input": { "commissions": 0, "bonus": 0, "studyFundPct": 2.5, "creditPoints": 2.75, "childrenUnder23": 2, "currentParticipation": 300 }
+        },
+        { "say": "תודה! מה אחוז הפנסיה?" }
+      ],
+      "expect": {
+        "currentCarLabelContains": "COROLLA CROSS",
+        "openQuestions": []
+      }
+    },
+    {
+      "employee": "אין לי מושג כמה פנסיה",
+      "model": [
+        { "tool": "mark_field_unknown", "input": { "fields": ["pensionPct"] } },
+        { "say": "בסדר." }
+      ],
+      "expect": {
+        "openQuestions": [{ "kind": "profile_field_unknown", "field": "pensionPct" }],
+        "awaitingRepresentative": true,
+        "text": {
+          "contains": ["שלחתי פנייה לנציג"],
+          "notContains": ["תלוש", "חוזה", "מספר עובד", "תעודת זהות"]
+        }
+      }
+    },
+    {
+      "rep": { "field": "pensionPct", "typed": "6" },
+      "expect": {
+        "repStatus": 200,
+        "openQuestions": [],
+        "fieldSources": { "pensionPct": "representative" }
+      }
+    },
+    {
+      "employee": "ואם אעבור לקיה EV3?",
+      "model": [
+        { "tool": "calculate_comparison", "input": { "alternative": "CAR-11" } },
+        {
+          "say": "הנה ההשוואה: היום נטו {{todayNet}} ₪, עם הרכב החדש {{alternativeNet}} ₪. למה? שווי השימוש משתנה, יש החזר חשמל של 250 ₪ והשתתפות העובד משתנה."
+        }
+      ],
+      "expect": {
+        "comparison": { "status": "ok", "hasNumbers": true },
+        "text": {
+          "matches": ["^הנציג עדכן: אחוז פנסיה של העובד\\.\\n"],
+          "contains": ["בלוח ההשוואה"],
+          "notContains": ["שווי השימוש", "החזר חשמל", "השתתפות העובד"]
+        },
+        "openQuestions": []
+      }
+    }
+  ]
+}

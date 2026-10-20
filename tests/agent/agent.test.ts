@@ -3,6 +3,7 @@ import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUSY_MESSAGE_HE, buildProviders, type ProviderEntry } from '../../src/agent/providers';
 import { handleChat, MAX_MESSAGE_CHARS, resetChatRateLimit, type ChatDeps } from '../../src/agent/chatHandler';
+import { resultSummaryText } from '../../src/agent/flowText';
 import { guardResponse } from '../../src/agent/guard';
 import { createTools, newCollector } from '../../src/agent/tools';
 import { getRepo } from '../../src/db/repo';
@@ -143,7 +144,7 @@ describe('guard', () => {
     const col = newCollector();
     expect(guardResponse('אתה זכאי לרכב הזה', col)).toMatchObject({ ok: false, reason: 'unsupported_eligibility_claim' });
     expect(guardResponse('אינך זכאי לרכב הזה', col).ok).toBe(false);
-    expect(guardResponse('מהי קבוצת הזכאות שלך?', col).ok).toBe(true);
+    expect(guardResponse('מהי קבוצת הזכאות?', col).ok).toBe(true);
     col.results.push({ tool: 'check_eligibility', output: { status: 'ineligible', text: 'x' } });
     expect(guardResponse('אינך זכאי לרכב הזה', col).ok).toBe(true);
     expect(guardResponse('אתה זכאי לרכב הזה', col).ok).toBe(false);
@@ -203,7 +204,9 @@ describe('POST /api/chat', () => {
     const model = fake(call('calculate_comparison', { alternative: 'CAR-10' }), say('הנטו שלך יעלה ב-9,999 ₪!'));
     const r = await chat(client, 'תשווה', { providers: [provider('a', model)] });
     expect(r.body.assistantText).not.toContain('9,999');
-    expect(r.body.assistantText).toBe(r.body.comparison.explanation.join('\n'));
+    // the bubble carries the one-sentence summary; the explanation lines live in the panel only
+    expect(r.body.assistantText).toBe(resultSummaryText(r.body.comparison));
+    expect(r.body.assistantText).not.toContain(r.body.comparison.explanation[1]);
   });
 
   it('replaces an eligibility claim that no tool backs', async () => {

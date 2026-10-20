@@ -4,7 +4,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { AISDKError, APICallError, type LanguageModel } from 'ai';
 import { describeError, isNetworkError } from '../lib/errorLog';
 
-export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים ששמרת נשמרו; נסו שוב בעוד רגע.';
+export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים נשמרו; נסו שוב בעוד רגע.';
 
 export interface ProviderEntry {
   name: string;

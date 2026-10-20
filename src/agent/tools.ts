@@ -24,7 +24,7 @@ import {
   type EscalationReply,
 } from '../lib/service';
 import type { ComparisonView } from '../lib/view';
-import { askNextLabels } from './askNext';
+import { askBatchLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
 import { PROVENANCE_FIELDS, checkProvenance, statedFieldValue, type ProvenanceField } from './provenance';
 import { listAllowedOptions } from './eligibleCars';
@@ -219,7 +219,7 @@ export function createTools(ctx: ToolContext): ToolSet {
       'Only numbers the employee actually wrote in this conversation are accepted: if one was not stated, the whole call is ' +
       'rejected (value_not_stated_by_employee) and NOTHING is saved. If you send an occupation without a group, the group is ' +
       'derived from the occupation table and returned as derivedGroup (mention it once as an assumption; do not ask). The current car is resolved by the server, not here. ' +
-      'Returns what is still missing for today\'s situation and askNext (up to 4 items to ask about together in one short question).',
+      'Returns what is still missing for today\'s situation and askNext (the next batch of 2-3 related items to ask about together in one short question).',
     SaveInputSchema,
     SaveOutputSchema,
     async (a) => {
@@ -310,7 +310,7 @@ export function createTools(ctx: ToolContext): ToolSet {
         saved,
         missingFields: t.missingFields,
         missingText: t.missingText,
-        askNext: askNextLabels(t.missingFields),
+        askNext: askBatchLabels(t.missingFields),
         ...(derivedGroup ? { derivedGroup } : {}),
         ...(t.status === 'ok' && t.today ? { todayNet: t.today.components.net } : {}),
       };

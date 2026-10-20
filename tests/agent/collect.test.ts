@@ -88,32 +88,32 @@ describe('one message with everything: one save call, then the comparison', () =
 describe('half a message: ONE grouped question for exactly what is missing', () => {
   const HALF = 'אני מפתח תוכנה, שכר הבסיס שלי 21,000 והפנסיה 6.5%.';
 
-  it('the save result lists exactly what is missing and at most 4 items to ask together; the group is derived', async () => {
+  it('the save result lists exactly what is missing and the next batch to ask together; the group is derived', async () => {
     const e = await newEmployee();
     const t = await runTurn(
       e,
       HALF,
       call('save_employee_data', { occupation: 'מפתח/ת תוכנה', base: 21000, pensionPct: 6.5 }),
-      say('הנחתי שהקבוצה שלך היא ב לפי טבלת העיסוקים. ועוד כמה פרטים: עמלות, בונוס, אחוז קרן השתלמות ונקודות זיכוי?'),
+      say('הנחתי שקבוצת הזכאות היא ב לפי טבלת העיסוקים. ועוד כמה פרטים: עמלות, בונוס, אחוז קרן השתלמות ונקודות זיכוי?'),
     );
     expect(t.tools).toEqual(['save_employee_data']);
     expect(t.outputs[0]).toMatchObject({
       status: 'saved',
       derivedGroup: 'ב',
       missingFields: ['commissions', 'bonus', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar'],
-      askNext: ['עמלות', 'בונוס', 'אחוז קרן השתלמות של העובד', 'נקודות זיכוי'], // 4, not 6
+      askNext: ['עמלות', 'בונוס'], // the next batch of 2-3 related items, not 6
     });
     expect(t.outputs[0]).not.toHaveProperty('todayNet');
     expect(t.turn.guardReason).toBeUndefined();
-    expect(t.turn.assistantText).toContain('הקבוצה שלך היא ב');
+    expect(t.turn.assistantText).toContain('קבוצת הזכאות היא ב');
     expect(t.turn.assistantText).not.toMatch(/\d/); // no number is invented while data is missing
     expect((await profileOf(e)).group).toBe('ב');
   });
 
-  it('if the model says nothing, the server still asks ONE grouped question (max 4 items), never the whole list', async () => {
+  it('if the model says nothing, the server still asks ONE grouped question (a batch of 2-3 related items), never the whole list', async () => {
     const e = await newEmployee();
     const t = await runTurn(e, HALF, call('save_employee_data', { occupation: 'מפתח/ת תוכנה', base: 21000, pensionPct: 6.5 }), say(''));
-    expect(t.turn.assistantText).toBe('הנחתי שהקבוצה שלך היא ב לפי טבלת העיסוקים.\nכדי להמשיך נצטרך עוד קצת מידע: עמלות, בונוס, אחוז קרן השתלמות של העובד, נקודות זיכוי.');
+    expect(t.turn.assistantText).toBe('הנחתי שקבוצת הזכאות היא ב לפי טבלת העיסוקים.\nכדי להמשיך נצטרך עוד קצת מידע: עמלות, בונוס.');
     expect(t.turn.via).toBe('deterministic');
   });
 
@@ -133,7 +133,7 @@ describe('a value given once is never asked again', () => {
     const t1 = await runTurn(e, 'שכר הבסיס שלי 18,500 והפנסיה 6%', call('save_employee_data', { base: 18500, pensionPct: 6 }), say('תודה. מה העיסוק שלך ומה העמלות והבונוס?'));
     expect(t1.outputs[0].missingFields).not.toContain('base');
     expect(t1.outputs[0].missingFields).not.toContain('pensionPct');
-    expect(t1.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס', 'אחוז קרן השתלמות של העובד']);
+    expect(t1.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס']);
 
     const t2 = await runTurn(
       e,
@@ -143,7 +143,7 @@ describe('a value given once is never asked again', () => {
     );
     expect(t2.outputs[0].status).toBe('saved'); // a repeated, stated value is not an error
     for (const done of ['base', 'pensionPct', 'studyFundPct']) expect(t2.outputs[0].missingFields).not.toContain(done);
-    expect(t2.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס', 'נקודות זיכוי']);
+    expect(t2.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס']);
     // the model's prompt in turn 2 already contains the saved values and does not list them as things to ask
     expect(t2.system).toContain('"base":18500');
     expect(t2.system).toContain('"pensionPct":6');
@@ -168,10 +168,10 @@ describe('ranges are enforced on the server', () => {
       e,
       'הפנסיה שלי 150 אחוז',
       call('save_employee_data', { pensionPct: 150 }),
-      say('הערך שכתבת לפנסיה אינו תקין. מהו אחוז הפנסיה שלך, בין אפס למאה?'),
+      say('הערך שכתבת לפנסיה אינו תקין. מהו אחוז הפנסיה, בין אפס למאה?'),
     );
     expect((await profileOf(e)).salaryInputs).toEqual({}); // nothing saved
-    expect(t.turn.assistantText).toContain('מהו אחוז הפנסיה שלך');
+    expect(t.turn.assistantText).toContain('מהו אחוז הפנסיה');
     expect(con.lines.warn).toContain('[netwise] chat: tool_error (tool=save_employee_data, error=invalid_tool_call)');
   });
 
@@ -309,11 +309,11 @@ describe('the group comes from the occupations table, in code', () => {
       e,
       'אני עובדת בתפקיד אנליסט',
       call('save_employee_data', { occupation: analyst.name }),
-      say(`הנחתי שהקבוצה שלך היא ${analyst.group} לפי טבלת העיסוקים.`),
+      say(`הנחתי שקבוצת הזכאות היא ${analyst.group} לפי טבלת העיסוקים.`),
     );
     expect(t.outputs[0].derivedGroup).toBe(analyst.group);
     expect((await profileOf(e)).group).toBe(analyst.group);
-    expect(t.turn.assistantText).toBe(`הנחתי שהקבוצה שלך היא ${analyst.group} לפי טבלת העיסוקים.`);
+    expect(t.turn.assistantText).toBe(`הנחתי שקבוצת הזכאות היא ${analyst.group} לפי טבלת העיסוקים.`);
     expect(t.turn.guardReason).toBeUndefined();
   });
 

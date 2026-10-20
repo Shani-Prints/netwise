@@ -42,7 +42,7 @@ describe('the employee says she does not know her credit points (scripted model)
 
 describe('the system message after a representative answer is one fixed template', () => {
   const PREFIX = 'הנציג עדכן את הנתון';
-  const TAIL = 'הערך נשמר בפרופיל שלך (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.';
+  const TAIL = 'הערך נשמר בפרופיל (הוזן על ידי נציג) ואפשר לתקן אותו בכל שלב.';
   const answered = async (field: Parameters<typeof openQuestion>[1][number], value: string, without: string[]) => {
     const e = await employeeWithout(without, false);
     await openQuestion(e, [field]);

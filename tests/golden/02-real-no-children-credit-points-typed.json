@@ -60,12 +60,12 @@
           }
         ],
         "questionLabels": [
-          "נקודות הזיכוי שלך"
+          "נקודות הזיכוי"
         ],
         "awaitingRepresentative": true,
         "text": {
           "contains": [
-            "נקודות הזיכוי שלך",
+            "נקודות הזיכוי",
             "שלחתי פנייה לנציג"
           ],
           "notMatches": [

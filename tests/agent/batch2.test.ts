@@ -70,7 +70,7 @@ describe('item 5: the registration-year assumption of a catalogue car', () => {
   }
 
   it('the fixed template (data from the server)', () => {
-    expect(line).toBe('הנחתי שנת רישום 2025 עבור טויוטה יפן COROLLA CROSS (2025) לפי הקטלוג. אם זו לא השנה הנכונה, כתבי לי את השנה.');
+    expect(line).toBe('הנחתי שנת רישום 2025 עבור טויוטה יפן COROLLA CROSS (2025) לפי הקטלוג. אם זו לא השנה הנכונה, אפשר לכתוב את השנה.');
   });
 
   it('the year was not stated: one extra assumption line, and the year is not asked', async () => {
@@ -128,7 +128,7 @@ describe('item 7: one block per list, and a short reply after a pick', () => {
     const modelText = 'אפשר להשוות לכמה דגמים של BYD:\n- BYD DOLPHIN\n- BYD ATTO 3\n- BYD SEAL\nמה העיסוק שלך?';
     const r = await turn(e, 'מה אם אעבור ל-BYD חשמלי?', say(modelText));
     const text: string = r.body.assistantText;
-    expect(text).toContain('לא ברור לי לאיזה רכב התכוונת');
+    expect(text).toContain('לא ברור לאיזה רכב הכוונה');
     for (const m of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(text.split(m).length - 1, m).toBe(1);
     expect(text).toContain('מה העיסוק שלך?'); // what the model asked besides the list stays
   });

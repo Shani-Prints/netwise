@@ -1,4 +1,5 @@
 import { carLabel, loadCatalog } from '../data/catalog';
+import { PICK_CAR_LEAD, PICK_OCCUPATION_LEAD } from '../lib/repTemplates';
 import { matchCatalogCar } from '../data/carMatch';
 import { matchOccupation } from '../data/occupationMatch';
 import type { Repo } from '../db/repo';
@@ -40,8 +41,8 @@ export function dropListedNames(text: string, names: string[]): string {
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export const PICK_CAR_MARKER = 'לא ברור לי לאיזה רכב התכוונת';
-export const PICK_OCCUPATION_MARKER = 'לא ברור לי מה העיסוק שלך';
+export const PICK_CAR_MARKER = PICK_CAR_LEAD;
+export const PICK_OCCUPATION_MARKER = PICK_OCCUPATION_LEAD;
 
 /** True when the previous bot message was a server pick-list and the employee's message is just her choice from it. */
 export async function answeredAPick(repo: Repo, conversationId: string, userMessage: string): Promise<boolean> {

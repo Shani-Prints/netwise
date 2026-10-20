@@ -33,7 +33,7 @@ const base = (over: Partial<InvariantInput> = {}): InvariantInput => ({
 });
 
 const fired = (i: InvariantInput): InvariantId[] => [...new Set(checkTurn(i).map((v) => v.invariant))];
-const openQuestion = { id: 'q', kind: 'profile_field_unknown', field: 'pensionPct', label: 'אחוז הפנסיה שלך', status: 'open', createdAt: '2026-01-02T00:00:00.000Z', answeredAt: null };
+const openQuestion = { id: 'q', kind: 'profile_field_unknown', field: 'pensionPct', label: 'אחוז הפנסיה', status: 'open', createdAt: '2026-01-02T00:00:00.000Z', answeredAt: null };
 const repView = (over: Record<string, unknown> = {}) =>
   ({ id: 'q', kind: 'profile_field_unknown', field: 'pensionPct', answerSpec: { type: 'number' }, freeText: null, questionText: 'מה אחוז הפנסיה של העובד/ת בחברה?', status: 'open', answer: null, createdAt: '2026-01-02T00:00:00.000Z', answeredAt: null, context: {}, ...over }) as unknown as InvariantInput['repViews'][number];
 
@@ -65,7 +65,7 @@ describe('each invariant fires on a bad turn', () => {
   it('d: asking for technical vehicle data', () => {
     expect(fired(base({ assistantText: 'באיזו שנה נרשם הרכב?' }))).toEqual(['d']);
     expect(fired(base({ assistantText: 'מה מחיר המחירון של הרכב?' }))).toEqual(['d']);
-    expect(fired(base({ assistantText: 'הנחתי שנת רישום 2025 עבור קיה NIRO (2025) לפי הקטלוג. אם זו לא השנה הנכונה, כתבי לי את השנה.' }))).toEqual([]);
+    expect(fired(base({ assistantText: 'הנחתי שנת רישום 2025 עבור קיה NIRO (2025) לפי הקטלוג. אם זו לא השנה הנכונה, אפשר לכתוב את השנה.' }))).toEqual([]);
   });
 
   it('e: a claim that a question was sent while none is open', () => {

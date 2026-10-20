@@ -16,7 +16,7 @@ const REFUSAL = `אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-1
 function expectRefusalWithOptions(text: string) {
   expect(text.startsWith(REFUSAL)).toBe(true);
   const rest = text.slice(REFUSAL.length);
-  expect(rest).toContain('אלה הרכבים שמתאימים לקבוצה שלך:');
+  expect(rest).toContain('אלה הרכבים שמתאימים לקבוצת הזכאות:');
   const allowed = loadCatalog().filter((c) => ['א', 'ב', 'ג'].includes(c.group));
   expect(allowed.length).toBeGreaterThan(8);
   for (const c of allowed) expect(rest).toContain(carLabel(c));
@@ -175,7 +175,7 @@ describe('the server resolution does not invent answers', () => {
   it('an ambiguous maker ("טויוטה") is NOT guessed: the server shows a pick-list from the catalogue', async () => {
     const e = await groupGimelEmployee();
     const r = await chat(e, 'מה אם אעבור לטויוטה?', { providers: [provider(fake(say('')))] });
-    expect(r.body.assistantText).toContain('לא ברור לי לאיזה רכב התכוונת');
+    expect(r.body.assistantText).toContain('לא ברור לאיזה רכב הכוונה');
     expect(r.body.assistantText).toContain('COROLLA CROSS');
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });

@@ -32,9 +32,9 @@ describe('item 4: no empty heading', () => {
 
   it('the questions card shows labels only (never a question text) and has content under its heading', () => {
     const markup = renderToStaticMarkup(
-      createElement(QuestionsCard, { questions: [{ id: '1', kind: 'profile_field_unknown', field: 'creditPoints', label: 'נקודות הזיכוי שלך', status: 'open', createdAt: '', answeredAt: null }] }),
+      createElement(QuestionsCard, { questions: [{ id: '1', kind: 'profile_field_unknown', field: 'creditPoints', label: 'נקודות הזיכוי', status: 'open', createdAt: '', answeredAt: null }] }),
     );
-    expect(markup).toContain('נקודות הזיכוי שלך');
+    expect(markup).toContain('נקודות הזיכוי');
     expect(markup).toContain(he.api.questions.sent);
     expectNoEmptyTitles(markup);
   });

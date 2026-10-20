@@ -50,7 +50,7 @@ describe('turn 1: "אעבור למקורולה קורס ל byd חשמלי" + her
     expect(prompt).not.toContain('currentCar: null');
     // the BYD fits three cars: the server shows the pick-list from the catalogue (no guess, no question to a representative)
     const text: string = r.body.assistantText;
-    expect(text).toContain('לא ברור לי לאיזה רכב התכוונת');
+    expect(text).toContain('לא ברור לאיזה רכב הכוונה');
     for (const model of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(text).toContain(model);
     // nothing about the technical details of the car is asked by the server
     expect(text).not.toMatch(/שנת רישום|באיזו שנה|מחיר הרכב/);
@@ -88,7 +88,7 @@ describe('turns 3-4: "אין לי מידע" (twice)', () => {
     const qs = await repView();
     expect(qs.map((q) => q.kind)).toEqual(['profile_field_unknown']); // no question about the car
     expect(qs[0].field).toBe('currentParticipation'); // only her own participation: only she / the company can provide it
-    expect(t3.body.assistantText).toContain('חסר לי מידע לגבי ההשתתפות שלך ברכב הנוכחי, ולכן שלחתי פנייה לנציג. אעדכן אותך כשתהיה תשובה.');
+    expect(t3.body.assistantText).toContain('חסר לי מידע לגבי ההשתתפות ברכב הנוכחי, ולכן שלחתי פנייה לנציג. אעדכן אותך כשתהיה תשובה.');
 
     // the second "אין לי מידע" opens nothing new
     await turn(e, T3, call('mark_field_unknown', { fields: ['currentCarMaker', 'currentCarYear', 'currentParticipation', 'occupation'] }), say('הבנתי.'));
@@ -105,7 +105,7 @@ describe('turns 3-4: "אין לי מידע" (twice)', () => {
     expect(viewed.length).toBeGreaterThan(0);
     for (const q of viewed) {
       expect(Object.keys(q).sort()).toEqual(['answeredAt', 'createdAt', 'field', 'id', 'kind', 'label', 'status']);
-      expect(q.label).toBe('ההשתתפות שלך ברכב הנוכחי');
+      expect(q.label).toBe('ההשתתפות ברכב הנוכחי');
     }
     // while the representative still gets the full question text
     expect((await repView())[0].questionText).toContain('ההשתתפות');

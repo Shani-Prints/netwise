@@ -17,7 +17,7 @@ const fmt = (n: number) => new Intl.NumberFormat('he-IL').format(n);
 
 describe('guard: group letters and numbers that come from the rules or the saved state', () => {
   it('group letters א-ד are plain words: they never trip the number check or the claim check', () => {
-    for (const text of ['הרכב שייך לקבוצה ד ואתה בקבוצה ג.', "אתה בקבוצה ג' והרכב בקבוצה ד'.", 'יש קבוצות א, ב, ג ו-ד.', 'מהי קבוצת הזכאות שלך?']) {
+    for (const text of ['הרכב שייך לקבוצה ד ואתה בקבוצה ג.', "אתה בקבוצה ג' והרכב בקבוצה ד'.", 'יש קבוצות א, ב, ג ו-ד.', 'מהי קבוצת הזכאות?']) {
       expect(guardResponse(text, none()), text).toEqual({ ok: true });
     }
   });
@@ -102,7 +102,7 @@ describe('guard: eligibility claims in the other Hebrew phrasings', () => {
   });
 
   it('words that merely contain the letters are not claims', () => {
-    for (const text of ['מהי קבוצת הזכאות שלך?', 'אני אבדוק את הזכאות.', 'מותרות כמה אפשרויות.', 'בואו נבדוק מה אפשרי.']) {
+    for (const text of ['מהי קבוצת הזכאות?', 'אני אבדוק את הזכאות.', 'מותרות כמה אפשרויות.', 'בואו נבדוק מה אפשרי.']) {
       expect(guardResponse(text, none()), text).toEqual({ ok: true });
     }
   });

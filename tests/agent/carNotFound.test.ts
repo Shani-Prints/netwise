@@ -114,7 +114,7 @@ describe('an ALTERNATIVE car that is not on the list', () => {
       const m = fake(say('בכיף!'));
       const r = await chat(e, 'ואם אעבור לזוזמוביל סופר 3000 שנת 2025?', { providers: [provider(m)], interpret: unavailable });
       const text: string = r.body.assistantText;
-      expect(text).toContain('הרכב שביקשת לא ברשימה של החברה לקבוצה שלך');
+      expect(text).toContain('הרכב המבוקש לא ברשימה של החברה לקבוצת הזכאות');
       for (const c of allowed) expect(text).toContain(carLabel(c));
       expect(text).not.toContain(carLabel(loadCatalog().find((c) => c.group === 'ד')!)); // only her group and lower
       expect(text).toContain('באיזה מהם תרצו להשוות?');
@@ -130,7 +130,7 @@ describe('an ALTERNATIVE car that is not on the list', () => {
     const e = await employeeWithout([], false);
     const r = await chat(e, 'ואם אעבור לטסלה מודל 3?', { providers: [provider(fake(call('calculate_comparison', { alternative: 'CAR-14' }), say('חבל.')))], interpret: unavailable });
     expect(r.body.assistantText).toContain(REASON_CAR14); // the engine's reason is appended to the model's text
-    expect(r.body.assistantText).toContain('אלה הרכבים שמתאימים לקבוצה שלך');
+    expect(r.body.assistantText).toContain('אלה הרכבים שמתאימים לקבוצת הזכאות');
     expect(await repQuestions()).toEqual([]);
   });
 });

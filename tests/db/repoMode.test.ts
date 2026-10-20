@@ -168,7 +168,7 @@ describe('getRepo: the store is chosen by REPO_MODE and announced exactly once',
 describe('src/instrumentation.ts register(): decides the store at server start', () => {
   let out: string[];
   const env = (vars: Record<string, string>) => {
-    for (const [k, v] of Object.entries({ REPO_MODE: '', SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '', NODE_ENV: 'test', NEXT_RUNTIME: 'nodejs', NEXT_PHASE: '', ...vars })) {
+    for (const [k, v] of Object.entries({ REPO_MODE: '', SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '', NODE_ENV: 'test', NEXT_RUNTIME: 'nodejs', NEXT_PHASE: '', SESSION_SECRET: 'test-secret-0123456789', GEMINI_API_KEY: '', GROQ_API_KEY: '', OPENROUTER_API_KEY: '', ...vars })) {
       vi.stubEnv(k, v);
     }
   };
@@ -196,6 +196,12 @@ describe('src/instrumentation.ts register(): decides the store at server start',
     await expect(register()).rejects.toThrow(RepoConfigError);
     env({ REPO_MODE: 'supabase', SUPABASE_URL: URL });
     await expect(register()).rejects.toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(out).toEqual([]);
+  });
+
+  it('throws a clear error naming SESSION_SECRET when it is missing, before touching the store', async () => {
+    env({ REPO_MODE: 'memory', SESSION_SECRET: '' });
+    await expect(register()).rejects.toThrow(/SESSION_SECRET/);
     expect(out).toEqual([]);
   });
 

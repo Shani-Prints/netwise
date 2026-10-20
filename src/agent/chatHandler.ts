@@ -52,6 +52,7 @@ export function resetChatRateLimit(): void {
 }
 function rateLimited(uid: string, now: number, env: Record<string, string | undefined>): boolean {
   const max = Number(env.CHAT_RATE_LIMIT_PER_MIN) > 0 ? Number(env.CHAT_RATE_LIMIT_PER_MIN) : 15;
+  if (hits.size > 5000) for (const [k, v] of hits) if (v.every((t) => now - t >= WINDOW_MS)) hits.delete(k); // bounded memory in a long-lived instance
   const recent = (hits.get(uid) ?? []).filter((t) => now - t < WINDOW_MS);
   if (recent.length >= max) {
     hits.set(uid, recent);
@@ -70,9 +71,33 @@ export interface ChatDeps {
   interpret?: Interpreter;
   now?: () => number;
   env?: Record<string, string | undefined>;
+  /** Tests shorten the deadline. Default: CHAT_DEADLINE_MS. */
+  deadlineMs?: number;
 }
 
+/**
+ * The route has maxDuration = 60. Slow providers (up to 45 s per call, then the next provider) could outlive it, and the platform
+ * would answer with its own non-JSON 504. Answering the fixed Hebrew busy message first keeps the contract; the next call works as
+ * usual (the employee message is already saved).
+ */
+export const CHAT_DEADLINE_MS = 55_000;
+
 export async function handleChat(req: Request, deps: ChatDeps = {}): Promise<Response> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<Response>((resolve) => {
+    timer = setTimeout(() => {
+      console.error('[netwise] chat: deadline_exceeded');
+      resolve(fail(503, BUSY_MESSAGE_HE));
+    }, deps.deadlineMs ?? CHAT_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([handleChatTurn(req, deps), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
   const env = deps.env ?? process.env;
   try {
     // 1. employee session only (no cookie -> 401; the app creates the session via GET /api/session or /api/employee/state)

@@ -144,6 +144,7 @@ describe('4. the one-time payslip offer', () => {
 
   it('is gender-neutral and short; the prompt tells the model not to repeat it', () => {
     expect(PAYSLIP_OFFER_TEXT.length).toBeLessThan(80);
+    expect(PAYSLIP_OFFER_TEXT).toContain('והקובץ לא נשמר במערכת');
     expect(PAYSLIP_OFFER_TEXT).not.toMatch(/[א-ת]\/[א-ת]/u);
     expect(buildSystemPrompt('', false)).toContain('never repeat it');
   });

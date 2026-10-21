@@ -131,6 +131,22 @@ both are `status: "missing"` with the Hebrew reason and without a net for the de
 * A question with `followUpOf` is a request for clarification: show it as a new question that refers to the earlier one.
 * The representative can answer either with the typed API (`/api/rep/answer`) or in free text (`/api/rep/answer-text`).
 
+## Car buttons (`carChoices`)
+
+When the bot waits for the car to compare, the server sends the cars as data so the UI can render buttons. The field is in the `POST /api/chat` response and in `GET /api/employee/state` (so it survives a refresh); it is `null` / absent otherwise.
+
+```ts
+carChoices?: {
+  purpose: "target" | "current";   // target = the car to compare; current = the models of a maker named for the current car
+  cars: { id: string; label: string; fuel: string; drive: "electric" | "hybrid" | "plugin" | "petrol" }[];
+  waiverAllowed: boolean;          // only for "target": the saved occupation allows giving up the car (taxable maintenance allowance)
+} | null
+```
+
+- Built by the server from the same eligibility function as `check_eligibility` (own group and lower, plus the family-track cars from 4 children up to age 23). The model never writes or chooses the cars. `label` is the name only ("maker model (year)"); `id` is for keys, never shown.
+- `target` is present only while the current car and today's data are complete and no alternative is chosen (an alternative the engine refused counts as not chosen). It disappears once an alternative is chosen. `current` is present only right after a maker-only current car pick-list.
+- The bubble then carries one short sentence and no list of cars. A click sends a NORMAL chat message ("אני רוצה להשוות ל-<label>", "הרכב הנוכחי שלי הוא <label>", "אני רוצה להשוות לוויתור על הרכב"). There is no new endpoint.
+
 ## Payslip upload
 
 The employee attaches a payslip (paperclip in the chat). The browser prepares the files, `POST /api/payslip/parse` reads them and the employee confirms or edits the values in a card. On confirm the UI sends `POST /api/employee/state` `{ action: "update_profile", fields, source: "payslip" }` (only `base`, `commissions`, `bonus`, `pensionPct`, `studyFundPct`, `creditPoints` are accepted with this source, otherwise `400`) and then `POST /api/chat` `{ event: "payslip_confirmed" }`. That event has no employee message: nothing is stored as a user message, the bot thanks and asks only for what is still missing (the occupation is never in a payslip). The event is a no-op (`assistantText: ""`) when no payslip was confirmed. The bot itself never offers an upload.

@@ -120,8 +120,13 @@ export const pickCarText = (options: string[], more = false): string =>
 export const PICK_CURRENT_CAR_LEAD = 'לא ברור לאיזה דגם הכוונה ברכב הנוכחי';
 
 /** The current car was named by its maker only: the options are that maker's catalogue models, clearly the CURRENT car. */
-export const pickCurrentCarText = (options: string[], more = false): string =>
-  `${PICK_CURRENT_CAR_LEAD}. אלה הדגמים של היצרן בקטלוג:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם הוא הרכב הנוכחי?`;
+export const pickCurrentCarText = (): string =>
+  `${PICK_CURRENT_CAR_LEAD}. איזה מהם הוא הרכב הנוכחי? אפשר ללחוץ על הדגם מהרשימה, או לכתוב אותו.`;
+
+/** One short sentence when the cars to compare are shown as buttons (the cars themselves are never repeated in the text). */
+export const CHOOSE_CAR_TEXT = 'אפשר לבחור רכב מהרשימה, או לכתוב את שמו.';
+export const altNotOnListShortText = 'הרכב המבוקש לא ברשימה של החברה לקבוצת הזכאות. אפשר לבחור רכב מהרשימה.';
+export const CHOOSE_ANOTHER_CAR_TEXT = 'אפשר לבחור רכב אחר מהרשימה.';
 
 /** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
 export const pickOccupationText = (options: string[]): string =>

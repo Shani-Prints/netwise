@@ -7,6 +7,7 @@ import { getSessionSecret, readSession, SessionConfigError } from '../lib/sessio
 import type { ComparisonView } from '../lib/view';
 import { retryPendingInterpretations, type Interpreter } from '../lib/repTextService';
 import { runAgentTurn } from './agent';
+import { buildCarChoices, type CarChoices } from './carChoices';
 import { applyStatedZeros } from './statedZeros';
 import { createInterpreter } from './interpretRepText';
 import { prepareTurnWithCurrentCar } from './currentCar';
@@ -23,6 +24,8 @@ export interface ChatResponse {
   comparison?: ComparisonView;
   pendingQuestions?: EmployeeQuestionView[];
   updates?: { newAnswers: boolean };
+  /** The cars to pick by clicking (built by the server). Present only while the bot waits for the car to compare / the current car. */
+  carChoices?: CarChoices;
 }
 
 const ChatBodySchema = z.union([
@@ -34,7 +37,7 @@ const ChatBodySchema = z.union([
 export const PAYSLIP_CONFIRMED_INSTRUCTION =
   '[SYSTEM EVENT - not written by the employee] The employee just confirmed a payslip and the server saved its values (see fromConfirmedPayslip and "saved" in SERVER STATE). ' +
   'Thank them in one short sentence and say what was filled from the payslip in a few words. Do not ask for anything listed in fromConfirmedPayslip. ' +
-  'Then ask ONLY for what is still missing (askNext), together in one short message; if nothing is missing, ask which car or waiver to compare and list all of carsTheEmployeeMayChoose in that message. Never ask for the car to compare together with other questions.';
+  'Then ask ONLY for what is still missing (askNext), together in one short message; if nothing is missing, ask which car or waiver to compare and ask it in ONE short sentence: the server shows the cars as buttons, never list the cars yourself. Never ask for the car to compare together with other questions.';
 
 export const MSG = {
   invalidBody: 'הבקשה אינה תקינה. יש לשלוח הודעת טקסט.',
@@ -204,6 +207,8 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
     }
     if (open.length > 0) out.pendingQuestions = open;
     if (context.updates.newAnswers) out.updates = { newAnswers: true };
+    const carChoices = await buildCarChoices(repo, actor);
+    if (carChoices) out.carChoices = carChoices;
     return json(out);
   } catch (err) {
     if (err instanceof SessionConfigError) console.error('[netwise] chat: server misconfigured');

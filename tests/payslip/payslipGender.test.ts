@@ -43,8 +43,19 @@ describe('the offer, the marker and the current-car pick-list are gender-neutral
   it('passes the same scan', async () => {
     const { PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT } = await import('../../src/lib/payslipMarker');
     const { pickCurrentCarText } = await import('../../src/lib/repTemplates');
-    for (const text of [PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT, pickCurrentCarText(['A', 'B'], true)]) {
+    for (const text of [PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT, pickCurrentCarText()]) {
       expect(SLASH_FORMS.test(text) || GENDERED.test(text), text).toBe(false);
     }
+  });
+});
+
+describe('the car-button strings and the short sentences are gender-neutral', () => {
+  it('passes the same scan (he.api.carChoices and the card privacy line are also covered by the main scan)', async () => {
+    const { he } = await import('../../src/components/car-advisor/content/he');
+    const T = await import('../../src/lib/repTemplates');
+    const texts = [...Object.values(he.api.carChoices), he.api.payslip.cardPrivacy, T.CHOOSE_CAR_TEXT, T.altNotOnListShortText, T.CHOOSE_ANOTHER_CAR_TEXT];
+    expect(texts.length).toBeGreaterThan(14);
+    for (const text of texts) expect(SLASH_FORMS.test(text) || GENDERED.test(text), text).toBe(false);
+    expect(he.api.payslip.cardPrivacy).toBe('הקובץ נקרא לצורך החישוב ולא נשמר במערכת.');
   });
 });

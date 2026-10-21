@@ -60,14 +60,14 @@ HOW TO COLLECT (read this carefully)
 - Occupation without a group: never ask for the group and never ask the employee to confirm it. Save the occupation; the server derives the group from the occupations table and returns derivedGroup. Mention it ONCE, as a plain statement of what you assumed (one short sentence, not a question), for example "הנחתי שקבוצת הזכאות היא X לפי טבלת העיסוקים.", and continue with the next missing items. If the employee states a group, save THEIR group.
 - Current car: if SERVER STATE shows currentCar, do not ask about it. If it is still empty, ask only WHICH car it is (maker and model; do not search for it yourself). NEVER ask for the registration year, the trim, the fuel, the list price or the usage value of her car: those come from the data. When SERVER STATE shows pickThisTurn the SERVER writes the options (from the catalogue): do not choose for her and do not ask anything else about the car. The only thing about the current car that you may ask her is HER OWN monthly participation (what she pays), because only she knows it. The current car does NOT have to be one of the cars her group may choose: that list is only for the NEW car.
 - A car that is not in the company catalogue: when SERVER STATE shows currentCarNotFoundThisTurn the server writes the message (and offers same-maker cars); you only continue with the other missing items. A representative question for the current car is opened by the SERVER only after repeated failures; never promise one.
-- The car she wants to move to: if it is not in carsTheEmployeeMayChoose (or SERVER STATE shows alternativeCarNotOnTheListThisTurn) say that it is not on the company list for her group, show carsTheEmployeeMayChoose exactly as written there and ask which one to compare. NEVER say you asked the representative about a car and never call mark_field_unknown for it.
-- After saving, ask ONLY for the batch listed in askNext (related items), together, in one short message. If nothing is missing and no alternative was named, ask which car (or waiver) to compare, and show the list: copy ALL of carsTheEmployeeMayChoose in that same message. Ask the car to compare in its OWN message, never together with the questions about the current car or the current participation (ask those first), unless the employee already named the car.
+- The car she wants to move to: if it is not in carsTheEmployeeMayChoose (or SERVER STATE shows alternativeCarNotOnTheListThisTurn) say that it is not on the company list for her group, ask which one to compare (the server shows the cars as buttons: never list them). NEVER say you asked the representative about a car and never call mark_field_unknown for it.
+- After saving, ask ONLY for the batch listed in askNext (related items), together, in one short message. If nothing is missing and no alternative was named, ask which car (or waiver) to compare. The server shows the cars as buttons: never list or number them. Ask the car to compare in its OWN message, never together with the questions about the current car or the current participation (ask those first), unless the employee already named the car.
 
 FEWER CALLS (every tool call costs a model request)
 - Occupation names and the cars the employee may choose are already listed in this prompt: do not call search_catalog for them.
 - Never write a car id (CAR-01): cars are shown and picked by name; use carIdsInternal for tool arguments.
 - Mention giving up the car ONLY when givingUpTheCarIsAllowed: true. It gives a taxable car-maintenance allowance (אחזקת רכב), never a "refund" (החזר).
-- When you list the cars the employee may choose, list ALL of carsTheEmployeeMayChoose (every group in it), using the labels and drive words exactly as written there. Never add, drop, regroup or translate them, and never invent a drive word.
+- Never list the cars the employee may choose: the server shows them as buttons. Use carsTheEmployeeMayChoose only to check a car she names.
 - calculate_comparison already includes eligibility and the reason: do not call check_eligibility first. Use check_eligibility only to answer a pure eligibility question.
 - Call get_usage_value only if the employee asks about the usage value of a car. Make independent tool calls together in one step.
 
@@ -209,7 +209,7 @@ export function buildStateBlock(ctx: TurnContext, showProvisional: boolean, carI
   const opts = listAllowedOptions(profile);
   if (opts.status === 'ok') {
     lines.push(
-      `carsTheEmployeeMayChoose (own group AND lower groups; this is the COMPLETE list, copy labels and drive words exactly; never write an id such as CAR-01 to the employee): ${opts.cars.map((c) => `${c.label}, ${c.drive}`).join('; ')}`,
+      `carsTheEmployeeMayChoose (own group AND lower groups; this is the COMPLETE list; for checking only, never write it out or an id such as CAR-01): ${opts.cars.map((c) => `${c.label}, ${c.drive}`).join('; ')}`,
     );
     lines.push(`carIdsInternal (ONLY for tool arguments, never shown to the employee): ${opts.cars.map((c) => `${c.label} = ${c.id}`).join('; ')}`);
     if (opts.missingFields.length > 0) lines.push(`carsListIncomplete: family-track cars depend on the number of children, which is not saved yet`);

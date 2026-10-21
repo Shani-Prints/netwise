@@ -46,8 +46,9 @@ describe('1. no internal car codes for the employee', () => {
     const e = new Client();
     await e.updateProfile(PROFILE);
     const r = await send(e, 'רוצה לעבור', say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r.body.assistantText).toContain('אלה הרכבים');
+    expect(r.body.carChoices.cars.length).toBeGreaterThan(5);
     expect(r.body.assistantText).not.toMatch(/CAR-\d+/);
+    for (const c of r.body.carChoices.cars) expect(c.label).not.toMatch(/CAR-\d+/); // names only
   });
 
   it('the employee picks by NAME: the server resolves it from the catalogue', async () => {
@@ -81,7 +82,7 @@ describe('2. waiver wording and eligibility', () => {
     await e.updateProfile({ ...PROFILE, ...ALLOWS_WAIVER });
     const r = await send(e, 'רוצה לעבור', say('איזה רכב להשוות? אפשר גם לוותר על הרכב ולקבל החזר.'));
     const t: string = r.body.assistantText;
-    expect(t).toContain('ויתור על הרכב');
+    expect(r.body.carChoices.waiverAllowed).toBe(true); // the waiver is its own button
     expect(t).toContain('קצבת אחזקת רכב');
     expect(t).not.toContain('החזר');
   });
@@ -92,7 +93,8 @@ describe('2. waiver wording and eligibility', () => {
     const r = await send(e, 'רוצה לעבור', say('איזה רכב להשוות, או לוותר על הרכב ולקבל החזר?'));
     const t: string = r.body.assistantText;
     expect(t).not.toMatch(/לוותר|ויתור|החזר/);
-    expect(t).toContain('אלה הרכבים'); // the list is still there
+    expect(r.body.carChoices.waiverAllowed).toBe(false);
+    expect(r.body.carChoices.cars.length).toBeGreaterThan(0); // the cars are still offered
   });
 
   it('an unknown occupation: no mention at all', async () => {

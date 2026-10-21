@@ -206,12 +206,27 @@ export const he = {
 
   /** The REAL chat (connected to the server). Server text itself is never copy: it is shown as plain text. */
   api: {
+    carChoices: {
+      titleTarget: 'בחירת רכב להשוואה',
+      titleCurrent: 'אפשרויות לרכב הנוכחי',
+      electric: 'חשמליים',
+      hybrid: 'היברידיים',
+      petrol: 'בנזין',
+      waiver: 'ויתור על הרכב',
+      listLabel: 'רשימת רכבים לבחירה',
+      pickTarget: 'אני רוצה להשוות ל-{label}',
+      pickCurrent: 'הרכב הנוכחי שלי הוא {label}',
+      pickWaiver: 'אני רוצה להשוות לוויתור על הרכב',
+      chooseAria: 'בחירת הרכב {label}',
+      chooseCurrentAria: 'בחירת {label} כרכב הנוכחי',
+    },
     payslip: {
       attach: 'צירוף תלוש שכר',
       reading: 'קורא את התלוש...',
       readingSteps: ['קורא את התלוש...', 'מזהה את השורות...', 'בודק שהחשבון מתאזן...'],
       cardTitle: 'הנתונים שנקראו מהתלוש',
       cardHint: 'בדקו שהנתונים נכונים. שדות מסומנים הם כאלה שלא היינו בטוחים בקריאתם.',
+      cardPrivacy: 'הקובץ נקרא לצורך החישוב ולא נשמר במערכת.',
       confirm: 'אישור',
       edit: 'עריכה',
       doneEditing: 'סיום עריכה',

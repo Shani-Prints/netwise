@@ -56,3 +56,22 @@ export async function answeredAPick(repo: Repo, conversationId: string, userMess
   if (!previous || !(previous.content.includes(PICK_CAR_MARKER) || previous.content.includes(PICK_CURRENT_CAR_LEAD) || previous.content.includes(PICK_OCCUPATION_MARKER))) return false;
   return matchCatalogCar(userMessage).status === 'found' || matchOccupation(userMessage).status === 'found';
 }
+
+/**
+ * Removes only the LIST the model wrote about the given cars (bullet lines, lines that name two or more of them, and the line that
+ * introduces the list). A single sentence that names one car (an eligibility sentence, the reason of a refusal) stays.
+ */
+export function dropCarListLines(text: string, names: string[]): string {
+  const lower = names.map((n) => n.toLowerCase());
+  const count = (s: string) => lower.filter((n) => s.toLowerCase().includes(n)).length;
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    const n = count(line);
+    if (n >= 2 || (n >= 1 && /^\s*[-•*]/.test(line))) {
+      if (out.length > 0 && /[:：]\s*$/.test(out[out.length - 1]!)) out.pop();
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}

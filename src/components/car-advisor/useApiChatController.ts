@@ -135,10 +135,22 @@ export function useApiChatController(api: AdvisorApiClient, active: boolean, onU
 
   const cancelPayslip = useCallback(() => setPayslip(null), []);
 
+  // A click on a car button sends a NORMAL employee message through the same path as typed text (same user bubble, same checks).
+  const chooseCar = useCallback(
+    (message: string) => {
+      if (store.getState().busy || payslipBusyRef.current) return;
+      store.setDraft(message);
+      void store.submit();
+    },
+    [store],
+  );
+
   const messages = displayMessages(state);
   return {
     messages,
     comparison: state.comparison,
+    carChoices: state.carChoices,
+    chooseCar,
     questions: state.questions,
     awaiting: state.awaiting,
     draft: state.draft,

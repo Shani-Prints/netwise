@@ -5,7 +5,7 @@ import type { Repo } from '../db/repo';
 import { buildTodayOnly } from '../lib/comparison';
 import { missingFieldLabel } from '../lib/explain';
 import { employeeLabelFor, FIELD_NAME_HE, isRepKind } from '../lib/repQuestions';
-import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickCurrentCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
+import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, altNotOnListShortText, CHOOSE_ANOTHER_CAR_TEXT, CHOOSE_CAR_TEXT, pickCarText, pickCurrentCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
 import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_BATCH, askBatchLabels } from './askNext';
@@ -13,8 +13,9 @@ import { runEligibilityCheck } from './eligibilityCheck';
 import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, stripYearRequests, withRepBridge } from './flowText';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
+import { buildCarChoices } from './carChoices';
 import { PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT } from '../lib/payslipMarker';
-import { answeredAPick, dropListedNames, modelNamesOfLabels } from './listDedupe';
+import { answeredAPick, dropCarListLines, dropListedNames, modelNamesOfLabels } from './listDedupe';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
 import { newCollector, createTools, SaveInputSchema, type TurnCollector } from './tools';
@@ -176,6 +177,8 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
   const profile = (await args.repo.getProfile(args.actor.userId)) ?? { userId: args.actor.userId, salaryInputs: {} };
   const opts = listAllowedOptions(profile);
   const optionLines = opts.status === 'ok' ? opts.cars.map((c) => `${c.label}, ${c.drive}`) : [];
+  // when the cars to compare are shown as buttons the text never repeats them (one short sentence instead)
+  const buttons = (await buildCarChoices(args.repo, args.actor))?.purpose === 'target';
   let out = issues.length > 0 && text === NEUTRAL_FALLBACK_HE ? '' : text; // the bare fallback says nothing the guidance does not
   const add = (extra: string) => {
     if (squash(out).includes(squash(extra))) return;
@@ -185,15 +188,16 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
     if (issue.pick) {
       // ONE block: what the model wrote about these same cars is dropped, the server list stays
       out = dropListedNames(out, modelNamesOfLabels(issue.candidates));
-      add(issue.role === 'current' ? pickCurrentCarText(issue.candidates, issue.more === true) : pickCarText(issue.candidates, issue.more === true));
+      add(issue.role === 'current' ? pickCurrentCarText() : pickCarText(issue.candidates, issue.more === true));
     }
     else if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates, issue.more === true));
-    else add(altNotOnListText(optionLines));
+    else add(buttons ? altNotOnListShortText : altNotOnListText(optionLines));
   }
   const alternativeIssue = issues.some((i) => i.role === 'alternative');
   if (refused && !alternativeIssue && optionLines.length > 0) {
     const mentioned = optionLines.filter((l) => out.includes(l.split(',')[0] ?? l)).length;
-    if (mentioned < Math.min(3, optionLines.length)) add(eligibleOptionsText(optionLines, opts.waiverAllowed === true));
+    if (buttons) add(CHOOSE_ANOTHER_CAR_TEXT);
+    else if (mentioned < Math.min(3, optionLines.length)) add(eligibleOptionsText(optionLines, opts.waiverAllowed === true));
   }
   return out;
 }
@@ -208,23 +212,18 @@ export function asksWhichCarToCompare(text: string): boolean {
 }
 
 /**
- * Whenever the reply asks which car to compare and no car was chosen yet, the SERVER-written list of options (catalogue, her group
- * and lower, same eligibility function as check_eligibility) is part of that message, whatever the model wrote and on every path
- * (also the turn after a confirmed payslip). Nothing is added when the list is not known yet or the text already shows it.
+ * Whenever the reply asks which car to compare and the server shows the cars as buttons (carChoices, purpose "target": the current car
+ * is resolved, today's data is complete, no alternative chosen), whatever list the model wrote is removed and ONE short sentence points
+ * to the buttons. The cars are never repeated in the text and never written by the model.
  */
 export async function ensureTargetCarOptions(text: string, args: Pick<AgentTurnArgs, 'repo' | 'actor' | 'carIssues'>): Promise<string> {
-  if ((args.carIssues ?? []).length > 0 || !asksWhichCarToCompare(text)) return text;
-  const conv = await args.repo.findConversationByUser(args.actor.userId);
-  if (!conv || conv.state.alternative) return text;
-  // the current car comes first: while it is unknown (or only a maker is known) a list of cars to compare would be read as its options
-  if (conv.state.currentCar === undefined) return text;
-  const profile = (await args.repo.getProfile(args.actor.userId)) ?? { userId: args.actor.userId, salaryInputs: {} };
-  const opts = listAllowedOptions(profile);
-  if (opts.status !== 'ok' || opts.cars.length === 0) return text;
-  const lines = opts.cars.map((c) => `${c.label}, ${c.drive}`);
-  const mentioned = lines.filter((l) => text.includes(l.split(',')[0] ?? l)).length;
-  if (mentioned >= Math.min(3, lines.length)) return text;
-  return `${text}\n${eligibleOptionsText(lines, opts.waiverAllowed === true)}`;
+  if ((args.carIssues ?? []).length > 0) return text;
+  const choices = await buildCarChoices(args.repo, args.actor);
+  if (!choices || choices.purpose !== 'target') return text;
+  const cleaned = dropCarListLines(text, modelNamesOfLabels(choices.cars.map((c) => c.label)));
+  if (!asksWhichCarToCompare(cleaned) && !asksWhichCarToCompare(text)) return cleaned;
+  if (squash(cleaned).includes(squash(CHOOSE_CAR_TEXT))) return cleaned;
+  return cleaned === '' ? CHOOSE_CAR_TEXT : `${cleaned}\n${CHOOSE_CAR_TEXT}`;
 }
 
 /**

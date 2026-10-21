@@ -7,4 +7,4 @@
 export const PAYSLIP_MARKER_TEXT = 'צורף תלוש שכר ואושרו הנתונים';
 
 /** One-time offer, appended by the server to the first bot message that asks for pay data. Short and gender-neutral. */
-export const PAYSLIP_OFFER_TEXT = 'אפשר גם לצרף תלוש שכר במקום להקליד. לא חובה, והקובץ לא נשמר במערכת.';
+export const PAYSLIP_OFFER_TEXT = 'אפשר גם לצרף תלוש שכר במקום להקליד.';

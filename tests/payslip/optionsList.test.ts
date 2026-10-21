@@ -6,6 +6,7 @@ import { getRepo } from '../../src/db/repo';
 import { payslipToProfileFields } from '../../src/lib/payslip-to-engine';
 import { SESSION_COOKIE } from '../../src/lib/session';
 import { BASE, Client, freshRepo, PROFILE, restoreEnv, setupEnv, type Json } from '../api/harness';
+import { CHOOSE_CAR_TEXT } from '../../src/lib/repTemplates';
 import { call, fake, fast, newEmployee, provider, say } from '../agent/fakes';
 import { fictionalPayslip } from './helpers';
 
@@ -24,7 +25,8 @@ async function send(c: Client, body: object, ...responses: unknown[]) {
     fallback: fast,
     providers: [provider(fake(...responses))],
   });
-  return { status: res.status, text: ((await res.json()) as Json).assistantText as string };
+  const out = (await res.json()) as Json;
+  return { status: res.status, text: out.assistantText as string, carChoices: out.carChoices as Json };
 }
 
 async function optionLabels(c: Client): Promise<string[]> {
@@ -34,7 +36,13 @@ async function optionLabels(c: Client): Promise<string[]> {
   expect(opts.status).toBe('ok');
   return opts.cars.map((x) => x.label);
 }
-const mentionsAll = (text: string, labels: string[]) => labels.every((l) => text.includes(l));
+/** The cars are the server's buttons: every allowed car is in carChoices, none is repeated in the bubble. */
+const expectButtons = (r: { text: string; carChoices: Json }, labels: string[]) => {
+  expect(r.carChoices?.purpose).toBe('target');
+  expect((r.carChoices.cars as { label: string }[]).map((c) => c.label)).toEqual(expect.arrayContaining(labels));
+  expect(r.text).toContain(CHOOSE_CAR_TEXT);
+  for (const l of labels) expect(r.text).not.toContain(l);
+};
 
 describe('the options list comes with the question "which car to compare"', () => {
   it('payslip confirmed -> occupation and children -> current car and participation -> target car with the list', async () => {
@@ -54,6 +62,7 @@ describe('the options list comes with the question "which car to compare"', () =
     expect(s2.status).toBe(200);
     expect(asksWhichCarToCompare(s2.text)).toBe(false); // asking about the current car is not asking for the target
     expect(s2.text).not.toContain('אלה הרכבים'); // no list yet: the target car is asked in the next message
+    expect(s2.carChoices).toBeUndefined(); // and no buttons while the current car and participation are missing
 
     const s3 = await send(
       e,
@@ -64,7 +73,7 @@ describe('the options list comes with the question "which car to compare"', () =
     expect(asksWhichCarToCompare(s3.text)).toBe(true);
     const labels = await optionLabels(e);
     expect(labels.length).toBeGreaterThan(0);
-    expect(mentionsAll(s3.text, labels)).toBe(true);
+    expectButtons(s3, labels);
   });
 
   it('the non-payslip path shows the list too', async () => {
@@ -72,7 +81,7 @@ describe('the options list comes with the question "which car to compare"', () =
     await e.updateProfile({ ...PROFILE, currentCar: PROFILE.currentCar });
     const r = await send(e, { message: 'אני רוצה לעבור לרכב חשמלי' }, say('בכיף! איזה רכב חשמלי תרצו להשוות?'));
     const labels = await optionLabels(e);
-    expect(mentionsAll(r.text, labels)).toBe(true);
+    expectButtons(r, labels);
   });
 
   it('the server does not add a second list when the model already wrote it, and never for the current car', async () => {
@@ -81,9 +90,12 @@ describe('the options list comes with the question "which car to compare"', () =
     const labels = await optionLabels(e);
     const own = `אלה האפשרויות: ${labels.map((l) => `${l}, חשמלי`).join('; ')}. איזה רכב להשוות?`;
     const r1 = await send(e, { message: 'שלום' }, say(own));
-    expect(r1.text.split(labels[0]!).length - 1).toBe(1);
+    // the model's own list is removed: the cars are only the buttons, the bubble keeps one short sentence
+    expect(r1.text).not.toContain(labels[0]!);
+    expect(r1.text).toContain(CHOOSE_CAR_TEXT);
+    expect(r1.carChoices.cars.length).toBe(labels.length);
     const r2 = await send(e, { message: 'מה עוד?' }, say('איזה רכב יש לך היום?'));
-    expect(r2.text).not.toContain('אלה הרכבים');
+    expect(r2.text).not.toContain(CHOOSE_CAR_TEXT); // a question about the CURRENT car gets no sentence about the buttons
   });
 
   it('nothing is added once an alternative was chosen', async () => {
@@ -91,7 +103,8 @@ describe('the options list comes with the question "which car to compare"', () =
     await e.updateProfile(PROFILE);
     await e.select({ kind: 'car', carId: 'CAR-10' });
     const r = await send(e, { message: 'שלום' }, say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r.text).not.toContain('אלה הרכבים');
+    expect(r.text).not.toContain(CHOOSE_CAR_TEXT);
+    expect(r.carChoices).toBeUndefined(); // gone once an alternative is chosen
   });
 
   it('asksWhichCarToCompare tells the target car from the current car', () => {

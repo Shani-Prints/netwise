@@ -1,6 +1,6 @@
 {
   "id": "29-ineligible-alternative-with-engine-reason",
-  "description": "A car of a higher group: the engine refuses, the reason is the engine text, the eligible cars are listed, nothing is escalated",
+  "description": "A car of a higher group: the engine refuses, the reason is the engine text, the eligible cars are the server buttons (one short sentence in the text), nothing is escalated",
   "tags": [
     "eligibility"
   ],
@@ -54,8 +54,7 @@
         "text": {
           "contains": [
             "הרכב שייך לקבוצה ד והזכאות שלך היא לקבוצה ג",
-            "אלה הרכבים שמתאימים לקבוצת הזכאות",
-            "ATTO 3"
+            "אפשר לבחור רכב אחר מהרשימה"
           ]
         }
       }

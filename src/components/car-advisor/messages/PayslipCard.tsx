@@ -71,6 +71,7 @@ export function PayslipCard({ initialData, disabled = false, onConfirm, onCancel
     <div className={styles.payslipCard} role="group" aria-label={L.cardTitle}>
       <p className={styles.payslipTitle}>{L.cardTitle}</p>
       <p className={styles.payslipHint}>{L.cardHint}</p>
+      <p className={styles.payslipHint}>{L.cardPrivacy}</p>
 
       {warnings.length > 0 ? (
         <ul role="alert" className={styles.payslipWarnings}>

@@ -7,6 +7,7 @@ import { MAX_CHAT_CHARS, type AdvisorApiClient } from './contract/apiClient';
 import type { NotificationView } from './contract/types';
 import apiStyles from './messages/api.module.css';
 import { AssistantBubble } from './messages/AssistantBubble';
+import { CarChoices } from './messages/CarChoices';
 import { ComparisonPanel } from './messages/ComparisonPanel';
 import { Greeting } from './messages/Greeting';
 import messageStyles from './messages/messages.module.css';
@@ -52,7 +53,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
     activeRef.current = active;
   }, [active]);
 
-  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit, payslip, attachPayslip, confirmPayslip, cancelPayslip } = useApiChatController(
+  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit, carChoices, chooseCar, payslip, attachPayslip, confirmPayslip, cancelPayslip } = useApiChatController(
     api,
     active,
     (notification) => {
@@ -71,7 +72,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
   }
 
   // Keep the newest content in view (scrolling happens inside the messages area only).
-  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}|${payslip?.phase ?? ''}`;
+  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}|${payslip?.phase ?? ''}|${carChoices?.purpose ?? ''}`;
   useEffect(() => {
     const area = messagesRef.current;
     if (area) area.scrollTop = area.scrollHeight;
@@ -133,6 +134,11 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
               )}
             </div>
           ))}
+          {carChoices ? (
+            <div data-message="" data-kind="carChoices" className={messageStyles.message}>
+              <CarChoices choices={carChoices} disabled={busy} onChoose={chooseCar} />
+            </div>
+          ) : null}
           {comparison ? (
             <div data-message="" data-kind="comparison" className={messageStyles.message}>
               <ComparisonPanel comparison={comparison} />

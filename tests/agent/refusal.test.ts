@@ -1,3 +1,4 @@
+import { CHOOSE_ANOTHER_CAR_TEXT } from '../../src/lib/repTemplates';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NEUTRAL_FALLBACK_HE } from '../../src/agent/agent';
 import { resetChatRateLimit } from '../../src/agent/chatHandler';
@@ -13,14 +14,18 @@ const REFUSAL = `אין זכאות לחלופה "${carLabel(getCatalogCar('CAR-1
  * A refusal starts with the engine's reason and then lists what a group ג employee may choose (own group and lower), with
  * labels from the catalogue and a fixed header: the server writes that part, never the model.
  */
-function expectRefusalWithOptions(text: string) {
+/** The refusal reason, then ONE short sentence; the eligible cars are the server's buttons (carChoices), not repeated in the text. */
+function expectRefusalWithOptions(text: string, carChoices?: { purpose: string; cars: { label: string }[] }) {
   expect(text.startsWith(REFUSAL)).toBe(true);
   const rest = text.slice(REFUSAL.length);
-  expect(rest).toContain('אלה הרכבים שמתאימים לקבוצת הזכאות:');
+  expect(rest).toContain(CHOOSE_ANOTHER_CAR_TEXT);
   const allowed = loadCatalog().filter((c) => ['א', 'ב', 'ג'].includes(c.group));
   expect(allowed.length).toBeGreaterThan(8);
-  for (const c of allowed) expect(rest).toContain(carLabel(c));
-  expect(rest).not.toContain(carLabel(getCatalogCar('CAR-14')!)); // the refused car is not offered
+  for (const c of allowed) expect(rest).not.toContain(carLabel(c)); // never listed twice
+  expect(carChoices?.purpose).toBe('target');
+  const labels = carChoices?.cars.map((c) => c.label) ?? [];
+  for (const c of allowed) expect(labels).toContain(carLabel(c));
+  expect(labels).not.toContain(carLabel(getCatalogCar('CAR-14')!)); // the refused car is not offered
 }
 
 let con: ReturnType<typeof captureConsole>;
@@ -90,7 +95,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
   it('2. EMPTY model text after the tool: the deterministic explanation is used', async () => {
     const e = await groupGimelEmployee();
     const r = await chat(e, MESSAGE, { providers: [provider(fake(call('calculate_comparison', { alternative: 'CAR-14' }), say('')))] });
-    expectRefusalWithOptions(r.body.assistantText);
+    expectRefusalWithOptions(r.body.assistantText, r.body.carChoices);
     expectNoTeslaNet(r.body.assistantText);
     expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=empty_answer, via=deterministic, provider=fake)');
   });
@@ -114,7 +119,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
       const model = fake(say(claim));
       const r = await chat(e, MESSAGE, { providers: [provider(model)] });
       expect(model.doGenerateCalls, claim).toHaveLength(1); // the model never called a tool
-      expectRefusalWithOptions(r.body.assistantText);
+      expectRefusalWithOptions(r.body.assistantText, r.body.carChoices);
       expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
       expectNoTeslaNet(r.body.assistantText);
       expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=guard:no_tool_result, via=server_eligibility, provider=fake)');
@@ -126,7 +131,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
     const model = fake(say(''));
     const r = await chat(e, MESSAGE, { providers: [provider(model)] });
     expect(model.doGenerateCalls).toHaveLength(1);
-    expectRefusalWithOptions(r.body.assistantText);
+    expectRefusalWithOptions(r.body.assistantText, r.body.carChoices);
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
     expectNoTeslaNet(r.body.assistantText);
     expect(con.lines.warn).toContain('[netwise] chat: answer replaced (reason=empty_answer, via=server_eligibility, provider=fake)');
@@ -141,7 +146,7 @@ describe('an ineligible car (Tesla Model 3, group ד, for a group ג employee): 
     const e = await groupGimelEmployee();
     const model = fake(call('check_eligibility', { alternative: 'CAR-14' }), say('אתה זכאי לרכב הזה.'));
     const r = await chat(e, MESSAGE, { providers: [provider(model)] });
-    expectRefusalWithOptions(r.body.assistantText);
+    expectRefusalWithOptions(r.body.assistantText, r.body.carChoices);
   });
 
   it('an earlier refusal is not hidden by a later unrelated tool result', async () => {

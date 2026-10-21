@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ZodType } from 'zod';
+import { buildCarChoices } from '../agent/carChoices';
 import { getRepo } from '../db/repo';
 import {
   clearCookieHeader,
@@ -151,7 +152,9 @@ export const handleRepLogin = (req: Request) =>
 export const handleGetEmployeeState = (req: Request) =>
   run(async () => {
     const a = await authenticate(req, 'employee');
-    return json(await getEmployeeState(await getRepo(), a.actor), 200, a.setCookie);
+    const repo = await getRepo();
+    const carChoices = await buildCarChoices(repo, a.actor); // the buttons come back after a refresh; null when nothing is being asked
+    return json({ ...(await getEmployeeState(repo, a.actor)), carChoices }, 200, a.setCookie);
   });
 
 export const handlePostEmployeeState = (req: Request) =>

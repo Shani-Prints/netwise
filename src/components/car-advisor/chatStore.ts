@@ -1,6 +1,6 @@
 import { he } from './content/he';
 import { ApiError, describeApiError, type AdvisorApiClient } from './contract/apiClient';
-import type { ApiComparison, ApiEmployeeQuestion, ApiEmployeeState, ApiMessage, NotificationView } from './contract/types';
+import type { ApiCarChoices, ApiComparison, ApiEmployeeQuestion, ApiEmployeeState, ApiMessage, NotificationView } from './contract/types';
 
 /** What the messages area shows: the conversation as the SERVER stores it, plus the message that is being sent. */
 export interface DisplayMessage {
@@ -19,6 +19,7 @@ export interface ChatState {
   serverMessages: ApiMessage[];
   pending: PendingMessage | null;
   comparison: ApiComparison | null;
+  carChoices: ApiCarChoices | null;
   questions: ApiEmployeeQuestion[];
   awaiting: boolean;
   draft: string;
@@ -31,6 +32,7 @@ export const initialChatState = (): ChatState => ({
   serverMessages: [],
   pending: null,
   comparison: null,
+  carChoices: null,
   questions: [],
   awaiting: false,
   draft: '',
@@ -96,6 +98,7 @@ export function createChatStore(api: AdvisorApiClient, initialOnUpdate?: (n: Not
     set({
       serverMessages: s.messages,
       comparison: s.comparison,
+      carChoices: s.carChoices ?? null,
       questions: s.questions.filter((q) => q.status === 'open'),
       awaiting: s.awaitingRepresentative,
     });

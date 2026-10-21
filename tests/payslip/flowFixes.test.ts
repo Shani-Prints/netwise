@@ -28,7 +28,8 @@ async function post(c: Client, body: object, ...responses: unknown[]) {
     fallback: fast,
     providers: [provider(model)],
   });
-  return { status: res.status, text: ((await res.json()) as Json).assistantText as string, model };
+  const out = (await res.json()) as Json;
+  return { status: res.status, text: out.assistantText as string, choices: out.carChoices as Json, model };
 }
 const send = (c: Client, message: string, ...r: unknown[]) => post(c, { message }, ...r);
 
@@ -56,8 +57,12 @@ describe('1. the list of target cars comes only after the current car is resolve
     expect(r.text).toContain('איזה מהם הוא הרכב הנוכחי?');
     expect(r.text).not.toContain('אלה הרכבים שמתאימים');
     expect(r.text).not.toMatch(/CAR-\d+/);
-    for (const model of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(r.text).toContain(model);
-    expect(r.text).not.toContain('PICANTO'); // not the whole catalogue
+    expect(r.choices.purpose).toBe('current'); // buttons for the CURRENT car, that maker's models only
+    const labels = (r.choices.cars as { label: string }[]).map((c) => c.label).join('|');
+    for (const model of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(labels).toContain(model);
+    expect(r.choices.waiverAllowed).toBe(false);
+    expect((await e.state()).body.carChoices.purpose).toBe('current'); // restored from the state after a refresh
+    expect(labels).not.toContain('PICANTO'); // not the whole catalogue
     expect((await e.state()).body.profile.currentCar ?? null).toBeNull();
   });
 
@@ -69,22 +74,26 @@ describe('1. the list of target cars comes only after the current car is resolve
     expect(s.profile.currentCar.label).toContain('SEAL');
     expect(s.alternative ?? null).toBeNull();
     expect(r2.text).not.toContain('אלה הרכבים'); // not in the same message as the pick answer
+    expect(r2.choices).toBeUndefined(); // the participation is still missing: asked first, then the car to compare
+    await e.updateProfile({ currentParticipation: 500 });
     const r3 = await send(e, 'רוצה לעבור לרכב אחר', say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r3.text).toContain('אלה הרכבים שמתאימים');
+    expect(r3.text).toContain('אפשר לבחור רכב מהרשימה');
+    expect(r3.choices.purpose).toBe('target');
   });
 
   it('current car resolved -> the list is shown', async () => {
     const e = new Client();
     await e.updateProfile(PROFILE);
     const r = await send(e, 'רוצה לעבור', say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r.text).toContain('אלה הרכבים שמתאימים');
+    expect(r.choices.purpose).toBe('target');
+    expect(r.text).toContain('אפשר לבחור רכב מהרשימה');
   });
 
   it('the employee gave up the car (waiver) -> resolved, the list is shown', async () => {
     const e = new Client();
     await e.updateProfile({ ...PROFILE, currentCar: { kind: 'none' } });
     const r = await send(e, 'רוצה לעבור', say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r.text).toContain('אלה הרכבים שמתאימים');
+    expect(r.choices.purpose).toBe('target');
   });
 });
 
@@ -105,7 +114,7 @@ describe('3. the registration year is never asked', () => {
       }
     }
     texts.push(...Object.values(CHAT_MSG));
-    texts.push(T.pickCurrentCarText(['A', 'B'], true), T.pickCarText(['A', 'B'], true), T.carNotFoundText(['A'], true), T.MORE_OPTIONS_TEXT);
+    texts.push(T.pickCurrentCarText(), T.pickCarText(['A', 'B'], true), T.carNotFoundText(['A'], true), T.MORE_OPTIONS_TEXT);
     expect(texts.filter((t) => YEAR.test(t) && !t.includes('הנחתי'))).toEqual([]);
   });
 
@@ -144,7 +153,7 @@ describe('4. the one-time payslip offer', () => {
 
   it('is gender-neutral and short; the prompt tells the model not to repeat it', () => {
     expect(PAYSLIP_OFFER_TEXT.length).toBeLessThan(80);
-    expect(PAYSLIP_OFFER_TEXT).toContain('והקובץ לא נשמר במערכת');
+    expect(PAYSLIP_OFFER_TEXT).toBe('אפשר גם לצרף תלוש שכר במקום להקליד.'); // the privacy sentence is in the confirmation card
     expect(PAYSLIP_OFFER_TEXT).not.toMatch(/[א-ת]\/[א-ת]/u);
     expect(buildSystemPrompt('', false)).toContain('never repeat it');
   });

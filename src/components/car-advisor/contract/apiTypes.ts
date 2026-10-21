@@ -92,6 +92,13 @@ export interface ApiUpdates {
   updatedFields: { field: string; carLabel: string; value: number | string }[];
 }
 
+/** Cars to pick by clicking, built by the server. "target" = the car to compare, "current" = the models of a maker named for the current car. */
+export interface ApiCarChoices {
+  purpose: 'target' | 'current';
+  cars: { id: string; label: string; fuel: string; drive: 'electric' | 'hybrid' | 'plugin' | 'petrol' }[];
+  waiverAllowed: boolean;
+}
+
 export interface ApiEmployeeState {
   messages: ApiMessage[];
   profile: {
@@ -107,6 +114,8 @@ export interface ApiEmployeeState {
   awaitingRepresentative: boolean;
   repAnswers: Record<string, number>;
   updates: ApiUpdates;
+  /** Present while the bot waits for the car to compare (or the current car's model); null otherwise. */
+  carChoices?: ApiCarChoices | null;
 }
 
 export interface ApiChatResponse {
@@ -114,6 +123,7 @@ export interface ApiChatResponse {
   comparison?: ApiComparison;
   pendingQuestions?: ApiEmployeeQuestion[];
   updates?: { newAnswers: true };
+  carChoices?: ApiCarChoices;
 }
 
 // ---------------------------------------------------------------- representative

@@ -34,7 +34,7 @@ const ChatBodySchema = z.union([
 export const PAYSLIP_CONFIRMED_INSTRUCTION =
   '[SYSTEM EVENT - not written by the employee] The employee just confirmed a payslip and the server saved its values (see fromConfirmedPayslip and "saved" in SERVER STATE). ' +
   'Thank them in one short sentence and say what was filled from the payslip in a few words. Do not ask for anything listed in fromConfirmedPayslip. ' +
-  'Then ask ONLY for what is still missing (askNext), together in one short message; if nothing is missing, ask which car or waiver to compare.';
+  'Then ask ONLY for what is still missing (askNext), together in one short message; if nothing is missing, ask which car or waiver to compare and list all of carsTheEmployeeMayChoose in that message. Never ask for the car to compare together with other questions.';
 
 export const MSG = {
   invalidBody: 'הבקשה אינה תקינה. יש לשלוח הודעת טקסט.',

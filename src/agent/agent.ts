@@ -197,6 +197,33 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
   return out;
 }
 
+const CURRENT_CAR_WORDS = /היום|כיום|הנוכחי|נוכחי|יש לך|ברכב שלך/u;
+const TARGET_CAR_QUESTION =
+  /(?:איזה|איזו|באיזה|לאיזה|על איזה)[^.?!\n]{0,40}(?:רכב|חשמלי|דגם)|(?:רכב|חשמלי)[^.?!\n]{0,50}(?:להשוות|לעבור|לשקול)|(?:להשוות|לעבור)[^.?!\n]{0,40}(?:רכב|חשמלי)/u;
+
+/** True when the text asks which car to compare (the car she wants to move to), not about her current car. */
+export function asksWhichCarToCompare(text: string): boolean {
+  return text.split(/(?<=[.?!])\s+|\n/).some((s) => TARGET_CAR_QUESTION.test(s) && !CURRENT_CAR_WORDS.test(s));
+}
+
+/**
+ * Whenever the reply asks which car to compare and no car was chosen yet, the SERVER-written list of options (catalogue, her group
+ * and lower, same eligibility function as check_eligibility) is part of that message, whatever the model wrote and on every path
+ * (also the turn after a confirmed payslip). Nothing is added when the list is not known yet or the text already shows it.
+ */
+export async function ensureTargetCarOptions(text: string, args: Pick<AgentTurnArgs, 'repo' | 'actor' | 'carIssues'>): Promise<string> {
+  if ((args.carIssues ?? []).length > 0 || !asksWhichCarToCompare(text)) return text;
+  const conv = await args.repo.findConversationByUser(args.actor.userId);
+  if (!conv || conv.state.alternative) return text;
+  const profile = (await args.repo.getProfile(args.actor.userId)) ?? { userId: args.actor.userId, salaryInputs: {} };
+  const opts = listAllowedOptions(profile);
+  if (opts.status !== 'ok' || opts.cars.length === 0) return text;
+  const lines = opts.cars.map((c) => `${c.label}, ${c.drive}`);
+  const mentioned = lines.filter((l) => text.includes(l.split(',')[0] ?? l)).length;
+  if (mentioned >= Math.min(3, lines.length)) return text;
+  return `${text}\n${eligibleOptionsText(lines)}`;
+}
+
 /**
  * An occupation the employee wrote that fits several rows of the occupations table: the pick-list comes from the table (via the
  * tool result), whatever the model wrote.
@@ -418,7 +445,8 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
   const guided = await ensureCarGuidance(ensured.text, args, collector);
-  let finalText = ensureQuestionSentence(ensureOccupationGuidance(guided, collector), collector, args.openedAtStart ?? []);
+  const withOptions = await ensureTargetCarOptions(ensureOccupationGuidance(guided, collector), args);
+  let finalText = ensureQuestionSentence(withOptions, collector, args.openedAtStart ?? []);
   // she only picked from a list the server showed: nothing to repeat, just what is still missing, in one short sentence
   const quiet = (args.carIssues ?? []).length === 0 && collector.lastView === undefined && ineligibleFacts(collector).length === 0 && collector.escalations.length === 0 && (args.openedAtStart ?? []).length === 0;
   if (quiet && args.userMessage && (await answeredAPick(repo, conversationId, args.userMessage))) {

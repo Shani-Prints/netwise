@@ -1,2 +1,101 @@
-# netwise
-An AI-powered company car advisor that helps employees compare vehicle options, estimate take-home pay, and make informed financial decisions.
+# NetWise
+
+**תקציר בעברית:** NetWise הוא יועץ צ'אט בעברית (RTL) לעובדי שטראוס, שעונה כיצד מעבר לרכב חשמלי, לרכב אחר או ויתור על הרכב משנה את השכר הנטו החודשי.
+החישוב נעשה כולו במנוע דטרמיניסטי ב-TypeScript, והמודל לא מחשב ולא מנחש שום מספר. כשחסר נתון, הבוט שואל את העובד או מעביר שאלה לנציג אנושי.
+הנתונים בפרויקט (כולל תלושי הדגמה) פיקטיביים בלבד, ואין להעלות תלוש אמיתי.
+
+Built for the Strauss challenge in the "Open Source AI 2026" hackathon. Cloud version: https://netwise-beta.vercel.app
+
+## 1. What NetWise is
+
+A Hebrew, right-to-left chat advisor for Strauss employees. An employee asks how switching the company car (to an electric car, to another car, or giving up the car) changes the monthly net salary, and gets a short answer in the chat plus a full breakdown.
+
+## 2. The hard rule
+
+**The LLM never computes net salary, tax, car usage value (שווי שימוש) or eligibility.** A deterministic TypeScript engine does (`src/engine`, rules in `data/strauss-rules.json`). Every number the bot says comes from a tool result of that turn.
+
+- When data is missing, the agent asks the employee, or opens a question for the human representative ("הנציג"). It never guesses and never invents eligibility.
+- The employee is never asked for a name or an ID.
+- Six reference cases check the engine against the challenge data: `pnpm calc:explain` must report 6/6.
+
+## 3. Architecture
+
+```mermaid
+flowchart LR
+  UI["Browser UI<br/>Next.js App Router"] --> API["API routes<br/>/api/chat, /api/payslip/parse, /api/rep/*"]
+  API --> AGENT["Agent<br/>server state, tools, provenance check,<br/>guard, response post-processing"]
+  AGENT --> ENGINE["Calculation engine<br/>(deterministic TypeScript)"]
+  AGENT --> REPO[("Repository<br/>Supabase / memory")]
+  AGENT --> LLM["LLM providers<br/>Gemini, Groq, OpenRouter, Mistral"]
+  REP["Representative console<br/>/rep"] --> API
+```
+
+- **UI:** Next.js (App Router) chat widget, Hebrew RTL.
+- **Agent** (`src/agent`): conversation state is kept by the server. The model works only through tools. The provenance check rejects values the employee did not write. The guard blocks invented numbers and unsupported claims. Post-processing writes the fixed parts of the reply (single result sentence, car lists, representative notices).
+- **Engine and rules** (`src/engine`, `src/lib`): net, tax, usage value, eligibility.
+- **Repository:** Supabase in production (server-side service-role key only), in-memory for local work.
+- **LLM providers:** Gemini, Groq, OpenRouter and Mistral. The order comes from `LLM_PROVIDER_ORDER` (default `gemini,groq,openrouter`) and providers without a key are skipped. Each provider can have several keys (`<NAME>_API_KEYS`) that are rotated when one is rate limited or rejected. Each provider gets up to 3 tries within a 25 s budget. The whole chat request has a 55 s deadline. When every provider fails, the user sees one fixed "busy" message and the saved data is kept.
+
+## 4. Key features
+
+- **Payslip upload** with employee confirmation. The file is read in memory for the request only, is not stored, and nothing from its content is logged. Extracted values are used only after the employee confirms them.
+- **Car pick buttons** for choosing the current car or the car to compare. The lists are written by the server from the catalogue, never by the model.
+- **Inline comparisons** in the conversation: a short headline sentence in the bubble and the full breakdown in the comparison card.
+- **Representative console** (`/rep`, protected by an access code): open questions, typed answers or free-text answers.
+- **Source labels:** values entered by the representative are marked as such, and values taken from a payslip are shown as coming from it.
+
+## 5. The original feature: free-text answers from the representative
+
+The representative can answer in plain Hebrew ("אין לה נקודות זיכוי", "הפנסיה 6.5"). The text goes to an **isolated model call** (`src/agent/interpretRepText.ts`) with no employee data, no conversation and no tools. It returns only a proposal, which the server validates with the same validators as the typed answers before applying it. Applied values carry a provenance label, and the employee can correct them.
+
+**Try it:** in the chat, answer "I don't know" (e.g. "אין לי מושג כמה פנסיה") for a missing field. A question is opened for the representative. Open the representative screen (`/rep`, log in with your `REP_ACCESS_CODE`) and reply in free text. The employee screen then shows what was updated and continues.
+
+## 6. Run locally
+
+Requires Node 22 and pnpm.
+
+```bash
+pnpm install
+cp .env.example .env.local     # then fill in your own values; never commit them
+# in .env.local: REPO_MODE=memory
+pnpm dev
+```
+
+Environment variable **names** (see `.env.example` for comments):
+
+- Store: `REPO_MODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`
+- Session and representative login: `SESSION_SECRET`, `REP_ACCESS_CODE`
+- LLM keys: `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, and the list forms `GEMINI_API_KEYS`, `GROQ_API_KEYS`, `OPENROUTER_API_KEYS`, `MISTRAL_API_KEYS`
+- LLM options: `LLM_PROVIDER_ORDER`, `GEMINI_MODEL`, `GROQ_MODEL`, `OPENROUTER_MODEL`, `MISTRAL_MODEL`
+- Behaviour: `PARTICIPATION_FROM_REPRESENTATIVE`, `SHOW_PROVISIONAL_ALTERNATIVE`, `CHAT_RATE_LIMIT_PER_MIN`, `REP_TEXT_RATE_LIMIT_PER_MIN`
+- Data paths: `NETWISE_DATA_DIR`, `USAGE_CSV_PATH`, `RULES_PATH`
+
+Payslip reading uses the Gemini key.
+
+## 7. Tests
+
+```bash
+pnpm test          # unit, API, agent and golden-conversation tests (the model is always a mock)
+pnpm typecheck
+pnpm lint
+pnpm calc:explain  # the 6 reference cases, expects 6/6
+pnpm build
+```
+
+Tests use fictional data only and never call a real model.
+
+## 8. Cloud
+
+https://netwise-beta.vercel.app
+
+## 9. Data and privacy
+
+All data used for development and testing is fictional, including the payslips. **Do not upload real payslips.** Payslip files are not stored and their content is not logged, but this is a demo.
+
+## 10. Known limitations
+
+- Free-tier model rate limits are mitigated by provider fallback and key rotation, but a busy period can still produce the "busy" message.
+- The interface and the conversation are in Hebrew only.
+- Rules and catalogue data come from the challenge files; arrangements the rules do not cover (for example a car above the group budget) are not calculated, and the bot says so.
+- The key rotation cooldowns are kept per server instance, not shared between serverless instances.
+- The quality of Hebrew understanding depends on the model that answers.

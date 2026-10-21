@@ -209,3 +209,18 @@
   background: transparent;
   border-color: transparent;
 }
+
+[data-car-advisor][data-car-advisor] .payslipMarker {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 90%;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px dashed var(--ca-line);
+  border-radius: 999px;
+  background: var(--ca-white);
+  color: var(--ca-ink);
+  font-size: 13px;
+}

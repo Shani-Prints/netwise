@@ -38,3 +38,13 @@ describe('the closing invite and the waiver sentence are gender-neutral', () => 
     }
   });
 });
+
+describe('the offer, the marker and the current-car pick-list are gender-neutral', () => {
+  it('passes the same scan', async () => {
+    const { PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT } = await import('../../src/lib/payslipMarker');
+    const { pickCurrentCarText } = await import('../../src/lib/repTemplates');
+    for (const text of [PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT, pickCurrentCarText(['A', 'B'], true)]) {
+      expect(SLASH_FORMS.test(text) || GENDERED.test(text), text).toBe(false);
+    }
+  });
+});

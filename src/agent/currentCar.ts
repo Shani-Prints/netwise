@@ -3,6 +3,7 @@ import { matchCatalogCar } from '../data/carMatch';
 import { getUsageIndex, lookupUsageValue, searchVehicles } from '../data/usageValues';
 import type { Repo } from '../db/repo';
 import { MAX_CAR_CANDIDATES } from '../lib/repQuestions';
+import { PICK_CURRENT_CAR_LEAD } from '../lib/repTemplates';
 import { evaluateTurnTriggers, prepareEmployeeTurn, updateProfile, type Actor, type CarIssue, type TurnContext, type UnresolvedCar } from '../lib/service';
 
 /**
@@ -189,6 +190,15 @@ export async function prepareTurnWithCurrentCar(repo: Repo, actor: Actor, messag
       for (const m of earlier) {
         car = resolveCurrentCarDetailed(m.content);
         if (car) break;
+      }
+    }
+    // she is answering the server's pick-list for the CURRENT car ("which model of the maker?"): her choice is the current car
+    if (!car) {
+      const conv = await repo.findConversationByUser(actor.userId);
+      const lastBot = conv ? [...(await repo.listMessages(conv.id, 50))].reverse().find((m) => m.role === 'assistant') : undefined;
+      if (lastBot?.content.includes(PICK_CURRENT_CAR_LEAD) && message.trim() !== '') {
+        const picked = matchCatalogCar(message);
+        if (picked.status === 'found') car = { fields: { kind: 'car', carId: picked.car.id }, yearStated: false };
       }
     }
     if (car) await updateProfile(repo, actor, { currentCar: car.fields }, { currentCarYearAssumed: !car.yearStated });

@@ -20,6 +20,7 @@ import { flushPendingEscalations, openQuestionNow, requestEscalations, type Esca
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisionalPolicy';
 import { applyRepAnswer } from './repApply';
 import { listAllowedOptions } from '../agent/eligibleCars';
+import { PAYSLIP_MARKER_TEXT } from './payslipMarker';
 import { closingInviteText, repBridgeLine, resultSummaryText, updatedLabelsOf } from '../agent/flowText';
 import { gapReasonText, REP_ANSWER_REJECTED_TEXT, repUpdatedManyText, STATUS_TEXT, type QuestionStatus } from './repTemplates';
 import { participationFromRepresentative } from './flags';
@@ -645,6 +646,8 @@ export async function updateProfile(
 
     await repo.saveProfile(profile);
     const next = await commitComparison(repo, conv.id, state, profile);
+    // the marker is written only now, after the payslip values were really saved: a system message, never an employee message
+    if (fromPayslip) await repo.addMessage(conv.id, 'system', PAYSLIP_MARKER_TEXT);
     return buildStateResponse(repo, { conv: { ...conv, state: next }, profile, updates: turn.updates });
   });
 }

@@ -47,12 +47,13 @@ describe('questions come in batches of related fields, in a logical order', () =
   });
 });
 
-describe('the prompt: short opening, no upload, batches', () => {
+describe('the prompt: short opening, server-written upload offer, batches', () => {
   const prompt = buildSystemPrompt('', false);
-  it('asks only occupation and base salary first and never offers an upload', () => {
+  it('asks only occupation and base salary first and leaves the one-time upload offer to the server', () => {
     expect(prompt).toContain('OPENING');
     expect(prompt).toContain('exactly two things together: the occupation (job role) and the monthly base salary');
-    expect(prompt).toContain('Never suggest uploading a payslip');
+    expect(prompt).toContain('The SERVER adds a one-time offer to attach a payslip');
+    expect(prompt).toContain('never offer or promise any other file or feature');
   });
   it('stays within a size budget (guards against the prompt growing back)', () => {
     expect(prompt.length).toBeLessThan(17_000);

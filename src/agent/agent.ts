@@ -5,14 +5,15 @@ import type { Repo } from '../db/repo';
 import { buildTodayOnly } from '../lib/comparison';
 import { missingFieldLabel } from '../lib/explain';
 import { employeeLabelFor, FIELD_NAME_HE, isRepKind } from '../lib/repQuestions';
-import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
+import { altNotOnListText, CAR_NOT_FOUND_SENT_TEXT, carNotFoundText, eligibleOptionsText, pickCarText, pickCurrentCarText, pickOccupationText, repQuestionSentText } from '../lib/repTemplates';
 import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_BATCH, askBatchLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
-import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, withRepBridge } from './flowText';
+import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, stripYearRequests, withRepBridge } from './flowText';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
+import { PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT } from '../lib/payslipMarker';
 import { answeredAPick, dropListedNames, modelNamesOfLabels } from './listDedupe';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
 import { withFallback, type FallbackOptions, type ProviderEntry } from './providers';
@@ -184,7 +185,7 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
     if (issue.pick) {
       // ONE block: what the model wrote about these same cars is dropped, the server list stays
       out = dropListedNames(out, modelNamesOfLabels(issue.candidates));
-      add(pickCarText(issue.candidates, issue.more === true));
+      add(issue.role === 'current' ? pickCurrentCarText(issue.candidates, issue.more === true) : pickCarText(issue.candidates, issue.more === true));
     }
     else if (issue.role === 'current') add(issue.opened ? CAR_NOT_FOUND_SENT_TEXT : carNotFoundText(issue.candidates, issue.more === true));
     else add(altNotOnListText(optionLines));
@@ -215,6 +216,8 @@ export async function ensureTargetCarOptions(text: string, args: Pick<AgentTurnA
   if ((args.carIssues ?? []).length > 0 || !asksWhichCarToCompare(text)) return text;
   const conv = await args.repo.findConversationByUser(args.actor.userId);
   if (!conv || conv.state.alternative) return text;
+  // the current car comes first: while it is unknown (or only a maker is known) a list of cars to compare would be read as its options
+  if (conv.state.currentCar === undefined) return text;
   const profile = (await args.repo.getProfile(args.actor.userId)) ?? { userId: args.actor.userId, salaryInputs: {} };
   const opts = listAllowedOptions(profile);
   if (opts.status !== 'ok' || opts.cars.length === 0) return text;
@@ -250,6 +253,24 @@ export async function shortMissingSentence(repo: Repo, actor: Actor): Promise<st
   if (today.status === 'ok') return null;
   const labels = askBatchLabels(today.missingFields, [...openQuestions.map((q) => q.missingField), ...Object.keys(state.fieldGaps)]);
   return labels.length === 0 ? null : `מעולה, רשמתי. כדי להמשיך חסר לי עוד: ${labels.join(', ')}.`;
+}
+
+/**
+ * The one-time offer to attach a payslip: appended to the FIRST bot message that asks for pay data, only while no payslip was
+ * confirmed and no pay field is saved, and never twice in a conversation.
+ */
+export async function withPayslipOffer(text: string, repo: Repo, conversationId: string, actor: Actor): Promise<string> {
+  if (text.trim() === '' || !text.includes('?')) return text;
+  const conv = await repo.getConversation(conversationId);
+  if (!conv || (conv.state.payslipFields ?? []).length > 0) return text;
+  const profile = (await repo.getProfile(actor.userId)) ?? { userId: actor.userId, salaryInputs: {} };
+  if (Object.values(profile.salaryInputs).some((v) => v !== undefined)) return text;
+  const sent = await repo.listMessages(conversationId, 500);
+  if (sent.some((m) => (m.role === 'assistant' && m.content.includes(PAYSLIP_OFFER_TEXT)) || (m.role === 'system' && m.content === PAYSLIP_MARKER_TEXT))) return text;
+  const today = buildTodayOnly({ profile, state: conv.state });
+  if (today.status !== 'missing' || !today.missingFields.includes('base')) return text;
+  return `${text}
+${PAYSLIP_OFFER_TEXT}`;
 }
 
 /** Labels of the representative questions the SERVER opened in this turn (before the model ran, or through a tool). */
@@ -457,10 +478,11 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   // internal ids never reach the employee; the waiver is mentioned only when the occupation allows it (and never as a "refund")
   const profileNow = await repo.getProfile(actor.userId);
   const waiverOk = profileNow ? listAllowedOptions(profileNow).waiverAllowed === true : false;
-  finalText = fixWaiverMentions(stripCarCodes(finalText), waiverOk);
+  finalText = fixWaiverMentions(stripYearRequests(stripCarCodes(finalText)), waiverOk);
   // ONE closing sentence, only right after a new comparison
   const newView = collector.lastView;
   if (newView?.status === 'ok' && newView.today && newView.alternative) finalText = `${finalText}\n${closingInviteText(waiverOk)}`;
+  finalText = await withPayslipOffer(finalText, repo, conversationId, actor);
   finalText = await withRepBridge(finalText, repo, conversationId);
 
   return {

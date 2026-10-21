@@ -1,5 +1,5 @@
 import { carLabel, loadCatalog } from '../data/catalog';
-import { PICK_CAR_LEAD, PICK_OCCUPATION_LEAD } from '../lib/repTemplates';
+import { PICK_CAR_LEAD, PICK_CURRENT_CAR_LEAD, PICK_OCCUPATION_LEAD } from '../lib/repTemplates';
 import { matchCatalogCar } from '../data/carMatch';
 import { matchOccupation } from '../data/occupationMatch';
 import type { Repo } from '../db/repo';
@@ -53,6 +53,6 @@ export async function answeredAPick(repo: Repo, conversationId: string, userMess
     .slice(0, lastUser < 0 ? all.length : lastUser)
     .reverse()
     .find((m) => m.role === 'assistant');
-  if (!previous || !(previous.content.includes(PICK_CAR_MARKER) || previous.content.includes(PICK_OCCUPATION_MARKER))) return false;
+  if (!previous || !(previous.content.includes(PICK_CAR_MARKER) || previous.content.includes(PICK_CURRENT_CAR_LEAD) || previous.content.includes(PICK_OCCUPATION_MARKER))) return false;
   return matchCatalogCar(userMessage).status === 'found' || matchOccupation(userMessage).status === 'found';
 }

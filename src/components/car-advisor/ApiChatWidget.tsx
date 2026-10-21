@@ -11,9 +11,11 @@ import { ComparisonPanel } from './messages/ComparisonPanel';
 import { Greeting } from './messages/Greeting';
 import messageStyles from './messages/messages.module.css';
 import { PayslipCard } from './messages/PayslipCard';
+import { PayslipMarker } from './messages/PayslipMarker';
 import { QuestionsCard } from './messages/QuestionsCard';
 import { SystemNotice } from './messages/SystemNotice';
 import { UserBubble } from './messages/UserBubble';
+import { PAYSLIP_MARKER_TEXT } from '../../lib/payslipMarker';
 import { ScopeRoot } from './ScopeRoot';
 import { CarIcon, CrossIcon, DocumentIcon, PaperclipIcon, SendIcon } from './ui/Icons';
 import { NotificationCard } from './ui/NotificationCard';
@@ -124,6 +126,8 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
                 <UserBubble text={message.content} />
               ) : message.role === 'assistant' ? (
                 <AssistantBubble text={message.content} />
+              ) : message.content === PAYSLIP_MARKER_TEXT ? (
+                <PayslipMarker text={message.content} />
               ) : (
                 <SystemNotice text={message.content} />
               )}

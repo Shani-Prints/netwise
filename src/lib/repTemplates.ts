@@ -87,7 +87,7 @@ const bullets = (items: string[]): string => items.map((i) => `- ${i}`).join('\n
 
 /** The current car was not found in the catalogue (attempts 1 and 2): friendly, with same-maker candidates if the server has some. */
 /** Shown under a car list that was cut to its first MAX_CAR_CANDIDATES rows. */
-export const MORE_OPTIONS_TEXT = 'יש עוד אפשרויות, אפשר לדייק את הדגם או השנה.';
+export const MORE_OPTIONS_TEXT = 'יש עוד אפשרויות, אפשר לדייק את הדגם.';
 
 export const carNotFoundText = (candidates: string[], more = false): string =>
   candidates.length > 0
@@ -115,6 +115,13 @@ export const PICK_OCCUPATION_LEAD = 'לא ברור לי מה העיסוק';
 /** The description fits several cars (or one only through a typo): the options come from the catalogue. */
 export const pickCarText = (options: string[], more = false): string =>
   `${PICK_CAR_LEAD}. אלה האפשרויות:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
+
+/** The opening words of the pick-list for the CURRENT car (a maker only): it is never the list of cars to compare. */
+export const PICK_CURRENT_CAR_LEAD = 'לא ברור לאיזה דגם הכוונה ברכב הנוכחי';
+
+/** The current car was named by its maker only: the options are that maker's catalogue models, clearly the CURRENT car. */
+export const pickCurrentCarText = (options: string[], more = false): string =>
+  `${PICK_CURRENT_CAR_LEAD}. אלה הדגמים של היצרן בקטלוג:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם הוא הרכב הנוכחי?`;
 
 /** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
 export const pickOccupationText = (options: string[]): string =>

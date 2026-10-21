@@ -3,6 +3,7 @@ import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUSY_MESSAGE_HE, buildProviders, type ProviderEntry } from '../../src/agent/providers';
 import { handleChat, MAX_MESSAGE_CHARS, resetChatRateLimit, type ChatDeps } from '../../src/agent/chatHandler';
+import { PAYSLIP_OFFER_TEXT } from '../../src/lib/payslipMarker';
 import { resultSummaryText } from '../../src/agent/flowText';
 import { guardResponse } from '../../src/agent/guard';
 import { createTools, newCollector } from '../../src/agent/tools';
@@ -157,7 +158,9 @@ describe('POST /api/chat', () => {
     const r = await chat(c, 'שלום', { providers: [provider('a', fake(say('היי! באיזה עיסוק את/ה עובד/ת?')))] });
     expect(r.status).toBe(200);
     expect(Object.keys(r.body)).toEqual(['assistantText']);
-    expect(r.body.assistantText).toBe('היי! באיזה עיסוק את/ה עובד/ת?');
+    // the first message that asks for pay data carries the server's one-time payslip offer
+    expect(r.body.assistantText).toBe(`היי! באיזה עיסוק את/ה עובד/ת?
+${PAYSLIP_OFFER_TEXT}`);
     const msgs = (await c.state()).body.messages;
     expect(msgs.map((m: Json) => m.role)).toEqual(['user', 'assistant']);
   });

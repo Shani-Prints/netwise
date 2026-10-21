@@ -134,3 +134,28 @@ export function fixWaiverMentions(text: string, allowed: boolean): string {
 /** ONE closing sentence after a new comparison. Mentions giving up the car only when the occupation allows it. */
 export const closingInviteText = (waiverAllowed: boolean): string =>
   waiverAllowed ? 'אפשר להשוות גם רכב אחר או ויתור על הרכב.' : 'אפשר להשוות גם רכב אחר.';
+
+const YEAR_REQUEST = /[\s,]*(?:ו)?(?:ה)?שנת\s+(?:ה)?(?:עלי?יה|רישום|ייצור|יצור)(?:\s+לכביש)?/gu;
+
+/**
+ * The registration year of a car is never asked (it comes from the data, or from an assumption the panel states). A request for it
+ * the model wrote is cut out of the sentence; a sentence that is left with nothing is dropped. "הנחתי שנת רישום ..." is an assumption
+ * and stays.
+ */
+export function stripYearRequests(text: string): string {
+  if (!/שנת\s+(?:ה)?(?:עלי?יה|רישום|ייצור|יצור)/u.test(text)) return text;
+  const pieces = text.split(/((?<=[.?!])[ \t]+|\n)/);
+  let out = '';
+  for (let i = 0; i < pieces.length; i += 2) {
+    const p = pieces[i] ?? '';
+    const sep = pieces[i + 1] ?? '';
+    if (p.includes('הנחתי')) {
+      out += p + sep;
+      continue;
+    }
+    const cut = p.replace(YEAR_REQUEST, '');
+    if (cut === p) out += p + sep;
+    else if (cut.trim().split(/\s+/).length >= 3) out += cut + sep;
+  }
+  return out.trim();
+}

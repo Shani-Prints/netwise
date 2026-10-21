@@ -108,7 +108,7 @@ describe('item 6: pick-lists never hide options', () => {
   });
 
   it('cars: up to 5 and a line that more exist (only when more exist)', async () => {
-    expect(MORE_OPTIONS_TEXT).toBe('יש עוד אפשרויות, אפשר לדייק את הדגם או השנה.');
+    expect(MORE_OPTIONS_TEXT).toBe('יש עוד אפשרויות, אפשר לדייק את הדגם.');
     expect(pickCarText(['א', 'ב'], true)).toContain(MORE_OPTIONS_TEXT);
     expect(pickCarText(['א', 'ב'])).not.toContain(MORE_OPTIONS_TEXT);
     const repo = await getRepo();

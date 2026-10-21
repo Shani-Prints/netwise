@@ -141,7 +141,7 @@ describe('default mode, end to end through POST /api/chat (fake model)', () => {
     expect(r.body.comparison.status).toBe('ok');
     expect(r.body.comparison.alternative.components.participation).toBe(300);
     expect(r.body.comparison.alternative.components.net).toBe(11693);
-    expect(r.body.comparison.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).']);
+    expect(r.body.comparison.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג.']);
     expect(r.body.pendingQuestions).toBeUndefined();
     const state = (await e.state()).body;
     expect(state.questions).toEqual([]);

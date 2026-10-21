@@ -53,6 +53,8 @@ export interface ComparisonView {
    * The UI shows REPRESENTATIVE_BADGE_HE ("הוזן על ידי נציג") next to them. The employee can still correct them.
    */
   representativeEntered?: { field: string; label: string }[];
+  /** Short Hebrew labels of the inputs taken from a confirmed payslip (panel only, never in the chat bubble). */
+  payslipEntered?: string[];
   /** Hebrew reasons for inputs that will NOT become available (the representative could not provide them). The comparison stays missing. */
   unavailableText?: string[];
   meta?: ComparisonMeta;

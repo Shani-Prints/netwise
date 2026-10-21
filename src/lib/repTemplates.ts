@@ -123,8 +123,8 @@ ${bullets(options)}
 איזה מהם?`;
 
 /** After a refusal: what she can choose. */
-export const eligibleOptionsText = (options: string[]): string =>
-  `אלה הרכבים שמתאימים לקבוצת הזכאות:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?`;
+export const eligibleOptionsText = (options: string[], waiverAllowed = false): string =>
+  `אלה הרכבים שמתאימים לקבוצת הזכאות:\n${bullets(options)}\nבאיזה מהם תרצו להשוות?${waiverAllowed ? '\nאפשר גם להשוות לוויתור על הרכב, שבו מתקבלת קצבת אחזקת רכב החייבת במס.' : ''}`;
 
 /** Added to ANY final text when the server opened a question in this turn and the text does not say so. */
 export const repQuestionSentText = (labels: string[]): string => {

@@ -205,7 +205,8 @@ describe('POST /api/chat', () => {
     const r = await chat(client, 'תשווה', { providers: [provider('a', model)] });
     expect(r.body.assistantText).not.toContain('9,999');
     // the bubble carries the one-sentence summary; the explanation lines live in the panel only
-    expect(r.body.assistantText).toBe(resultSummaryText(r.body.comparison));
+    expect(r.body.assistantText.startsWith(resultSummaryText(r.body.comparison))).toBe(true);
+    expect(r.body.assistantText).toMatch(/\nאפשר להשוות גם רכב אחר/u); // the one closing line
     expect(r.body.assistantText).not.toContain(r.body.comparison.explanation[1]);
   });
 
@@ -289,7 +290,9 @@ describe('POST /api/chat', () => {
     await chat(client, 'היי', { providers: [provider('a', model)] });
     const system = JSON.stringify((model.doGenerateCalls[0]?.prompt ?? []).filter((m: Json) => m.role === 'system'));
     expect(system).toContain('VALID OCCUPATIONS');
-    expect(system).toContain('CAR-10 = ');
+    expect(system).toContain('carIdsInternal');
+    expect(system).toContain(' = CAR-10'); // ids are internal: only the carIdsInternal line has them
+    expect(system).not.toContain('CAR-10 = ');
     expect(system).toContain('calculate_comparison already includes eligibility');
   });
 

@@ -277,6 +277,7 @@ export const he = {
       ineligibleTitle: 'אין זכאות לחלופה הזו',
       assumptionsTitle: 'הנחות',
       enteredByRepTitle: 'נתונים שהוזנו על ידי הנציג',
+      fromPayslipTitle: 'נתונים שנלקחו מהתלוש',
       repBadge: 'הוזן על ידי נציג',
       unavailableTitle: 'נתונים שלא יהיו זמינים',
       waitingForRep: 'ממתין לתשובת הנציג',

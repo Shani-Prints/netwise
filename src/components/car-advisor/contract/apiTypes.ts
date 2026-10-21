@@ -59,6 +59,8 @@ export interface ApiComparison {
   pendingQuestionId?: string;
   /** Inputs a representative entered: the UI shows the badge "הוזן על ידי נציג" next to them. */
   representativeEntered?: { field: string; label: string }[];
+  /** Labels of the inputs taken from a confirmed payslip (shown in the panel only). */
+  payslipEntered?: string[];
   /** Hebrew reasons for inputs that will never become available. The comparison stays "missing". */
   unavailableText?: string[];
 }

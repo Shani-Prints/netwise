@@ -71,8 +71,8 @@ export interface ToolContext {
 const AlternativeArg = z
   .string()
   .min(1)
-  .max(40)
-  .describe('Catalogue car id such as "CAR-10", or the word "waiver" for giving up the car.');
+  .max(80)
+  .describe('Catalogue car id such as "CAR-10" (from carIdsInternal), or the word "waiver" for giving up the car.');
 
 export const SaveInputSchema = z.object({
   occupation: z.string().min(1).max(100).optional().describe('Exact occupation name from search_catalog(kind=occupations).'),
@@ -138,7 +138,10 @@ const invalidArguments = (issues: { path: string; code: string }[]): ToolError =
 
 function toOptionRef(arg: string): OptionRef | null {
   if (arg === 'waiver') return { kind: 'waiver' };
-  return getCatalogCar(arg) ? { kind: 'car', carId: arg } : null;
+  if (getCatalogCar(arg)) return { kind: 'car', carId: arg };
+  // the employee picks by NAME: the server resolves it from the catalogue (never a guess; ambiguous or unknown -> unknown_car)
+  const m = matchCatalogCar(arg);
+  return m.status === 'found' ? { kind: 'car', carId: m.car.id } : null;
 }
 const unknownAlternative = (): ToolError => ({ status: 'error', error: 'unknown_car' });
 

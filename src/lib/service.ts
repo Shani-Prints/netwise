@@ -19,6 +19,8 @@ import { loadRules } from '../config/rules';
 import { flushPendingEscalations, openQuestionNow, requestEscalations, type EscalationResult } from './escalation';
 import { applyProvisionalPolicy, showProvisionalAlternative } from './provisionalPolicy';
 import { applyRepAnswer } from './repApply';
+import { listAllowedOptions } from '../agent/eligibleCars';
+import { closingInviteText, repBridgeLine, resultSummaryText, updatedLabelsOf } from '../agent/flowText';
 import { gapReasonText, REP_ANSWER_REJECTED_TEXT, repUpdatedManyText, STATUS_TEXT, type QuestionStatus } from './repTemplates';
 import { participationFromRepresentative } from './flags';
 import { REP_FIELD_PARTICIPATION } from './repFields';
@@ -306,6 +308,16 @@ function blockedFields(q: RepQuestion): string[] {
  * Every comparison view goes through here: it says which open question the comparison is waiting for (so GET state and the
  * chat show the same thing) and which inputs a representative entered (the UI shows "הוזן על ידי נציג" next to them).
  */
+/** Short panel labels of the profile fields that can come from a confirmed payslip (pay parts share one label). */
+const PAYSLIP_PANEL_LABEL: Record<string, string> = {
+  base: 'שכר',
+  commissions: 'שכר',
+  bonus: 'שכר',
+  pensionPct: 'פנסיה',
+  studyFundPct: 'קרן השתלמות',
+  creditPoints: 'נקודות זיכוי',
+};
+
 function finalizeView(view: ComparisonView, alt: OptionRef, questions: RepQuestion[], state: ConversationState): ComparisonView {
   const open = questions.filter((q) => q.status === 'open');
   const blocking =
@@ -319,6 +331,7 @@ function finalizeView(view: ComparisonView, alt: OptionRef, questions: RepQuesti
   if (alt.kind === 'car' && state.repAnswers[alt.carId] !== undefined) {
     entered.push({ field: 'alternativeParticipation', label: missingFieldLabel('alternativeParticipation', age) });
   }
+  const payslipLabels = [...new Set((state.payslipFields ?? []).map((f) => PAYSLIP_PANEL_LABEL[f]).filter((l): l is string => l !== undefined))];
   const unavailable = Object.keys(state.fieldGaps)
     .filter((field) => view.missingFields.includes(field))
     .map((field) => gapReasonText(missingFieldLabel(field, age)));
@@ -326,6 +339,7 @@ function finalizeView(view: ComparisonView, alt: OptionRef, questions: RepQuesti
     ...view,
     ...(blocking ? { pendingQuestionId: blocking.id } : {}),
     ...(entered.length > 0 ? { representativeEntered: entered } : {}),
+    ...(payslipLabels.length > 0 ? { payslipEntered: payslipLabels } : {}),
     ...(unavailable.length > 0 ? { unavailableText: unavailable } : {}),
   };
 }
@@ -429,9 +443,16 @@ async function applyAnsweredQuestions(
   const next = await commitComparison(repo, conv.id, state, profile);
 
   // ONE notice per application: the line of the answer, or one line listing the fields when several are applied together
-  await repo.addMessage(conv.id, 'system', applied.length === 1 ? applied[0]!.message : repUpdatedManyText(applied.map((u) => u.part)));
-  if (next.lastComparison?.status === 'ok') {
-    await repo.addMessage(conv.id, 'assistant', next.lastComparison.explanation.join('\n'));
+  const notice = applied.length === 1 ? applied[0]!.message : repUpdatedManyText(applied.map((u) => u.part));
+  await repo.addMessage(conv.id, 'system', notice);
+  const view = next.lastComparison;
+  if (view?.status === 'ok') {
+    // Same single-result logic as a normal turn: the bridge line, then ONE headline sentence with the pointer to the panel.
+    // The reasons and the assumptions live only in the panel.
+    const labels = updatedLabelsOf([notice]);
+    const headline = view.today && view.alternative ? resultSummaryText(view as Parameters<typeof resultSummaryText>[0]) : view.explanation.join('\n');
+    const closing = view.today && view.alternative ? `\n${closingInviteText(listAllowedOptions(profile).waiverAllowed === true)}` : '';
+    await repo.addMessage(conv.id, 'assistant', `${labels.length > 0 ? `${repBridgeLine(labels)}\n` : ''}${headline}${closing}`);
   }
   const updatedFields: UpdatedField[] = applied.map(({ field, carLabel, value }) => ({ field, carLabel, value }));
   return { conv: { ...conv, state: next }, profile, updates: { newAnswers: applied.length > 0, updatedFields } };

@@ -153,7 +153,7 @@ describe('conversation continuity around a representative question', () => {
     expect(r.body.comparison.status).toBe('ok');
     expect(r.body.comparison.alternative.components.participation).toBe(300); // catalogue default (demo data)
     expect(r.body.comparison.alternative.components.net).toBe(11693);
-    expect(r.body.comparison.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).']);
+    expect(r.body.comparison.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג.']);
     expect(r.body.comparison.pendingQuestionId).toBeUndefined();
     expect(r.body.questions).toEqual([]);
     expect(r.body.awaitingRepresentative).toBe(false);

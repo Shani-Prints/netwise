@@ -217,7 +217,7 @@ export function buildComparison(args: BuildComparisonArgs): BuiltComparison {
     assumptions.push(
       repMode
         ? `השתתפות העובד ברכב החדש (${amount} ₪) היא ברירת המחדל של הקטלוג וטרם אושרה על ידי הנציג.`
-        : `השתתפות העובד ברכב החדש (${amount} ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).`,
+        : `השתתפות העובד ברכב החדש (${amount} ₪) נלקחה מברירת המחדל בקטלוג.`,
     );
   }
 

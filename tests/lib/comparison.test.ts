@@ -82,7 +82,7 @@ describe('electric vehicle with gross-up (E-001: -> BYD Atto 3)', () => {
   it('takes the new car\'s participation from the catalogue default (demo data) and says so, without involving anyone', () => {
     expect(b.participationSource).toBe('catalog_default');
     expect(b.view.alternative!.components.participation).toBe(300);
-    expect(b.view.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).']);
+    expect(b.view.assumptions).toEqual(['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג.']);
     expect(b.view.pendingQuestionId).toBeUndefined();
     expect(JSON.stringify(b.view.assumptions)).not.toContain('נציג');
   });

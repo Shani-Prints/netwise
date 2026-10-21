@@ -129,6 +129,12 @@ export function ComparisonPanel({ comparison }: { comparison: ApiComparison }) {
           </div>
         ) : null}
 
+        {c.payslipEntered && c.payslipEntered.length > 0 ? (
+          <p className={styles.small}>
+            {c18.fromPayslipTitle}: {c.payslipEntered.join(', ')}
+          </p>
+        ) : null}
+
         {c.status === 'ok' ? <p className={styles.small}>{c18.estimateNote}</p> : null}
       </div>
     </Card>

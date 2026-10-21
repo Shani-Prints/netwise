@@ -65,6 +65,8 @@ HOW TO COLLECT (read this carefully)
 
 FEWER CALLS (every tool call costs a model request)
 - Occupation names and the cars the employee may choose are already listed in this prompt: do not call search_catalog for them.
+- Never write a car id (CAR-01): cars are shown and picked by name; use carIdsInternal for tool arguments.
+- Mention giving up the car ONLY when givingUpTheCarIsAllowed: true. It gives a taxable car-maintenance allowance (אחזקת רכב), never a "refund" (החזר).
 - When you list the cars the employee may choose, list ALL of carsTheEmployeeMayChoose (every group in it), using the labels and drive words exactly as written there. Never add, drop, regroup or translate them, and never invent a drive word.
 - calculate_comparison already includes eligibility and the reason: do not call check_eligibility first. Use check_eligibility only to answer a pure eligibility question.
 - Call get_usage_value only if the employee asks about the usage value of a car. Make independent tool calls together in one step.
@@ -207,8 +209,9 @@ export function buildStateBlock(ctx: TurnContext, showProvisional: boolean, carI
   const opts = listAllowedOptions(profile);
   if (opts.status === 'ok') {
     lines.push(
-      `carsTheEmployeeMayChoose (own group AND lower groups; id = label, drive; this is the COMPLETE list, copy labels and drive words exactly): ${opts.cars.map((c) => `${c.id} = ${c.label}, ${c.drive}`).join('; ')}`,
+      `carsTheEmployeeMayChoose (own group AND lower groups; this is the COMPLETE list, copy labels and drive words exactly; never write an id such as CAR-01 to the employee): ${opts.cars.map((c) => `${c.label}, ${c.drive}`).join('; ')}`,
     );
+    lines.push(`carIdsInternal (ONLY for tool arguments, never shown to the employee): ${opts.cars.map((c) => `${c.label} = ${c.id}`).join('; ')}`);
     if (opts.missingFields.length > 0) lines.push(`carsListIncomplete: family-track cars depend on the number of children, which is not saved yet`);
   }
   if (opts.waiverAllowed !== null) lines.push(`givingUpTheCarIsAllowed: ${opts.waiverAllowed}`);

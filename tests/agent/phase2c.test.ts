@@ -308,10 +308,13 @@ describe('the list of allowed cars comes from the same eligibility function as c
     await c.updateProfile({ occupation: PROFILE.occupation, group: 'ב', childrenUnder23: 0 });
     const repo = await getRepo();
     const block = buildStateBlock(await prepareEmployeeTurn(repo, c.actor()), true);
-    for (let i = 1; i <= 8; i++) expect(block).toContain(`CAR-0${i} = `);
-    expect(block).not.toContain('CAR-09 = ');
+    // ids are internal (carIdsInternal, "label = id"): the list the model copies has no "CAR-xx =" prefix
+    expect(block).toContain('carIdsInternal');
+    for (let i = 1; i <= 8; i++) expect(block).toContain(` = CAR-0${i}`);
+    expect(block).not.toContain(' = CAR-09');
+    expect(block).not.toMatch(/CAR-\d+ = /);
     expect(block).toContain('COMPLETE list');
-    expect(block).toContain(`CAR-05 = `);
+    expect(block).toContain(' = CAR-05');
     expect(block).toContain(rules.valueOfUse.driveField['1']!);
   });
 

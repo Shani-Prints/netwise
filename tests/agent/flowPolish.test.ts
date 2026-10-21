@@ -70,7 +70,7 @@ const okView = {
     'בחלופה "KIA EV3 (2025)" הנטו החודשי המוערך הוא 11,779 ₪ לעומת 11,032 ₪ היום – עלייה של 747 ₪.',
     'שווי השימוש משתנה מ-3,350 ל-2,690 ₪ · החזר חשמל: 250 ₪ נטו בדיוק (מגולם, כ-473 ₪ ברוטו).',
   ],
-  assumptions: ['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג (נתוני הדגמה).'],
+  assumptions: ['השתתפות העובד ברכב החדש (300 ₪) נלקחה מברירת המחדל בקטלוג.'],
 };
 const collectorWith = (view: unknown) => {
   const c = newCollector();
@@ -134,7 +134,10 @@ describe('single result block: headline in the bubble, breakdown only in the pan
     expect(panel.status).toBe('ok');
     for (const line of [...panel.explanation, ...panel.assumptions]) expect(bubble, line).not.toContain(String(line).replace(/[.\s]+$/, ''));
     expect(bubble).toContain(PANEL_POINTER_HE);
-    expect(bubble.split('\n')).toHaveLength(1);
+    // the headline sentence, then ONE closing line (invite to compare another car)
+    const lines = bubble.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toMatch(/^אפשר להשוות גם רכב/u);
     // the numbers in the bubble are only the headline ones
     const shown = [...bubble.matchAll(/\d[\d,]*/g)].map((m) => Number(m[0].replace(/,/g, '')));
     const headline = [panel.today.components.net, panel.alternative.components.net, Math.abs(panel.difference)];

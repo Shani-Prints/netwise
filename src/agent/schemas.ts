@@ -52,6 +52,7 @@ export const ComparisonViewSchema = z.object({
   missingText: z.array(z.string()),
   pendingQuestionId: z.string().optional(),
   representativeEntered: z.array(z.object({ field: z.string(), label: z.string() })).optional(),
+  payslipEntered: z.array(z.string()).optional(),
   meta: z
     .object({
       rulesVersion: z.string(),

@@ -28,3 +28,13 @@ describe('payslip server strings are gender-neutral', () => {
     expect(PAYSLIP_CONFIRMED_INSTRUCTION).not.toMatch(/\b(her|she|his|he)\b/i);
   });
 });
+
+describe('the closing invite and the waiver sentence are gender-neutral', () => {
+  it('passes the same scan', async () => {
+    const { closingInviteText } = await import('../../src/agent/flowText');
+    const { eligibleOptionsText } = await import('../../src/lib/repTemplates');
+    for (const text of [closingInviteText(true), closingInviteText(false), eligibleOptionsText(['A', 'B'], true)]) {
+      expect(SLASH_FORMS.test(text) || GENDERED.test(text), text).toBe(false);
+    }
+  });
+});

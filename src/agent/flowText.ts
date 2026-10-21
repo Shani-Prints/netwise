@@ -96,3 +96,41 @@ export async function withRepBridge(text: string, repo: Repo, conversationId: st
   const labels = updatedLabelsOf(notices);
   return labels.length === 0 ? text : `${repBridgeLine(labels)}\n${text}`;
 }
+
+/** Car ids are internal: the employee sees "maker model (year), fuel". Removes "CAR-01 = " prefixes and bare ids from a text. */
+export function stripCarCodes(text: string): string {
+  return text.replace(/\bCAR-\d+\s*[=:–-]\s*/g, '').replace(/[ \t]*\(?\bCAR-\d+\b\)?/g, '');
+}
+
+const WAIVER_MENTION = /(?:לוותר|ויתור)\s+על\s+(?:ה)?רכב/u;
+const WAIVER_NEGATED = /אי אפשר|אינו מאפשר|אינה מאפשרת|לא ניתן|לא מאפשר|אין זכאות|חובה/u;
+
+/**
+ * The waiver is mentioned ONLY when the saved occupation allows it (same eligibility function as the engine: `allowed`).
+ * Otherwise an offer to give up the car is removed. When it is allowed, what comes instead is a taxable car-maintenance
+ * allowance, never a "refund" (החזר).
+ */
+export function fixWaiverMentions(text: string, allowed: boolean): string {
+  if (!WAIVER_MENTION.test(text)) return text;
+  // split keeps the separators, so untouched sentences come back byte for byte
+  const pieces = text.split(/((?<=[.?!])[ \t]+|\n)/);
+  let out = '';
+  for (let i = 0; i < pieces.length; i += 2) {
+    const p = pieces[i] ?? '';
+    const sep = pieces[i + 1] ?? '';
+    if (!WAIVER_MENTION.test(p) || WAIVER_NEGATED.test(p)) {
+      out += p + sep;
+    } else if (allowed) {
+      out += p.replace(/החזר/g, 'קצבת אחזקת רכב') + sep;
+    } else {
+      // keep the rest of a sentence that only ends with the offer: "... רכב אחר או לוותר על הרכב?"
+      const cut = p.replace(/[\s,]+(?:או|וגם)\s+(?:ל|ו)?(?:לוותר|ויתור)\s+על\s+(?:ה)?רכב[^.?!]*/u, '');
+      if (cut !== p && !WAIVER_MENTION.test(cut)) out += cut + sep;
+    }
+  }
+  return out.trim();
+}
+
+/** ONE closing sentence after a new comparison. Mentions giving up the car only when the occupation allows it. */
+export const closingInviteText = (waiverAllowed: boolean): string =>
+  waiverAllowed ? 'אפשר להשוות גם רכב אחר או ויתור על הרכב.' : 'אפשר להשוות גם רכב אחר.';

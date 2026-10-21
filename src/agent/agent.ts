@@ -10,7 +10,7 @@ import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_BATCH, askBatchLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
-import { ensureSingleResult, resultSummaryText, withRepBridge } from './flowText';
+import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, withRepBridge } from './flowText';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
 import { answeredAPick, dropListedNames, modelNamesOfLabels } from './listDedupe';
@@ -192,7 +192,7 @@ export async function ensureCarGuidance(text: string, args: Pick<AgentTurnArgs, 
   const alternativeIssue = issues.some((i) => i.role === 'alternative');
   if (refused && !alternativeIssue && optionLines.length > 0) {
     const mentioned = optionLines.filter((l) => out.includes(l.split(',')[0] ?? l)).length;
-    if (mentioned < Math.min(3, optionLines.length)) add(eligibleOptionsText(optionLines));
+    if (mentioned < Math.min(3, optionLines.length)) add(eligibleOptionsText(optionLines, opts.waiverAllowed === true));
   }
   return out;
 }
@@ -221,7 +221,7 @@ export async function ensureTargetCarOptions(text: string, args: Pick<AgentTurnA
   const lines = opts.cars.map((c) => `${c.label}, ${c.drive}`);
   const mentioned = lines.filter((l) => text.includes(l.split(',')[0] ?? l)).length;
   if (mentioned >= Math.min(3, lines.length)) return text;
-  return `${text}\n${eligibleOptionsText(lines)}`;
+  return `${text}\n${eligibleOptionsText(lines, opts.waiverAllowed === true)}`;
 }
 
 /**
@@ -454,6 +454,13 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
     if (short) finalText = short;
   }
   if (finalText !== ensured.text) console.info(`[netwise] chat: server text appended (provider=${provider})`);
+  // internal ids never reach the employee; the waiver is mentioned only when the occupation allows it (and never as a "refund")
+  const profileNow = await repo.getProfile(actor.userId);
+  const waiverOk = profileNow ? listAllowedOptions(profileNow).waiverAllowed === true : false;
+  finalText = fixWaiverMentions(stripCarCodes(finalText), waiverOk);
+  // ONE closing sentence, only right after a new comparison
+  const newView = collector.lastView;
+  if (newView?.status === 'ok' && newView.today && newView.alternative) finalText = `${finalText}\n${closingInviteText(waiverOk)}`;
   finalText = await withRepBridge(finalText, repo, conversationId);
 
   return {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetChatRateLimit } from '../../src/agent/chatHandler';
+import { PANEL_POINTER_HE } from '../../src/agent/flowText';
 import { handleRepAnswerText, handleRepQuestionsWithRetry, resetRepTextRateLimit } from '../../src/agent/repTextHandlers';
 import { getRepo } from '../../src/db/repo';
 import { fin } from '../../src/lib/he';
@@ -165,8 +166,10 @@ describe('row 2: none / zero', () => {
     expect(s.comparison.status).toBe('ok');
     await e.state();
     await e.state();
-    const explanations = (await messages(e)).filter((m) => m === s.comparison.explanation.join('\n'));
-    expect(explanations).toHaveLength(1);
+    // the result is posted exactly once: bridge line + one headline sentence (the explanation lines live in the panel only)
+    const all = await messages(e);
+    expect(all.filter((m) => m.includes(PANEL_POINTER_HE))).toHaveLength(1);
+    expect(all.filter((m) => m === s.comparison.explanation.join('\n'))).toHaveLength(0);
   });
 
   it.each(['pensionPct', 'studyFundPct', 'commissions', 'bonus', 'childrenUnder23', 'currentParticipation'] as const)('zero is valid for %s', async (field) => {

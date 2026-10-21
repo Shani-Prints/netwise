@@ -15,6 +15,7 @@ import { PayslipCard } from './messages/PayslipCard';
 import { PayslipMarker } from './messages/PayslipMarker';
 import { QuestionsCard } from './messages/QuestionsCard';
 import { SystemNotice } from './messages/SystemNotice';
+import { TypingIndicator } from './messages/TypingIndicator';
 import { UserBubble } from './messages/UserBubble';
 import { PAYSLIP_MARKER_TEXT } from '../../lib/payslipMarker';
 import { ScopeRoot } from './ScopeRoot';
@@ -217,9 +218,9 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
               </div>
             </div>
           ) : busy ? (
-            <p role="status" className={messageStyles.thinking}>
-              {he.api.thinking}
-            </p>
+            <div data-message="" data-kind="typing" className={messageStyles.message}>
+              <TypingIndicator />
+            </div>
           ) : null}
           {error ? (
             <p role="alert" className={apiStyles.errorLine}>

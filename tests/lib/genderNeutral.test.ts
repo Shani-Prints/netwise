@@ -84,8 +84,8 @@ describe('gender-neutral wording of the fixed strings', () => {
     for (const e of errors) expect(/אתה|יכול/.test(e.text), e.text).toBe(false);
   });
 
-  it('the opening headline asks in a neutral form', () => {
-    expect(he.ask.headline).toBe('מה רוצים לדעת על הרכב?');
+  it('the opening greeting is gender-neutral', () => {
+    expect(he.ask.greeting).toBe('היי, כאן יועץ הרכב של שטראוס. במה אפשר לעזור?');
   });
 });
 

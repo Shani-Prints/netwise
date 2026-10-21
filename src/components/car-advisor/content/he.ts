@@ -18,13 +18,12 @@ export const he = {
   },
 
   ask: {
-    headline: 'מה רוצים לדעת על הרכב?',
-    intro: 'שואלים בחופשיות, ומקבלים השוואה מוסברת לנטו – תוך דקה.',
+    greeting: 'היי, כאן יועץ הרכב של שטראוס. במה אפשר לעזור?',
     fieldLabel: 'השאלה שלך',
     placeholder: 'הקלידו את השאלה שלכם',
     messagesLabel: 'השיחה',
     send: 'שליחת השאלה',
-    thinking: 'בודק את הנתונים…',
+    typingLabel: 'הבוט בודק',
     chipsLabel: 'או בחרו שאלה נפוצה',
     note: 'החישוב מתבסס על נתוני השכר שלך ועל נוסחאות המס העדכניות. כשאין לי תשובה ודאית, השאלה עוברת לנציג.',
     chips: {
@@ -314,7 +313,6 @@ export const he = {
       body: 'הנציג ענה והשיחה עודכנה. לחצו לצפייה.',
     },
     systemNotice: 'עדכון מערכת',
-    thinking: 'בודק את הנתונים…',
   },
 
   /** The REAL representative console (connected to the server). */

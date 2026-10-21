@@ -1,7 +1,7 @@
 import { AISDKError, APICallError, NoContentGeneratedError } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetChatRateLimit } from '../../src/agent/chatHandler';
-import { AllProvidersFailedError, BUSY_MESSAGE_HE, classifyError, isRetryable, withFallback, type ProviderEntry } from '../../src/agent/providers';
+import { AllProvidersFailedError, BUSY_MESSAGE_HE, buildProviders, classifyError, isRetryable, resetKeyPauses, withFallback, type ProviderEntry } from '../../src/agent/providers';
 import { freshRepo, restoreEnv, setupEnv } from '../api/harness';
 import { captureConsole, chat, failWith, fake, fast, groupGimelEmployee, provider, say } from './fakes';
 
@@ -155,5 +155,56 @@ describe('POST /api/chat with failing providers', () => {
     const r = await chat(e, 'שלום', { env: {} });
     expect(r.status).toBe(503);
     expect(con.lines.error).toEqual(['[netwise] chat: no_provider_configured']);
+  });
+});
+
+describe('several keys per provider: rotation on top of the provider order', () => {
+  const entry = (name: string, id: string, model: unknown): ProviderEntry => ({ name, model: model as never, keyId: id, keyMask: `…${id}` });
+  const opts = { sleep: async () => {}, baseDelayMs: 0 };
+
+  it('a rate-limited key (429) is not retried when the provider has another key: the next key answers', async () => {
+    resetKeyPauses();
+    const a1 = vi.fn().mockRejectedValue(apiError(429));
+    const a2 = vi.fn().mockResolvedValue('ok');
+    const r = await withFallback([entry('gemini', 'k1', 1), entry('gemini', 'k2', 2)], (p) => (p.keyId === 'k1' ? a1() : a2()), opts);
+    expect(r.value).toBe('ok');
+    expect(a1).toHaveBeenCalledTimes(1);
+    // the paused key is skipped by the next request too
+    const b1 = vi.fn().mockRejectedValue(apiError(429));
+    await withFallback([entry('gemini', 'k1', 1), entry('gemini', 'k2', 2)], (p) => (p.keyId === 'k1' ? b1() : a2()), opts);
+    expect(b1).not.toHaveBeenCalled();
+  });
+
+  it('the last key of a provider keeps the 3 tries; then the next provider answers', async () => {
+    resetKeyPauses();
+    const g = vi.fn().mockRejectedValue(apiError(429));
+    const r = await withFallback([entry('gemini', 'k3', 1), entry('groq', 'k4', 2)], (p) => (p.name === 'gemini' ? g() : Promise.resolve('groq')), opts);
+    expect(r.provider).toBe('groq');
+    expect(g).toHaveBeenCalledTimes(3);
+  });
+
+  it('a provider-side failure (500) skips the other keys of that provider', async () => {
+    resetKeyPauses();
+    const calls: string[] = [];
+    const r = await withFallback(
+      [entry('gemini', 'k5', 1), entry('gemini', 'k6', 2), entry('groq', 'k7', 3)],
+      async (p) => {
+        calls.push(p.keyId!);
+        if (p.name === 'gemini') throw apiError(500);
+        return 'groq';
+      },
+      opts,
+    );
+    expect(r.provider).toBe('groq');
+    expect(calls.filter((c) => c === 'k6')).toHaveLength(0);
+  });
+
+  it('buildProviders: order, comma separated keys, no key = skipped, keys never in the entry names', () => {
+    const env = { LLM_PROVIDER_ORDER: 'groq,gemini,openrouter', GEMINI_API_KEYS: 'gem-key-1,gem-key-2', GEMINI_API_KEY: 'gem-key-2', GROQ_API_KEY: 'groq-key-1' };
+    const built = buildProviders(env);
+    expect(built.map((e) => e.name)).toEqual(['groq', 'gemini', 'gemini']);
+    expect(built.every((e) => e.keyMask?.startsWith('…') && e.keyMask.length === 5)).toBe(true);
+    expect(buildProviders({}).length).toBe(0);
+    expect(buildProviders({ MISTRAL_API_KEY: 'm1', LLM_PROVIDER_ORDER: 'mistral' }).map((e) => e.name)).toEqual(['mistral']);
   });
 });

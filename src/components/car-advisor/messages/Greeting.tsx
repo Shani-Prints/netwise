@@ -15,14 +15,11 @@ interface GreetingProps {
   onPickSuggestion: (question: string) => void;
 }
 
-/** Bot greeting (the screen 1 headline), the suggestion chips and the info note. */
+/** Bot greeting (one sentence, the screen 1 headline), the suggestion chips and the info note. */
 export function Greeting({ showSuggestions, onPickSuggestion }: GreetingProps) {
   return (
     <>
-      <div>
-        <h1 className={styles.greetingTitle}>{he.ask.headline}</h1>
-        <p className={styles.greetingText}>{he.ask.intro}</p>
-      </div>
+      <h1 className={styles.greetingTitle}>{he.ask.greeting}</h1>
       {showSuggestions ? (
         <section aria-label={he.ask.chipsLabel}>
           <p className={styles.chipsLabel}>{he.ask.chipsLabel}</p>

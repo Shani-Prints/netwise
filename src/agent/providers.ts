@@ -1,7 +1,9 @@
 import { createGoogle } from '@ai-sdk/google';
 import { createGroq } from '@ai-sdk/groq';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { AISDKError, APICallError, type LanguageModel } from 'ai';
+import { createHash } from 'node:crypto';
 import { describeError, isNetworkError } from '../lib/errorLog';
 
 export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים נשמרו, אפשר לנסות שוב בעוד רגע.';
@@ -9,6 +11,10 @@ export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלח
 export interface ProviderEntry {
   name: string;
   model: LanguageModel;
+  /** Short hash of the API key behind this entry (a provider can have several keys, one entry each). Never the key itself. */
+  keyId?: string;
+  /** Masked key ("…ab12") for logs: the only form of a key that is ever printed. */
+  keyMask?: string;
 }
 
 type Env = Record<string, string | undefined>;
@@ -20,25 +26,47 @@ type Env = Record<string, string | undefined>;
 const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_OPENROUTER_MODEL = 'openrouter/free';
+const DEFAULT_MISTRAL_MODEL = 'mistral-small-latest';
 
 const DEFAULT_ORDER = 'gemini,groq,openrouter';
 
-/** Providers in LLM_PROVIDER_ORDER, skipping any whose key is missing. Keys are read from env only. */
+/** Per provider: the env variable that holds one key, the one that holds a comma separated list, and how to build the model. */
+const PROVIDERS: Record<string, { keyVar: string; keysVar: string; build: (apiKey: string, env: Env) => LanguageModel }> = {
+  gemini: { keyVar: 'GEMINI_API_KEY', keysVar: 'GEMINI_API_KEYS', build: (k, env) => createGoogle({ apiKey: k })(env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL) },
+  groq: { keyVar: 'GROQ_API_KEY', keysVar: 'GROQ_API_KEYS', build: (k, env) => createGroq({ apiKey: k })(env.GROQ_MODEL || DEFAULT_GROQ_MODEL) },
+  mistral: { keyVar: 'MISTRAL_API_KEY', keysVar: 'MISTRAL_API_KEYS', build: (k, env) => createMistral({ apiKey: k })(env.MISTRAL_MODEL || DEFAULT_MISTRAL_MODEL) },
+  openrouter: {
+    keyVar: 'OPENROUTER_API_KEY',
+    keysVar: 'OPENROUTER_API_KEYS',
+    build: (k, env) => createOpenRouter({ apiKey: k }).chat(env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL),
+  },
+};
+
+/** All distinct keys of a provider: NAME_API_KEYS=k1,k2 and/or the singular NAME_API_KEY, in that order. */
+function keysOf(name: string, env: Env): string[] {
+  const cfg = PROVIDERS[name];
+  if (!cfg) return [];
+  const all = `${env[cfg.keysVar] ?? ''},${env[cfg.keyVar] ?? ''}`.split(',').map((k) => k.trim()).filter(Boolean);
+  return [...new Set(all)];
+}
+
+/**
+ * One entry per (provider, key), in LLM_PROVIDER_ORDER (default: DEFAULT_ORDER). A provider without a key is skipped. Keys are
+ * read from env only; only a hash and the last 4 characters of a key are ever kept for logs.
+ */
 export function buildProviders(env: Env = process.env): ProviderEntry[] {
   const order = (env.LLM_PROVIDER_ORDER?.trim() || DEFAULT_ORDER)
     .split(',')
-    .map((s) => s.trim().toLowerCase())
+    .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
   const out: ProviderEntry[] = [];
   for (const name of [...new Set(order)]) {
-    if (name === 'gemini' && env.GEMINI_API_KEY) {
-      out.push({ name, model: createGoogle({ apiKey: env.GEMINI_API_KEY })(env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL) });
-    } else if (name === 'groq' && env.GROQ_API_KEY) {
-      out.push({ name, model: createGroq({ apiKey: env.GROQ_API_KEY })(env.GROQ_MODEL || DEFAULT_GROQ_MODEL) });
-    } else if (name === 'openrouter' && env.OPENROUTER_API_KEY) {
+    for (const key of keysOf(name, env)) {
       out.push({
         name,
-        model: createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL),
+        model: PROVIDERS[name]!.build(key, env),
+        keyId: createHash('sha256').update(key).digest('hex').slice(0, 12),
+        keyMask: `…${key.slice(-4)}`,
       });
     }
   }
@@ -64,6 +92,13 @@ export interface FallbackOptions {
 
 const statusOf = (err: unknown): number | undefined =>
   APICallError.isInstance(err) ? err.statusCode : (err as { statusCode?: number } | null)?.statusCode;
+
+// Keys that are cooling down (this server instance only): a rate-limited or rejected key is skipped by later requests too.
+const pausedUntil = new Map<string, number>();
+export function resetKeyPauses(): void {
+  pausedUntil.clear();
+}
+const envSeconds = (name: string, fallback: number): number => (Number(process.env[name]) > 0 ? Number(process.env[name]) : fallback) * 1000;
 
 const retryableStatus = (s: number) => s === 429 || s === 408 || s >= 500;
 
@@ -94,8 +129,10 @@ export function isRetryable(err: unknown): boolean {
 }
 
 /**
- * Runs `attempt` on each provider in order. Retryable failures back off exponentially (few retries), then the next
- * provider is tried. Throws AllProvidersFailedError when none succeeds (after ONE summary log line with the reason code
+ * Runs `attempt` on each provider entry in order (one entry per API key). Retryable failures back off exponentially (few
+ * retries), then the next entry is tried. A 429 is not retried when the same provider has another key left: that key is paused
+ * (AI_COOLDOWN_SECONDS, default 60) and the next key is used; 401/403 pause the key for AI_AUTH_COOLDOWN_SECONDS (default 3600).
+ * Any other failure that survives its retries (5xx, bad request...) skips the provider's remaining keys: they would fail alike. Throws AllProvidersFailedError when none succeeds (after ONE summary log line with the reason code
  * all_providers_failed). A failure that is not a provider/network error is a bug: it is logged and rethrown at once.
  * Never logs prompts, payloads or keys.
  */
@@ -109,31 +146,41 @@ export async function withFallback<T>(
   const budget = opts.providerBudgetMs ?? 25_000;
   const now = opts.now ?? Date.now;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  for (const p of providers) {
+  const skipped = new Set<string>(); // providers that failed on the provider side during THIS call
+  for (const [index, p] of providers.entries()) {
+    if (skipped.has(p.name) || (p.keyId !== undefined && (pausedUntil.get(p.keyId) ?? 0) > now())) continue;
+    const label = p.keyMask ? `${p.name} key ${p.keyMask}` : p.name;
+    const nextKeyOfSameProvider = providers.slice(index + 1).some((q) => q.name === p.name && (q.keyId === undefined || (pausedUntil.get(q.keyId) ?? 0) <= now()));
     const startedAt = now();
     for (let i = 0; i <= retries; i++) {
       try {
         const value = await attempt(p);
-        console.info(`[netwise] provider ${p.name} answered (try ${i + 1})`);
+        console.info(`[netwise] provider ${label} answered (try ${i + 1})`);
         return { value, provider: p.name };
       } catch (err) {
         const kind = classifyError(err);
         if (kind === 'bug') {
           console.error(
-            `[netwise] provider ${p.name} failed with an internal error (${err instanceof Error ? err.name : 'unknown'}); not retried`,
+            `[netwise] provider ${label} failed with an internal error (${err instanceof Error ? err.name : 'unknown'}); not retried`,
           );
           throw err;
         }
-        console.error(`[netwise] provider ${p.name} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
-        const giveUp = kind !== 'retryable' || i === retries || now() - startedAt >= budget; // a slow provider cannot hold the request
+        console.error(`[netwise] provider ${label} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
+        const status = statusOf(err);
+        const giveUp = kind !== 'retryable' || i === retries || now() - startedAt >= budget || (status === 429 && nextKeyOfSameProvider); // a slow provider cannot hold the request
         if (giveUp) {
-          console.error(`[netwise] provider ${p.name} given up: ${describeError(err)}`);
+          if (status === 429 || status === 401 || status === 403) {
+            if (p.keyId !== undefined) pausedUntil.set(p.keyId, now() + (status === 429 ? envSeconds('AI_COOLDOWN_SECONDS', 60) : envSeconds('AI_AUTH_COOLDOWN_SECONDS', 3600)));
+          } else {
+            skipped.add(p.name);
+          }
+          console.error(`[netwise] provider ${label} given up: ${describeError(err)}`);
           break;
         }
         await sleep(base * 2 ** i + Math.floor(Math.random() * base * 0.2));
       }
     }
   }
-  console.error(`[netwise] chat: all_providers_failed (tried: ${providers.map((p) => p.name).join(', ') || 'none'})`);
+  console.error(`[netwise] chat: all_providers_failed (tried: ${[...new Set(providers.map((p) => p.name))].join(', ') || 'none'})`);
   throw new AllProvidersFailedError();
 }

@@ -25,6 +25,7 @@
   "dependencies": {
     "@ai-sdk/google": "4.0.87",
     "@ai-sdk/groq": "4.0.54",
+    "@ai-sdk/mistral": "4.0.69",
     "@google/genai": "2.30.0",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@supabase/supabase-js": "2.117.2",

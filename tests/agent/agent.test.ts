@@ -256,14 +256,14 @@ describe('POST /api/chat', () => {
     expect(JSON.stringify(model2.doGenerateCalls[0]?.prompt)).toContain('representativeConfirmed');
   });
 
-  it('falls back to the next provider on 429 after backoff retries', async () => {
+  it('falls back to the next provider on 429 without retrying the same one', async () => {
     const c = await visitor();
     const a = failing(429);
     const b = fake(say('שלום מהספק השני'));
     const r = await chat(c, 'שלום', { providers: [provider('a', a), provider('b', b)] });
     expect(r.status).toBe(200);
     expect(r.body.assistantText).toBe('שלום מהספק השני');
-    expect(a.doGenerateCalls).toHaveLength(3); // first try + 2 retries
+    expect(a.doGenerateCalls).toHaveLength(1); // 429 is not retried: a quota error will not clear in half a second
   });
 
   it('logs which provider answered (name only, no keys, no payroll data)', async () => {
@@ -275,7 +275,7 @@ describe('POST /api/chat', () => {
     const lines = [...info.mock.calls, ...err.mock.calls].map((a) => String(a[0]));
     info.mockRestore();
     err.mockRestore();
-    expect(lines).toContain('[netwise] provider gemini failed (status 429, try 3)');
+    expect(lines).toContain('[netwise] provider gemini failed (status 429, try 1)');
     expect(lines).toContain('[netwise] provider groq answered (try 1)');
     expect(lines.join(' | ')).not.toMatch(/12345|שלום/);
   });

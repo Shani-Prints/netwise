@@ -21,8 +21,11 @@
   "dependencies": {
     "@ai-sdk/google": "4.0.87",
     "@ai-sdk/groq": "4.0.54",
+    "@ai-sdk/mistral": "4.0.69",
+    "@ai-sdk/react": "4.0.152",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@supabase/supabase-js": "2.117.2",
+    "@upstash/redis": "1.39.0",
     "ai": "7.0.127",
     "next": "16.3.8",
     "react": "19.3.0",

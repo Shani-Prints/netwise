@@ -1,45 +1,31 @@
-import { createGoogle } from '@ai-sdk/google';
-import { createGroq } from '@ai-sdk/groq';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { AISDKError, APICallError, type LanguageModel } from 'ai';
 import { describeError, isNetworkError } from '../lib/errorLog';
+import { classifyFailure, readConfig } from '../lib/ai/fallback';
+import { buildModel, getKeys, resolveProviderOrder } from '../lib/ai/providers';
 
 export const BUSY_MESSAGE_HE = 'המערכת עמוסה כרגע ולא הצלחתי לענות. הנתונים ששמרת נשמרו; נסו שוב בעוד רגע.';
 
 export interface ProviderEntry {
   name: string;
   model: LanguageModel;
+  /** Short hash of the API key behind this entry (several entries can share a provider name, one per key). Never the key. */
+  keyId?: string;
+  /** Masked key ("…ab12") for logs. */
+  keyMask?: string;
 }
 
 type Env = Record<string, string | undefined>;
 
-// Model ids: gemini-3.8-flash is the id used in the current AI SDK Google docs (and it answered on the live API).
-// Groq: openai/gpt-oss-120b is a production model with tool use in both the AI SDK Groq docs and Groq's tool-use docs,
-// and it is available to the project key (llama-3.3-70b-versatile is not). NOTE: neither doc states Hebrew support.
-// TODO(openrouter): the OpenRouter docs page could not be fetched; set OPENROUTER_MODEL to a verified id.
-const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
-const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
-const DEFAULT_OPENROUTER_MODEL = 'openrouter/free';
-
-const DEFAULT_ORDER = 'gemini,groq,openrouter';
-
-/** Providers in LLM_PROVIDER_ORDER, skipping any whose key is missing. Keys are read from env only. */
+/**
+ * One entry per (provider, key), in the order of resolveProviderOrder(): LLM_PROVIDER_ORDER or the default order from
+ * src/lib/ai/providers.ts, minus AI_DISABLED_PROVIDERS, minus providers without a key. Keys come from env only.
+ * Models, defaults and env names (GEMINI_API_KEYS, MISTRAL_MODEL...) are shared with /api/ai-chat.
+ */
 export function buildProviders(env: Env = process.env): ProviderEntry[] {
-  const order = (env.LLM_PROVIDER_ORDER?.trim() || DEFAULT_ORDER)
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
   const out: ProviderEntry[] = [];
-  for (const name of [...new Set(order)]) {
-    if (name === 'gemini' && env.GEMINI_API_KEY) {
-      out.push({ name, model: createGoogle({ apiKey: env.GEMINI_API_KEY })(env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL) });
-    } else if (name === 'groq' && env.GROQ_API_KEY) {
-      out.push({ name, model: createGroq({ apiKey: env.GROQ_API_KEY })(env.GROQ_MODEL || DEFAULT_GROQ_MODEL) });
-    } else if (name === 'openrouter' && env.OPENROUTER_API_KEY) {
-      out.push({
-        name,
-        model: createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL),
-      });
+  for (const name of resolveProviderOrder(env)) {
+    for (const key of getKeys(name, env)) {
+      out.push({ name, model: buildModel(name, key, env).model, keyId: key.id, keyMask: key.mask });
     }
   }
   return out;
@@ -65,39 +51,49 @@ export interface FallbackOptions {
 const statusOf = (err: unknown): number | undefined =>
   APICallError.isInstance(err) ? err.statusCode : (err as { statusCode?: number } | null)?.statusCode;
 
-const retryableStatus = (s: number) => s === 429 || s === 408 || s >= 500;
-
 /**
  * What kind of failure is this?
- *  - retryable: the provider or the network is having a moment (429, 408, 5xx, timeout, connection error): back off and retry
- *  - provider:  this provider cannot answer (bad key, bad request, malformed or empty model output): try the NEXT provider
+ *  - retryable: ONLY network errors and timeouts (408, no HTTP response, connection errors): back off and retry the same key
+ *  - provider:  this key/provider cannot answer (429 quota, 5xx, 418 blocked, bad key, bad request, empty model output): do
+ *               not retry it; move on (withFallback decides whether to try the provider's next key or the next provider)
  *  - bug:       anything else (a TypeError in our own code, a failed assertion...). Retrying cannot help and calling it
  *               "busy" would hide it, so it is rethrown immediately and surfaces as an error log + a 500.
  */
 export type ErrorClass = 'retryable' | 'provider' | 'bug';
 
 export function classifyError(err: unknown): ErrorClass {
-  if (APICallError.isInstance(err)) {
-    if (err.statusCode === undefined) return 'retryable'; // the call never got an HTTP response
-    return retryableStatus(err.statusCode) ? 'retryable' : 'provider';
-  }
-  const s = (err as { statusCode?: unknown } | null)?.statusCode;
-  if (typeof s === 'number') return retryableStatus(s) ? 'retryable' : 'provider';
+  const s = statusOf(err);
+  if (typeof s === 'number') return s === 408 ? 'retryable' : 'provider';
+  if (APICallError.isInstance(err)) return 'retryable'; // the call never got an HTTP response
   if (isNetworkError(err)) return 'retryable';
   if (AISDKError.isInstance(err)) return 'provider';
   return 'bug';
 }
 
-/** 429, 5xx, network errors and timeouts are worth retrying; other 4xx (bad request, bad key) are not. */
+/** Only network errors and timeouts are worth retrying on the same key. */
 export function isRetryable(err: unknown): boolean {
   return classifyError(err) === 'retryable';
 }
 
+// In-process pauses (this server instance only; /api/ai-chat keeps its pauses in the shared store instead).
+// 'key:<keyId>' = one API key (429 quota, 401/403 rejected), 'provider:<name>' = the whole provider (418 blocked network).
+const pausedUntil = new Map<string, number>();
+export function resetProviderPauses(): void {
+  pausedUntil.clear();
+}
+const isPaused = (p: ProviderEntry, at: number): boolean =>
+  (pausedUntil.get(`provider:${p.name}`) ?? 0) > at || (p.keyId !== undefined && (pausedUntil.get(`key:${p.keyId}`) ?? 0) > at);
+
 /**
- * Runs `attempt` on each provider in order. Retryable failures back off exponentially (few retries), then the next
- * provider is tried. Throws AllProvidersFailedError when none succeeds (after ONE summary log line with the reason code
- * all_providers_failed). A failure that is not a provider/network error is a bug: it is logged and rethrown at once.
- * Never logs prompts, payloads or keys.
+ * Runs `attempt` on each provider entry in order (one entry per API key).
+ *  - network error / timeout: back off exponentially and retry the same entry
+ *  - 429: pause THAT key (Retry-After or AI_COOLDOWN_SECONDS) and go on to the provider's next key, no retry
+ *  - 401/403: pause that key for AI_AUTH_COOLDOWN_SECONDS, next key
+ *  - 418 (blocked network): pause the whole provider for AI_AUTH_COOLDOWN_SECONDS, next provider
+ *  - 5xx or any other provider-side failure: next PROVIDER immediately, no retry, no other key of the same provider
+ * Throws AllProvidersFailedError when none succeeds (after ONE summary log line with the reason code all_providers_failed).
+ * A failure that is not a provider/network error is a bug: it is logged and rethrown at once. Never logs prompts,
+ * payloads or keys (only the masked last 4 characters).
  */
 export async function withFallback<T>(
   providers: ProviderEntry[],
@@ -109,31 +105,45 @@ export async function withFallback<T>(
   const budget = opts.providerBudgetMs ?? 25_000;
   const now = opts.now ?? Date.now;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const cfg = readConfig();
+  const skippedProviders = new Set<string>(); // gave a provider-side failure during THIS call
   for (const p of providers) {
+    if (skippedProviders.has(p.name) || isPaused(p, now())) continue;
+    const label = p.keyMask ? `${p.name} key ${p.keyMask}` : p.name;
     const startedAt = now();
     for (let i = 0; i <= retries; i++) {
       try {
         const value = await attempt(p);
-        console.info(`[netwise] provider ${p.name} answered (try ${i + 1})`);
+        console.info(`[netwise] provider ${label} answered (try ${i + 1})`);
         return { value, provider: p.name };
       } catch (err) {
         const kind = classifyError(err);
         if (kind === 'bug') {
           console.error(
-            `[netwise] provider ${p.name} failed with an internal error (${err instanceof Error ? err.name : 'unknown'}); not retried`,
+            `[netwise] provider ${label} failed with an internal error (${err instanceof Error ? err.name : 'unknown'}); not retried`,
           );
           throw err;
         }
-        console.error(`[netwise] provider ${p.name} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
+        console.error(`[netwise] provider ${label} failed (status ${statusOf(err) ?? 'n/a'}, try ${i + 1})`);
         const giveUp = kind !== 'retryable' || i === retries || now() - startedAt >= budget; // a slow provider cannot hold the request
         if (giveUp) {
-          console.error(`[netwise] provider ${p.name} given up: ${describeError(err)}`);
+          if (kind === 'provider') {
+            const f = classifyFailure(err);
+            if (f.kind === 'rate_limit' || f.kind === 'auth') {
+              const ms = f.kind === 'rate_limit' ? (f.retryAfterMs ?? cfg.rateLimitCooldownMs) : cfg.authCooldownMs;
+              if (p.keyId !== undefined) pausedUntil.set(`key:${p.keyId}`, now() + ms); // only this key
+            } else {
+              skippedProviders.add(p.name); // 5xx, 418, bad request...: the next KEY of this provider would fail the same way
+              if (f.kind === 'blocked' && p.keyId !== undefined) pausedUntil.set(`provider:${p.name}`, now() + cfg.authCooldownMs);
+            }
+          }
+          console.error(`[netwise] provider ${label} given up: ${describeError(err)}`);
           break;
         }
         await sleep(base * 2 ** i + Math.floor(Math.random() * base * 0.2));
       }
     }
   }
-  console.error(`[netwise] chat: all_providers_failed (tried: ${providers.map((p) => p.name).join(', ') || 'none'})`);
+  console.error(`[netwise] chat: all_providers_failed (tried: ${[...new Set(providers.map((p) => p.name))].join(', ') || 'none'})`);
   throw new AllProvidersFailedError();
 }

@@ -21,6 +21,7 @@ import { applyProvisionalPolicy, showProvisionalAlternative } from './provisiona
 import { applyRepAnswer } from './repApply';
 import { listAllowedOptions } from '../agent/eligibleCars';
 import { PAYSLIP_MARKER_TEXT } from './payslipMarker';
+import { sameOption } from './optionRef';
 import { closingInviteText, repBridgeLine, resultSummaryText, updatedLabelsOf } from '../agent/flowText';
 import { gapReasonText, REP_ANSWER_REJECTED_TEXT, repUpdatedManyText, STATUS_TEXT, type QuestionStatus } from './repTemplates';
 import { participationFromRepresentative } from './flags';
@@ -511,23 +512,36 @@ export function withComparisonSnapshot(state: ConversationState, messageId: stri
   return { ...state, comparisons: list.slice(-MAX_TIMELINE_COMPARISONS) };
 }
 
+/** Same result as the last snapshot (same alternative, same numbers)? Then a new snapshot would only repeat it. */
+export function sameResult(a: ComparisonView | undefined, b: ComparisonView): boolean {
+  if (!a || a.status !== b.status || !sameOption(a.alternativeRef, b.alternativeRef)) return false;
+  return a.today?.components.net === b.today?.components.net && a.alternative?.components.net === b.alternative?.components.net && a.difference === b.difference;
+}
+
 /**
- * Saves the snapshot of the comparison a turn calculated, attached to that turn's bot message. The numbers are the engine result of
- * the turn; nothing is recomputed here.
+ * End of a chat turn: when the comparison the employee sees differs from the last snapshot (another alternative, a waiver, new numbers),
+ * a snapshot is saved for THIS turn's bot message. It does not matter which path produced it (a tool call, a server resolution, an
+ * applied answer). Returns whether one was saved. The numbers are the engine result of the turn; nothing is recomputed here.
  */
-export async function recordComparison(repo: Repo, actor: Actor, messageId: string, view: ComparisonView): Promise<void> {
+export async function recordComparisonIfChanged(repo: Repo, actor: Actor, messageId: string, live: ComparisonView | null): Promise<boolean> {
+  if (!live || live.status !== 'ok') return false;
+  let saved = false;
   await withLock(actor.userId, async () => {
     const conv = await repo.findConversationByUser(actor.userId);
     if (!conv) return;
-    await repo.saveConversationState(conv.id, withComparisonSnapshot(conv.state, messageId, view));
+    const last = (conv.state.comparisons ?? []).at(-1)?.view;
+    if (sameResult(last, live)) return;
+    await repo.saveConversationState(conv.id, withComparisonSnapshot(conv.state, messageId, live));
+    saved = true;
   });
+  return saved;
 }
 
 /** The snapshots in order. The last one shows the live comparison when it is still about the same alternative (a later answer updates it). */
 function timelineOf(state: ConversationState, live: ComparisonView | null): { messageId: string; comparison: ComparisonView }[] {
   const list = (state.comparisons ?? []).map((c) => ({ messageId: c.messageId, comparison: c.view }));
   const last = list[list.length - 1];
-  if (last && live && JSON.stringify(last.comparison.alternativeRef) === JSON.stringify(live.alternativeRef) && live.status === 'ok') {
+  if (last && live && sameOption(last.comparison.alternativeRef, live.alternativeRef) && live.status === 'ok') {
     list[list.length - 1] = { messageId: last.messageId, comparison: live };
   }
   return list;

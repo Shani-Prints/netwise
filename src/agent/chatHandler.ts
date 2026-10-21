@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getRepo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
-import { flushEscalations, getEmployeeState, recordComparison, ServiceError, type EmployeeQuestionView } from '../lib/service';
+import { flushEscalations, getEmployeeState, recordComparisonIfChanged, ServiceError, type EmployeeQuestionView } from '../lib/service';
 import { describeError } from '../lib/errorLog';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
@@ -26,6 +26,8 @@ export interface ChatResponse {
   updates?: { newAnswers: boolean };
   /** The cars to pick by clicking (built by the server). Present only while the bot waits for the car to compare / the current car. */
   carChoices?: CarChoices;
+  /** The id of the bot message of this turn. A comparison in this response belongs right after it. */
+  messageId?: string;
 }
 
 const ChatBodySchema = z.union([
@@ -206,7 +208,11 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
       out.comparison = applyProvisionalPolicy(state.comparison, show);
     }
     // a comparison calculated in this turn stays in the conversation at THIS bot message (the engine result of the turn)
-    if (turn.collector.lastView && out.comparison?.status === 'ok') await recordComparison(repo, actor, botMessage.id, out.comparison);
+    // Whatever path produced or changed the result (a tool call, a car clicked, a waiver, an applied answer): when the comparison the
+    // employee sees differs from the last snapshot, THIS bot message gets a new one. The response carries the message id.
+    const shown = out.comparison ?? (state.comparison ? applyProvisionalPolicy(state.comparison, show) : undefined);
+    if (shown && (await recordComparisonIfChanged(repo, actor, botMessage.id, shown))) out.comparison = shown; // the snapshot of THIS turn
+    if (out.comparison) out.messageId = botMessage.id; // a comparison in this response belongs right after this bot message
     if (open.length > 0) out.pendingQuestions = open;
     if (context.updates.newAnswers) out.updates = { newAnswers: true };
     const carChoices = await buildCarChoices(repo, actor);

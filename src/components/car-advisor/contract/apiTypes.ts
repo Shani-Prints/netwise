@@ -128,6 +128,8 @@ export interface ApiChatResponse {
   pendingQuestions?: ApiEmployeeQuestion[];
   updates?: { newAnswers: true };
   carChoices?: ApiCarChoices;
+  /** The id of the bot message of this turn: a comparison in this response belongs right after it. */
+  messageId?: string;
 }
 
 // ---------------------------------------------------------------- representative

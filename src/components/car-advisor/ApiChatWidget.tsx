@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import styles from './ChatWidget.module.css';
 import { he } from './content/he';
 import { MAX_CHAT_CHARS, type AdvisorApiClient } from './contract/apiClient';
@@ -18,6 +18,7 @@ import { SystemNotice } from './messages/SystemNotice';
 import { UserBubble } from './messages/UserBubble';
 import { PAYSLIP_MARKER_TEXT } from '../../lib/payslipMarker';
 import { ScopeRoot } from './ScopeRoot';
+import { buildTimeline } from './timeline';
 import { CarIcon, CrossIcon, DocumentIcon, PaperclipIcon, SendIcon } from './ui/Icons';
 import { NotificationCard } from './ui/NotificationCard';
 import uiStyles from './ui/ui.module.css';
@@ -74,12 +75,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
       return next;
     });
 
-  const lastEntry = comparisons[comparisons.length - 1];
-  const latestInTimeline =
-    lastEntry !== undefined &&
-    comparison !== null &&
-    messages.some((m) => m.id === lastEntry.messageId) &&
-    JSON.stringify(lastEntry.comparison.alternativeRef) === JSON.stringify(comparison.alternativeRef);
+  const timeline = buildTimeline({ messages, comparisons, comparison, carChoices });
 
   function prefill(question: string) {
     setDraft(question);
@@ -136,53 +132,55 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
 
         <div ref={messagesRef} className={styles.messages} role="log" aria-label={he.ask.messagesLabel}>
           <Greeting showSuggestions={!hasAsked} onPickSuggestion={prefill} />
-          {messages.map((message) => (
-            <Fragment key={message.id}>
-              <div data-message="" data-kind={message.role} className={messageStyles.message}>
-                {message.role === 'user' ? (
-                  <UserBubble text={message.content} />
-                ) : message.role === 'assistant' ? (
-                  <AssistantBubble text={message.content} />
-                ) : message.content === PAYSLIP_MARKER_TEXT ? (
-                  <PayslipMarker text={message.content} />
-                ) : (
-                  <SystemNotice text={message.content} />
-                )}
+          {timeline.map((item) => {
+            if (item.kind === 'message') {
+              const message = item.message;
+              return (
+                <div key={message.id} data-message="" data-kind={message.role} className={messageStyles.message}>
+                  {message.role === 'user' ? (
+                    <UserBubble text={message.content} />
+                  ) : message.role === 'assistant' ? (
+                    <AssistantBubble text={message.content} />
+                  ) : message.content === PAYSLIP_MARKER_TEXT ? (
+                    <PayslipMarker text={message.content} />
+                  ) : (
+                    <SystemNotice text={message.content} />
+                  )}
+                </div>
+              );
+            }
+            if (item.kind === 'comparison') {
+              // the comparison stays right after the bot message of the turn that produced it
+              return (
+                <div key={`cmp-${item.messageId}`} data-message="" data-kind="comparison" className={messageStyles.message}>
+                  <InlineComparison
+                    comparison={item.comparison}
+                    collapsed={!item.latest && !expanded.has(item.messageId)}
+                    onToggle={() => toggle(item.messageId)}
+                    actions={item.latest && !carChoices ? { waiverAllowed, disabled: busy, onSend: chooseCar } : undefined}
+                  />
+                </div>
+              );
+            }
+            if (item.kind === 'carChoices') {
+              return (
+                <div key="carChoices" data-message="" data-kind="carChoices" className={messageStyles.message}>
+                  <CarChoices choices={item.choices} disabled={busy} onChoose={chooseCar} />
+                </div>
+              );
+            }
+            // a comparison without any snapshot in the timeline (an old conversation): shown at the end
+            return (
+              <div key="liveComparison" data-message="" data-kind="comparison" className={messageStyles.message}>
+                <InlineComparison
+                  comparison={item.comparison}
+                  collapsed={false}
+                  onToggle={() => {}}
+                  actions={carChoices ? undefined : { waiverAllowed, disabled: busy, onSend: chooseCar }}
+                />
               </div>
-              {/* the comparison stays right after the bot message of the turn that produced it */}
-              {comparisons
-                .filter((entry) => entry.messageId === message.id)
-                .map((entry) => {
-                  const isLatest = entry === lastEntry && latestInTimeline;
-                  return (
-                    <div key={`cmp-${entry.messageId}`} data-message="" data-kind="comparison" className={messageStyles.message}>
-                      <InlineComparison
-                        comparison={entry.comparison}
-                        collapsed={!isLatest && !expanded.has(entry.messageId)}
-                        onToggle={() => toggle(entry.messageId)}
-                        actions={isLatest && !carChoices ? { waiverAllowed, disabled: busy, onSend: chooseCar } : undefined}
-                      />
-                    </div>
-                  );
-                })}
-            </Fragment>
-          ))}
-          {carChoices ? (
-            <div data-message="" data-kind="carChoices" className={messageStyles.message}>
-              <CarChoices choices={carChoices} disabled={busy} onChoose={chooseCar} />
-            </div>
-          ) : null}
-          {comparison && !latestInTimeline ? (
-            // no snapshot in the timeline for the live comparison (for example a car picked without a chat turn): shown at the end
-            <div data-message="" data-kind="comparison" className={messageStyles.message}>
-              <InlineComparison
-                comparison={comparison}
-                collapsed={false}
-                onToggle={() => {}}
-                actions={carChoices ? undefined : { waiverAllowed, disabled: busy, onSend: chooseCar }}
-              />
-            </div>
-          ) : null}
+            );
+          })}
           {questions.length > 0 ? (
             <div data-message="" data-kind="questions" className={messageStyles.message}>
               <QuestionsCard questions={questions} />

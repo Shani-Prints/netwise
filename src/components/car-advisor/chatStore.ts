@@ -145,7 +145,12 @@ export function createChatStore(api: AdvisorApiClient, initialOnUpdate?: (n: Not
       set({ busy: true, error: null, draft: '', sentHere: true, pending: { text, baseline: countUser(state.serverMessages, text) } });
       let failure: unknown = null;
       try {
-        await api.sendMessage(text);
+        const reply = await api.sendMessage(text);
+        // the result of this turn is anchored to this turn's bot message right away (the state read that follows confirms it)
+        if (reply.comparison && reply.messageId) {
+          const { messageId, comparison } = { messageId: reply.messageId, comparison: reply.comparison };
+          set({ comparisons: [...state.comparisons.filter((c) => c.messageId !== messageId), { messageId, comparison }] });
+        }
       } catch (caught) {
         failure = caught;
         set({ error: describeApiError(caught, 'chat') });

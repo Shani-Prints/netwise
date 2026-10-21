@@ -30,15 +30,15 @@ flowchart LR
   REP["Representative console<br/>/rep"] --> API
 ```
 
-- **UI:** Next.js (App Router) chat widget, Hebrew RTL.
+- **UI:** a self-contained chat component built with Next.js (App Router) and React, rendered as a floating widget on the page. Hebrew, right-to-left.
 - **Agent** (`src/agent`): conversation state is kept by the server. The model works only through tools. The provenance check rejects values the employee did not write. The guard blocks invented numbers and unsupported claims. Post-processing writes the fixed parts of the reply (single result sentence, car lists, representative notices).
 - **Engine and rules** (`src/engine`, `src/lib`): net, tax, usage value, eligibility.
 - **Repository:** Supabase in production (server-side service-role key only), in-memory for local work.
-- **LLM providers:** Gemini, Groq, OpenRouter and Mistral. The order comes from `LLM_PROVIDER_ORDER` (default `gemini,groq,openrouter`) and providers without a key are skipped. Each provider can have several keys (`<NAME>_API_KEYS`) that are rotated when one is rate limited or rejected. Each provider gets up to 3 tries within a 25 s budget. The whole chat request has a 55 s deadline. When every provider fails, the user sees one fixed "busy" message and the saved data is kept.
+- **LLM providers:** Gemini, Groq, OpenRouter and Mistral. The order comes from `LLM_PROVIDER_ORDER` (default `gemini,groq,openrouter`) and providers without a key are skipped. The cloud deployment sets its own order via the environment variable. The providers are called through the Vercel AI SDK. Each provider can have several keys (`<NAME>_API_KEYS`) that are rotated when one is rate limited or rejected; the rotation and cooldowns are kept in the memory of each server instance (no external store such as Redis is used). Each provider gets up to 3 tries within a 25 s budget. The whole chat request has a 55 s deadline. When every provider fails, the user sees one fixed "busy" message and the saved data is kept.
 
 ## 4. Key features
 
-- **Payslip upload** with employee confirmation. The file is read in memory for the request only, is not stored, and nothing from its content is logged. Extracted values are used only after the employee confirms them.
+- **Payslip upload** with employee confirmation. The file is read in memory for the request only, is not stored, and nothing from its content is logged. Extracted values are used only after the employee confirms them. The payslip schema (Zod) is also used as the model's structured-output schema, so the same definition validates and constrains the extraction. The extraction runs on Gemini Flash (the default model id can be overridden with `GEMINI_MODEL`) through Google's official SDK.
 - **Car pick buttons** for choosing the current car or the car to compare. The lists are written by the server from the catalogue, never by the model.
 - **Inline comparisons** in the conversation: a short headline sentence in the bubble and the full breakdown in the comparison card.
 - **Representative console** (`/rep`, protected by an access code): open questions, typed answers or free-text answers.
@@ -70,7 +70,7 @@ Environment variable **names** (see `.env.example` for comments):
 - Behaviour: `PARTICIPATION_FROM_REPRESENTATIVE`, `SHOW_PROVISIONAL_ALTERNATIVE`, `CHAT_RATE_LIMIT_PER_MIN`, `REP_TEXT_RATE_LIMIT_PER_MIN`
 - Data paths: `NETWISE_DATA_DIR`, `USAGE_CSV_PATH`, `RULES_PATH`
 
-Payslip reading uses the Gemini key.
+The payslip file is sent to Google's Gemini API for extraction; its handling there is governed by Google's terms. Use fictional payslips only.
 
 ## 7. Tests
 
@@ -90,7 +90,7 @@ https://netwise-beta.vercel.app
 
 ## 9. Data and privacy
 
-All data used for development and testing is fictional, including the payslips. **Do not upload real payslips.** Payslip files are not stored and their content is not logged, but this is a demo.
+All data used for development and testing is fictional, including the payslips. **Do not upload real payslips.** Payslip files are not stored and their content is not logged by NetWise, but the file is sent to Google's Gemini API for extraction and its handling there is governed by Google's terms. Use fictional payslips only.
 
 ## 10. Known limitations
 

@@ -44,11 +44,18 @@ flowchart LR
 - **Representative console** (`/rep`, protected by an access code): open questions, typed answers or free-text answers.
 - **Source labels:** values entered by the representative are marked as such, and values taken from a payslip are shown as coming from it.
 
-## 5. The original feature: free-text answers from the representative
+## 5. Original additions beyond the brief
 
-The representative can answer in plain Hebrew ("אין לה נקודות זיכוי", "הפנסיה 6.5"). The text goes to an **isolated model call** (`src/agent/interpretRepText.ts`) with no employee data, no conversation and no tools. It returns only a proposal, which the server validates with the same validators as the typed answers before applying it. Applied values carry a provenance label, and the employee can correct them.
+To be clear about what is ours: the brief already allows an optional payslip and shows the representative answering with a short sentence. On top of that, these are the additions we built (each one checked against the code):
 
-**Try it:** in the chat, answer "I don't know" (e.g. "אין לי מושג כמה פנסיה") for a missing field. A question is opened for the representative. Open the representative screen (`/rep`, log in with your `REP_ACCESS_CODE`) and reply in free text. The employee screen then shows what was updated and continues.
+1. **Guided car selection by buttons.** The server builds the car list from the same eligibility function the engine uses (`src/agent/carChoices.ts`, `src/agent/eligibleCars.ts`), and the buttons are grouped by drive type (electric, hybrid, petrol; `CarChoices.tsx`). Only cars of the employee's own eligibility group and lower are offered. Family-track cars appear only from 4 children (`familyTrack.minChildren` in `data/strauss-rules.json`, checked in `src/engine/eligibility.ts`). The "give up the car" button appears only when the saved occupation allows it. The model never writes or chooses these lists.
+2. **Quick actions and a conversation timeline.** After a result there are buttons to compare another car or, when allowed, to give up the car (`InlineComparison.tsx`). Earlier comparisons stay in the conversation and are collapsed; only the latest one is expanded (`timeline.ts`).
+3. **Free-text representative answers.** The representative can answer in plain Hebrew ("אין לה נקודות זיכוי", "הפנסיה 6.5"). The text goes to an isolated model call (`src/agent/interpretRepText.ts`) with no employee data, no conversation and no tools. It returns only a proposal, which the server validates with the same validators as the typed answers before applying it.
+4. **Source labels and the provenance check.** Values entered by the representative are marked as such (and the employee can replace them), and values taken from a payslip are labelled. The provenance check (`src/agent/provenance.ts`) lets the agent save a number only if the employee actually wrote it in the conversation.
+
+**Try it (representative):** in the chat, answer "I don't know" (e.g. "אין לי מושג כמה פנסיה") for a missing field. A question is opened for the representative. Open the representative screen (`/rep`, log in with your `REP_ACCESS_CODE`) and reply in free text. The employee screen then shows what was updated and continues.
+
+**Try it (buttons and family track):** give an occupation, pay details and a current car. When the bot asks which car to compare, the eligible cars appear as buttons grouped by drive type; the give-up button appears only for an occupation that allows it. Repeat with 4 children to see the family-track cars added to the list, and with fewer children to see them missing. After a result, use the quick actions to compare another car.
 
 ## 6. Run locally
 

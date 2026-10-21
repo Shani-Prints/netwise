@@ -109,15 +109,15 @@ export const currentCarYearAssumptionText = (year: number, label: string): strin
   `הנחתי שנת רישום ${year} עבור ${label} לפי הקטלוג. אם זו לא השנה הנכונה, אפשר לכתוב את השנה.`;
 
 /** The opening words of the two pick-lists; listDedupe uses them to recognise that the employee only picked from a list. */
-export const PICK_CAR_LEAD = 'לא ברור לאיזה רכב הכוונה';
-export const PICK_OCCUPATION_LEAD = 'לא ברור לי מה העיסוק';
+export const PICK_CAR_LEAD = 'יש כמה רכבים שמתאימים לתיאור';
+export const PICK_OCCUPATION_LEAD = 'יש כמה עיסוקים שמתאימים למה שנכתב';
 
 /** The description fits several cars (or one only through a typo): the options come from the catalogue. */
 export const pickCarText = (options: string[], more = false): string =>
-  `${PICK_CAR_LEAD}. אלה האפשרויות:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
+  `${PICK_CAR_LEAD}:\n${bullets(options)}${more ? `\n${MORE_OPTIONS_TEXT}` : ''}\nאיזה מהם?`;
 
 /** The opening words of the pick-list for the CURRENT car (a maker only): it is never the list of cars to compare. */
-export const PICK_CURRENT_CAR_LEAD = 'לא ברור לאיזה דגם הכוונה ברכב הנוכחי';
+export const PICK_CURRENT_CAR_LEAD = 'יש כמה דגמים של היצרן הזה בקטלוג';
 
 /** The current car was named by its maker only: the options are that maker's catalogue models, clearly the CURRENT car. */
 export const pickCurrentCarText = (): string =>
@@ -130,7 +130,7 @@ export const CHOOSE_ANOTHER_CAR_TEXT = 'אפשר לבחור רכב אחר מהר
 
 /** The occupation she wrote fits several rows of the occupations table (or one only through a typo). */
 export const pickOccupationText = (options: string[]): string =>
-  `${PICK_OCCUPATION_LEAD}. אלה העיסוקים הקרובים בטבלה:
+  `${PICK_OCCUPATION_LEAD}:
 ${bullets(options)}
 איזה מהם?`;
 

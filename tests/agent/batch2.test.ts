@@ -128,7 +128,7 @@ describe('item 7: one block per list, and a short reply after a pick', () => {
     const modelText = 'אפשר להשוות לכמה דגמים של BYD:\n- BYD DOLPHIN\n- BYD ATTO 3\n- BYD SEAL\nמה העיסוק שלך?';
     const r = await turn(e, 'מה אם אעבור ל-BYD חשמלי?', say(modelText));
     const text: string = r.body.assistantText;
-    expect(text).toContain('לא ברור לאיזה רכב הכוונה');
+    expect(text).toContain('יש כמה רכבים שמתאימים לתיאור');
     for (const m of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(text.split(m).length - 1, m).toBe(1);
     expect(text).toContain('מה העיסוק שלך?'); // what the model asked besides the list stays
   });
@@ -146,7 +146,7 @@ describe('item 7: one block per list, and a short reply after a pick', () => {
     const long = 'תודה! כדי להמשיך אני צריך: עיסוק, שכר בסיס, עמלות, בונוס, אחוז פנסיה, קרן השתלמות, נקודות זיכוי, ילדים ורכב נוכחי. נתחיל?';
     const r = await turn(e, 'ATTO 3', say(long));
     const text: string = r.body.assistantText;
-    expect(text.startsWith('מעולה, רשמתי.')).toBe(true);
+    expect(text.startsWith('רשמתי.')).toBe(true);
     expect(text).not.toContain('נתחיל');
     expect(text.split('\n')).toHaveLength(1);
     expect(text).toContain('עיסוק');

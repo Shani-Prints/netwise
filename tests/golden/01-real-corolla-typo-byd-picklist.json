@@ -7,12 +7,12 @@
       "employee": "מה יקרה לנטו שלי אם אעבור למקורולה קורס ל byd חשמלי? כיום השכר הבסיסי שלי הוא 18500, אני בקבוצה ג, יש לי קרן השתלמות 2.5%, פנסיה 6%, נקודות זיכוי 2.75, יש לי 2 ילדים עד גיל 23.",
       "model": [
         { "tool": "save_employee_data", "input": { "group": "ג", "base": 18500, "pensionPct": 6, "studyFundPct": 2.5, "creditPoints": 2.75, "childrenUnder23": 2 } },
-        { "say": "מעולה, תודה! מה העיסוק שלך, יש לך עמלות או בונוס, ומה ההשתתפות החודשית שלך ברכב הנוכחי?" }
+        { "say": "כדי להמשיך אשמח לדעת מה העיסוק, אם יש עמלות או בונוס, ומה ההשתתפות החודשית ברכב הנוכחי?" }
       ],
       "expect": {
         "currentCarLabelContains": "COROLLA CROSS",
         "profile": { "group": "ג", "childrenUnder23": 2, "salaryInputs": { "base": 18500, "pensionPct": 6, "studyFundPct": 2.5, "creditPoints": 2.75 } },
-        "text": { "contains": ["לא ברור לאיזה רכב הכוונה", "DOLPHIN", "ATTO 3", "SEAL"], "notMatches": ["שנת רישום", "באיזו שנה", "מחיר הרכב"] },
+        "text": { "contains": ["יש כמה רכבים שמתאימים לתיאור", "DOLPHIN", "ATTO 3", "SEAL"], "notMatches": ["שנת רישום", "באיזו שנה", "מחיר הרכב"] },
         "openQuestions": [],
         "totalQuestions": 0,
         "awaitingRepresentative": false
@@ -22,7 +22,7 @@
       "employee": "מנהלת מוצר, אין לי עמלות ובונוסים, גובה ההשתתפות החודשית על הקורולה הוא 250",
       "model": [
         { "tool": "save_employee_data", "input": { "occupation": "מנהלת מוצר", "commissions": 0, "bonus": 0, "currentParticipation": 250 } },
-        { "say": "תודה, רשמתי. לאיזה רכב תרצי להשוות?" }
+        { "say": "רשמתי. לאיזה רכב נשווה?" }
       ],
       "expect": {
         "profile": { "occupation": "מנהל/ת מוצר", "group": "ג", "currentParticipation": 250, "salaryInputs": { "commissions": 0, "bonus": 0, "base": 18500 } },

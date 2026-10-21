@@ -12,6 +12,7 @@ import type { Interpreter } from '../../src/lib/repTextService';
 import { freshRepo, restoreEnv, setupEnv } from '../api/harness';
 import { call, fast, provider, say } from '../agent/fakes';
 import { Conversation, type Expect, type Interpretation, type ModelItem } from './format';
+import { repeatedOpenings } from './openings';
 
 // Runs golden conversations: scripted fake models (no real model call), the in-memory repo, the real handlers and rules.
 
@@ -135,6 +136,7 @@ function invariantInput(obs: TurnObservation, driver: ConversationDriver): Invar
 
 export async function runConversation(conv: Conversation): Promise<void> {
   const driver = await ConversationDriver.start();
+  const botTexts: string[] = [];
   for (const [k, step] of conv.steps.entries()) {
     const label = `${conv.id} step ${k + 1}`;
     if ('employee' in step) {
@@ -142,6 +144,7 @@ export async function runConversation(conv: Conversation): Promise<void> {
       const obs = await driver.chat(step.employee, [provider(script.model)], { fallback: fast });
       expect(script.used(), `${label}: the scripted model items were not all used`).toBe(step.model.length);
       await checkExpect(label, step.expect, driver, obs, null);
+      if (obs.status === 200 && obs.assistantText.trim() !== '') botTexts.push(obs.assistantText);
       expect(formatViolations(checkTurn(invariantInput(obs, driver))), `${label}: invariants`).toBe('');
     } else {
       const q = await driver.findOpen({ kind: step.rep.kind, field: step.rep.field });
@@ -157,6 +160,7 @@ export async function runConversation(conv: Conversation): Promise<void> {
       expect(formatViolations(v), `${label}: invariants`).toBe('');
     }
   }
+  expect(repeatedOpenings(botTexts), `${conv.id}: no two consecutive bot messages open with the same acknowledgment`).toEqual([]);
 }
 
 export function defineGoldenSuite(dir: string, title: string): void {

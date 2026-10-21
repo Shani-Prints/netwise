@@ -23,16 +23,16 @@ export function askNextLabels(missing: string[], max = MAX_ASK): string[] {
 
 /**
  * Related fields, in the order a person would give them. The bot asks ONE batch at a time (see askBatchFields): the next group that
- * still has something missing. The pay parts and the deductions are ONE group (commissions, bonus, pension, study fund, credit
- * points), as in the challenge script. The eligibility group is not asked: it is derived from the occupation (see tools.ts).
+ * still has something missing. Batch 1 is the occupation with the pay (base salary, commissions, bonus), batch 2 the
+ * deductions (pension, study fund, credit points), batch 3 the children and the current car. The eligibility group is not asked: it is derived from the occupation (see tools.ts).
  */
 const BATCH_GROUPS: readonly (readonly string[])[] = [
-  ['occupation', 'group', 'base'],
-  ['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'],
+  ['occupation', 'group', 'base', 'commissions', 'bonus'],
+  ['pensionPct', 'studyFundPct', 'creditPoints'],
   ['childrenUnder23', 'currentCar', 'currentParticipation'],
 ];
 
-/** Most items in one batch of questions (the pay-and-deductions group). */
+/** Most items in one batch of questions (batch 1: occupation and pay). */
 export const MAX_BATCH = 5;
 
 /**

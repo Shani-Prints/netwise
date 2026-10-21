@@ -110,7 +110,7 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
     // A "missing" view that still shows today's net (a representative question is open) keeps its own explanation.
     const askLabels = view.status === 'missing' && !view.today && view.missingFields.length > 0 ? without(askBatchLabels(view.missingFields, opts.skip)) : null;
     if (askLabels === null) parts.push(view.status === 'ok' && view.today && view.alternative ? resultSummaryText(view as Parameters<typeof resultSummaryText>[0]) : view.explanation.join('\n'));
-    else if (askLabels.length > 0) parts.push(`כדי להמשיך נצטרך עוד קצת מידע: ${askLabels.join(', ')}.`);
+    else if (askLabels.length > 0) parts.push(`כדי להמשיך אשמח לדעת: ${askLabels.join(', ')}.`);
   }
   if (parts.length > 0) return parts.join('\n');
 
@@ -130,7 +130,7 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
       const labels = [...new Set(o.issues.map((i) => missingFieldLabel(i.path.split('.')[0] ?? '', age)))].filter((l) => l !== 'פרט נוסף');
       if (labels.length > 0) {
         return o.error === 'value_not_stated_by_employee'
-          ? `לא מצאתי בהודעות את: ${labels.join(', ')}, ולכן לא שמרתי אותם. אפשר לכתוב אותם כאן?`
+          ? `לא מצאתי בהודעות את ${labels.join(', ')}, ולכן לא שמרתי אותם. אפשר לכתוב אותם כאן?`
           : `נראה שיש בעיה בערכים האלה: ${labels.join(', ')}. אפשר לכתוב אותם שוב?`;
       }
     }
@@ -138,7 +138,7 @@ export function deterministicText(collector: TurnCollector, opts: { skipCurrentC
     if (o?.missingText && o.missingText.length > 0) {
       const labels = without(o.missingFields && o.missingFields.length > 0 ? askBatchLabels(o.missingFields, opts.skip) : o.missingText.slice(0, MAX_BATCH));
       if (labels.length === 0) continue;
-      return [derivedGroupSentence(collector), `כדי להמשיך נצטרך עוד קצת מידע: ${labels.join(', ')}.`].filter(Boolean).join('\n');
+      return [derivedGroupSentence(collector), `כדי להמשיך אשמח לדעת: ${labels.join(', ')}.`].filter(Boolean).join('\n');
     }
     if (r.tool === 'check_eligibility' && o?.text) {
       return o.status === 'eligible' && o.alternativeLabel
@@ -257,7 +257,7 @@ export async function shortMissingSentence(repo: Repo, actor: Actor): Promise<st
   const today = buildTodayOnly({ profile, state });
   if (today.status === 'ok') return null;
   const labels = askBatchLabels(today.missingFields, [...openQuestions.map((q) => q.missingField), ...Object.keys(state.fieldGaps)]);
-  return labels.length === 0 ? null : `מעולה, רשמתי. כדי להמשיך חסר לי עוד: ${labels.join(', ')}.`;
+  return labels.length === 0 ? null : `רשמתי. כדי להמשיך אשמח לדעת גם: ${labels.join(', ')}.`;
 }
 
 /**

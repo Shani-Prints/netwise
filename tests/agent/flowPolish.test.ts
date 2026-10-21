@@ -17,26 +17,27 @@ beforeEach(() => {
 afterEach(() => restoreEnv());
 
 describe('questions come in batches of related fields, in a logical order', () => {
-  it('nothing known: occupation and base salary first (the group is derived, never asked)', () => {
+  it('nothing known: occupation, base salary, commissions and bonus first (the group is derived, never asked)', () => {
     const all = ['group', 'occupation', 'occupationDetails', 'base', 'commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar', 'currentParticipation'];
-    expect(askBatchFields(all)).toEqual(['occupation', 'base']);
+    expect(askBatchFields(all)).toEqual(['occupation', 'base', 'commissions', 'bonus']);
   });
 
-  it('pay parts and deductions are ONE batch (as in the challenge script), then the children and the car', () => {
-    const pay = ['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'];
+  it('batch 2 is pension, study fund and credit points; batch 3 the children and the car', () => {
+    const pay = ['pensionPct', 'studyFundPct', 'creditPoints'];
     expect(askBatchFields([...pay, 'childrenUnder23', 'currentCar'])).toEqual(pay);
+    expect(askBatchFields(['commissions', 'bonus', ...pay, 'childrenUnder23'])).toEqual(['commissions', 'bonus']);
     expect(askBatchFields(['pensionPct', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar'])).toEqual(['pensionPct', 'studyFundPct', 'creditPoints']);
     expect(askBatchFields(['childrenUnder23', 'currentCar', 'currentParticipation'])).toEqual(['childrenUnder23', 'currentCar', 'currentParticipation']);
   });
 
   it('a lone missing field is topped up from the next group to a pair', () => {
     expect(askBatchFields(['bonus', 'childrenUnder23', 'currentCar', 'currentParticipation'])).toEqual(['bonus', 'childrenUnder23']);
-    expect(askBatchFields(['occupation', 'commissions', 'bonus'])).toEqual(['occupation', 'commissions']);
+    expect(askBatchFields(['occupation', 'commissions', 'bonus'])).toEqual(['occupation', 'commissions', 'bonus']);
   });
 
   it('a field that cannot be asked again (open representative question or gap) is skipped, the rest of the batch is still asked', () => {
-    const pay = ['commissions', 'bonus', 'pensionPct', 'studyFundPct', 'creditPoints'];
-    expect(askBatchFields(pay, ['pensionPct'])).toEqual(['commissions', 'bonus', 'studyFundPct', 'creditPoints']);
+    const pay = ['pensionPct', 'studyFundPct', 'creditPoints'];
+    expect(askBatchFields(pay, ['pensionPct'])).toEqual(['studyFundPct', 'creditPoints']);
     expect(askBatchFields(['pensionPct', 'childrenUnder23', 'currentCar'], ['pensionPct'])).toEqual(['childrenUnder23', 'currentCar']);
   });
 
@@ -49,9 +50,9 @@ describe('questions come in batches of related fields, in a logical order', () =
 
 describe('the prompt: short opening, server-written upload offer, batches', () => {
   const prompt = buildSystemPrompt('', false);
-  it('asks only occupation and base salary first and leaves the one-time upload offer to the server', () => {
+  it('asks occupation, base salary and commissions or bonus first and leaves the one-time upload offer to the server', () => {
     expect(prompt).toContain('OPENING');
-    expect(prompt).toContain('exactly two things together: the occupation (job role) and the monthly base salary');
+    expect(prompt).toContain('in one flowing message for the occupation (job role), the monthly base salary and whether there are regular commissions or bonuses');
     expect(prompt).toContain('The SERVER adds a one-time offer to attach a payslip');
     expect(prompt).toContain('never offer or promise any other file or feature');
   });

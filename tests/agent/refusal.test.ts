@@ -173,14 +173,14 @@ describe('the server resolution does not invent answers', () => {
     const c = new Client();
     await c.session();
     const r = await chat(c, MESSAGE, { providers: [provider(fake(say('')))] });
-    expect(r.body.assistantText).toMatch(/^כדי להמשיך נצטרך עוד קצת מידע: /);
+    expect(r.body.assistantText).toMatch(/^כדי להמשיך אשמח לדעת: /);
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });
 
   it('an ambiguous maker ("טויוטה") is NOT guessed: the server shows a pick-list from the catalogue', async () => {
     const e = await groupGimelEmployee();
     const r = await chat(e, 'מה אם אעבור לטויוטה?', { providers: [provider(fake(say('')))] });
-    expect(r.body.assistantText).toContain('לא ברור לאיזה רכב הכוונה');
+    expect(r.body.assistantText).toContain('יש כמה רכבים שמתאימים לתיאור');
     expect(r.body.assistantText).toContain('COROLLA CROSS');
     expect(r.body.assistantText).not.toBe(NEUTRAL_FALLBACK_HE);
   });

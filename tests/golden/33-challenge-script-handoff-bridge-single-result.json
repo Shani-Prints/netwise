@@ -1,36 +1,36 @@
 {
   "id": "33-challenge-script-handoff-bridge-single-result",
-  "description": "The challenge script: short opening (occupation + base salary), related items in batches, an unknown field goes straight to the representative (no payslip, no ID), the representative's answer opens the next message with one bridge line, and the result appears once (headline in the bubble, breakdown in the panel)",
+  "description": "The challenge script: short opening (occupation, base salary, commissions and bonus), related items in batches, an unknown field goes straight to the representative (no payslip, no ID), the representative's answer opens the next message with one bridge line, and the result appears once (headline in the bubble, breakdown in the panel)",
   "tags": ["flow", "handoff", "bridge", "single-result"],
   "steps": [
     {
       "employee": "אני שוקל לעבור לרכב חשמלי. כמה זה ישנה לי בנטו?",
-      "model": [{ "say": "בכיף! נתחיל מהבסיס: מה התפקיד, ומה שכר הבסיס החודשי?" }],
+      "model": [{ "say": "היי, אשמח לעזור לבדוק איך המעבר לרכב חשמלי ישפיע על הנטו. כדי לחשב את המס בצורה מדויקת אשמח לדעת מה העיסוק, מהו שכר הבסיס החודשי והאם יש עמלות או בונוסים קבועים?" }],
       "expect": {
-        "text": { "contains": ["מה התפקיד", "שכר הבסיס", "אפשר גם לצרף תלוש שכר"], "notContains": ["תעודת זהות", "מספר עובד"] },
+        "text": { "contains": ["מה העיסוק", "שכר הבסיס", "אפשר גם לצרף תלוש שכר"], "notContains": ["תעודת זהות", "מספר עובד"] },
         "openQuestions": []
       }
     },
     {
-      "employee": "מנהלת מוצר, 18,500",
+      "employee": "מנהלת מוצר, 18,500, בלי עמלות ובלי בונוס",
       "model": [
-        { "tool": "save_employee_data", "input": { "occupation": "מנהל/ת מוצר", "base": 18500 } },
-        { "say": "תודה. יש עמלות או בונוס?" }
+        { "tool": "save_employee_data", "input": { "occupation": "מנהל/ת מוצר", "base": 18500, "commissions": 0, "bonus": 0 } },
+        { "say": "עכשיו לניכויים: מה אחוז הפנסיה, מה אחוז קרן ההשתלמות וכמה נקודות זיכוי יש?" }
       ],
       "expect": {
         "profile": { "occupation": "מנהל/ת מוצר", "group": "ג" },
-        "text": { "contains": ["עמלות"], "notContains": ["תלוש"] },
+        "text": { "contains": ["אחוז הפנסיה"], "notContains": ["תלוש"] },
         "openQuestions": []
       }
     },
     {
-      "employee": "בלי עמלות ובונוס, קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
+      "employee": "קרן השתלמות 2.5%, נקודות זיכוי 2.75, יש לי 2 ילדים, הרכב שלי כרגע קורולה קרוס עם השתתפות 300.",
       "model": [
         {
           "tool": "save_employee_data",
-          "input": { "commissions": 0, "bonus": 0, "studyFundPct": 2.5, "creditPoints": 2.75, "childrenUnder23": 2, "currentParticipation": 300 }
+          "input": { "studyFundPct": 2.5, "creditPoints": 2.75, "childrenUnder23": 2, "currentParticipation": 300 }
         },
-        { "say": "תודה! מה אחוז הפנסיה?" }
+        { "say": "נשאר רק אחוז הפנסיה, מה הוא?" }
       ],
       "expect": {
         "currentCarLabelContains": "COROLLA CROSS",
@@ -41,7 +41,7 @@
       "employee": "אין לי מושג כמה פנסיה",
       "model": [
         { "tool": "mark_field_unknown", "input": { "fields": ["pensionPct"] } },
-        { "say": "בסדר." }
+        { "say": "אין בעיה." }
       ],
       "expect": {
         "openQuestions": [{ "kind": "profile_field_unknown", "field": "pensionPct" }],

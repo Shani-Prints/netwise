@@ -50,7 +50,7 @@ describe('turn 1: "אעבור למקורולה קורס ל byd חשמלי" + her
     expect(prompt).not.toContain('currentCar: null');
     // the BYD fits three cars: the server shows the pick-list from the catalogue (no guess, no question to a representative)
     const text: string = r.body.assistantText;
-    expect(text).toContain('לא ברור לאיזה רכב הכוונה');
+    expect(text).toContain('יש כמה רכבים שמתאימים לתיאור');
     for (const model of ['DOLPHIN', 'ATTO 3', 'SEAL']) expect(text).toContain(model);
     // nothing about the technical details of the car is asked by the server
     expect(text).not.toMatch(/שנת רישום|באיזו שנה|מחיר הרכב/);
@@ -70,7 +70,7 @@ describe('turn 2: "העיסוק שלי הוא מנהל מוצר ואני לא מ
     expect(profile.occupation).toBe('מנהל/ת מוצר'); // the table row, found by the server from "מנהל מוצר"
     expect(profile.group).toBe('ג');
     expect(profile.salaryInputs).toMatchObject({ commissions: 0, bonus: 0, base: 18500 });
-    // the generic fallback "כדי להמשיך נצטרך עוד קצת מידע: עמלות, בונוס..." is gone
+    // the generic fallback "כדי להמשיך אשמח לדעת: עמלות, בונוס..." is gone
     expect(r.body.assistantText).not.toContain('עמלות, בונוס');
     expect(r.body.assistantText).not.toContain('לא מצאתי בהודעות שלך');
   });

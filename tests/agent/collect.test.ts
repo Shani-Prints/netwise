@@ -101,7 +101,7 @@ describe('half a message: ONE grouped question for exactly what is missing', () 
       status: 'saved',
       derivedGroup: 'ב',
       missingFields: ['commissions', 'bonus', 'studyFundPct', 'creditPoints', 'childrenUnder23', 'currentCar'],
-      askNext: ['עמלות', 'בונוס', 'אחוז קרן השתלמות של העובד', 'נקודות זיכוי'], // the pay parts and deductions in ONE batch, not all 6
+      askNext: ['עמלות', 'בונוס'], // batch 1 (occupation and pay) is what is left of it, not all 6
     });
     expect(t.outputs[0]).not.toHaveProperty('todayNet');
     expect(t.turn.guardReason).toBeUndefined();
@@ -113,7 +113,7 @@ describe('half a message: ONE grouped question for exactly what is missing', () 
   it('if the model says nothing, the server still asks ONE grouped question (a batch of 2-3 related items), never the whole list', async () => {
     const e = await newEmployee();
     const t = await runTurn(e, HALF, call('save_employee_data', { occupation: 'מפתח/ת תוכנה', base: 21000, pensionPct: 6.5 }), say(''));
-    expect(t.turn.assistantText).toBe('הנחתי שקבוצת הזכאות היא ב לפי טבלת העיסוקים.\nכדי להמשיך נצטרך עוד קצת מידע: עמלות, בונוס, אחוז קרן השתלמות של העובד, נקודות זיכוי.');
+    expect(t.turn.assistantText).toBe('הנחתי שקבוצת הזכאות היא ב לפי טבלת העיסוקים.\nכדי להמשיך אשמח לדעת: עמלות, בונוס.');
     expect(t.turn.via).toBe('deterministic');
   });
 
@@ -133,7 +133,7 @@ describe('a value given once is never asked again', () => {
     const t1 = await runTurn(e, 'שכר הבסיס שלי 18,500 והפנסיה 6%', call('save_employee_data', { base: 18500, pensionPct: 6 }), say('תודה. מה העיסוק שלך ומה העמלות והבונוס?'));
     expect(t1.outputs[0].missingFields).not.toContain('base');
     expect(t1.outputs[0].missingFields).not.toContain('pensionPct');
-    expect(t1.outputs[0].askNext).toEqual(['עיסוק', 'עמלות']); // a lone item is topped up to a pair
+    expect(t1.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס']); // batch 1: occupation and pay
 
     const t2 = await runTurn(
       e,
@@ -143,7 +143,7 @@ describe('a value given once is never asked again', () => {
     );
     expect(t2.outputs[0].status).toBe('saved'); // a repeated, stated value is not an error
     for (const done of ['base', 'pensionPct', 'studyFundPct']) expect(t2.outputs[0].missingFields).not.toContain(done);
-    expect(t2.outputs[0].askNext).toEqual(['עיסוק', 'עמלות']);
+    expect(t2.outputs[0].askNext).toEqual(['עיסוק', 'עמלות', 'בונוס']);
     // the model's prompt in turn 2 already contains the saved values and does not list them as things to ask
     expect(t2.system).toContain('"base":18500');
     expect(t2.system).toContain('"pensionPct":6');
@@ -380,7 +380,7 @@ describe('partial data never produces a comparison number', () => {
     );
     expect(t.turn.guardReason).toBe('unknown_number');
     expect(t.turn.assistantText).not.toMatch(/\d/);
-    expect(t.turn.assistantText).toMatch(/^כדי להמשיך נצטרך עוד קצת מידע: /);
+    expect(t.turn.assistantText).toMatch(/^כדי להמשיך אשמח לדעת: /);
   });
 });
 

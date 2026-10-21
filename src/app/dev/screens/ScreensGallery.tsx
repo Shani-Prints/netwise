@@ -14,6 +14,7 @@ import {
 import { Launcher } from '../../../components/car-advisor/Launcher';
 import { PreviewBubble } from '../../../components/car-advisor/PreviewBubble';
 import { ScopeRoot } from '../../../components/car-advisor/ScopeRoot';
+import { TypingIndicator } from '../../../components/car-advisor/messages/TypingIndicator';
 import { EMPTY_CONTACTS, maskContact, UNTOUCHED } from '../../../components/car-advisor/messages/contact';
 import type { ChatMessage, HandoffMessage } from '../../../components/car-advisor/useChatController';
 import './hostile-host.css';
@@ -151,6 +152,12 @@ export function ScreensGallery() {
             <div style={WINDOW_BOX}>
               <ChatWidget onClose={noop} />
             </div>
+          </Panel>
+
+          <Panel title="Typing indicator (bot is checking data)">
+            <ScopeRoot style={{ display: 'flex', flexDirection: 'column', width: 380, padding: 16 }}>
+              <TypingIndicator />
+            </ScopeRoot>
           </Panel>
 
           <Panel title="Screen 2: answer">

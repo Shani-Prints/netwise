@@ -12,6 +12,7 @@ import { Greeting } from './messages/Greeting';
 import messageStyles from './messages/messages.module.css';
 import { QuestionsCard } from './messages/QuestionsCard';
 import { SystemNotice } from './messages/SystemNotice';
+import { TypingIndicator } from './messages/TypingIndicator';
 import { UserBubble } from './messages/UserBubble';
 import { ScopeRoot } from './ScopeRoot';
 import { CarIcon, CrossIcon, SendIcon } from './ui/Icons';
@@ -138,9 +139,9 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
             </div>
           ) : null}
           {busy ? (
-            <p role="status" className={messageStyles.thinking}>
-              {he.api.thinking}
-            </p>
+            <div data-message="" data-kind="typing" className={messageStyles.message}>
+              <TypingIndicator />
+            </div>
           ) : null}
           {error ? (
             <p role="alert" className={apiStyles.errorLine}>

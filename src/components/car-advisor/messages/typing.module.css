@@ -1,0 +1,57 @@
+/* Typing indicator: a bot bubble with three dots in a gentle wave. Doubled scope attribute, as in the rest. */
+[data-car-advisor][data-car-advisor] .typing {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border-end-end-radius: 4px;
+  background: var(--ca-tint);
+}
+[data-car-advisor][data-car-advisor] .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ca-muted);
+  animation: wave 1.3s ease-in-out infinite;
+}
+[data-car-advisor][data-car-advisor] .dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+[data-car-advisor][data-car-advisor] .dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes wave {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: no movement, only a slow, subtle opacity pulse. */
+@media (prefers-reduced-motion: reduce) {
+  [data-car-advisor][data-car-advisor] .dot {
+    animation: pulse 2.6s ease-in-out infinite;
+  }
+  [data-car-advisor][data-car-advisor] .dot:nth-child(n) {
+    animation-delay: 0s;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}

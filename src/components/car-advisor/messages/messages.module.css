@@ -3,10 +3,6 @@
   font-weight: 700;
   line-height: 1.25;
 }
-[data-car-advisor][data-car-advisor] .greetingText {
-  margin-top: 6px;
-  color: var(--ca-muted);
-}
 [data-car-advisor][data-car-advisor] .userBubble {
   align-self: flex-start;
   max-width: 90%;
@@ -31,10 +27,6 @@
 [data-car-advisor][data-car-advisor] .message {
   display: flex;
   flex-direction: column;
-}
-[data-car-advisor][data-car-advisor] .thinking {
-  font-size: 13px;
-  color: var(--ca-muted);
 }
 
 /* Answer card (screen 2) */

@@ -11,6 +11,7 @@ import { Greeting } from './messages/Greeting';
 import { HandoffCard } from './messages/HandoffCard';
 import messageStyles from './messages/messages.module.css';
 import { ReturnedAnswerCard } from './messages/ReturnedAnswerCard';
+import { TypingIndicator } from './messages/TypingIndicator';
 import { UserBubble } from './messages/UserBubble';
 import { ScopeRoot } from './ScopeRoot';
 import { CarIcon, CrossIcon, SendIcon } from './ui/Icons';
@@ -186,9 +187,9 @@ export function ChatWidget({
             </div>
           ))}
           {busy ? (
-            <p role="status" className={messageStyles.thinking}>
-              {he.ask.thinking}
-            </p>
+            <div data-message="" data-kind="typing" className={messageStyles.message}>
+              <TypingIndicator />
+            </div>
           ) : null}
         </div>
 

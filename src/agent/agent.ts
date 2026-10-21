@@ -10,10 +10,10 @@ import { participationFromRepresentative } from '../lib/flags';
 import { noteRejectedFields, prepareEmployeeTurn, type Actor, type CarIssue, type TurnContext } from '../lib/service';
 import { MAX_BATCH, askBatchLabels } from './askNext';
 import { runEligibilityCheck } from './eligibilityCheck';
-import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, stripYearRequests, withRepBridge } from './flowText';
+import { closingInviteText, ensureSingleResult, fixWaiverMentions, resultSummaryText, stripCarCodes, stripPayslipOffers, stripYearRequests, withRepBridge } from './flowText';
 import { claimsRepQuestion, guardLogCode, guardResponse, type GuardReason } from './guard';
 import { listAllowedOptions } from './eligibleCars';
-import { buildCarChoices } from './carChoices';
+import { ANOTHER_CAR_REQUEST, buildCarChoices } from './carChoices';
 import { PAYSLIP_MARKER_TEXT, PAYSLIP_OFFER_TEXT } from '../lib/payslipMarker';
 import { answeredAPick, dropCarListLines, dropListedNames, modelNamesOfLabels } from './listDedupe';
 import { buildStateBlock, buildSystemPrompt } from './prompt';
@@ -216,12 +216,18 @@ export function asksWhichCarToCompare(text: string): boolean {
  * is resolved, today's data is complete, no alternative chosen), whatever list the model wrote is removed and ONE short sentence points
  * to the buttons. The cars are never repeated in the text and never written by the model.
  */
-export async function ensureTargetCarOptions(text: string, args: Pick<AgentTurnArgs, 'repo' | 'actor' | 'carIssues'>): Promise<string> {
+export async function ensureTargetCarOptions(
+  text: string,
+  args: Pick<AgentTurnArgs, 'repo' | 'actor' | 'carIssues' | 'userMessage'>,
+  newComparison = false,
+): Promise<string> {
   if ((args.carIssues ?? []).length > 0) return text;
-  const choices = await buildCarChoices(args.repo, args.actor);
+  // after a result the buttons come back when the employee asks for another car, or the reply asks which car (not in a turn that just compared)
+  const wantsAnother = ANOTHER_CAR_REQUEST.test(args.userMessage ?? '');
+  const choices = await buildCarChoices(args.repo, args.actor, { anotherAsked: !newComparison && (wantsAnother || asksWhichCarToCompare(text)) });
   if (!choices || choices.purpose !== 'target') return text;
   const cleaned = dropCarListLines(text, modelNamesOfLabels(choices.cars.map((c) => c.label)));
-  if (!asksWhichCarToCompare(cleaned) && !asksWhichCarToCompare(text)) return cleaned;
+  if (!asksWhichCarToCompare(cleaned) && !asksWhichCarToCompare(text) && !(wantsAnother && !newComparison)) return cleaned;
   if (squash(cleaned).includes(squash(CHOOSE_CAR_TEXT))) return cleaned;
   return cleaned === '' ? CHOOSE_CAR_TEXT : `${cleaned}\n${CHOOSE_CAR_TEXT}`;
 }
@@ -465,7 +471,7 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   const ensured = ensureIneligibleReason(assistantText, collector);
   if (ensured.appended) console.info(`[netwise] chat: ineligible reason appended (provider=${provider})`);
   const guided = await ensureCarGuidance(ensured.text, args, collector);
-  const withOptions = await ensureTargetCarOptions(ensureOccupationGuidance(guided, collector), args);
+  const withOptions = await ensureTargetCarOptions(ensureOccupationGuidance(guided, collector), args, collector.lastView !== undefined);
   let finalText = ensureQuestionSentence(withOptions, collector, args.openedAtStart ?? []);
   // she only picked from a list the server showed: nothing to repeat, just what is still missing, in one short sentence
   const quiet = (args.carIssues ?? []).length === 0 && collector.lastView === undefined && ineligibleFacts(collector).length === 0 && collector.escalations.length === 0 && (args.openedAtStart ?? []).length === 0;
@@ -481,7 +487,8 @@ export async function runAgentTurn(args: AgentTurnArgs): Promise<AgentTurnResult
   // ONE closing sentence, only right after a new comparison
   const newView = collector.lastView;
   if (newView?.status === 'ok' && newView.today && newView.alternative) finalText = `${finalText}\n${closingInviteText(waiverOk)}`;
-  finalText = await withPayslipOffer(finalText, repo, conversationId, actor);
+  // the offer is the server's alone: whatever offer the model wrote is removed, then the server adds its one-time sentence
+  finalText = await withPayslipOffer(stripPayslipOffers(finalText), repo, conversationId, actor);
   finalText = await withRepBridge(finalText, repo, conversationId);
 
   return {

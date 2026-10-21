@@ -79,6 +79,11 @@ export const ConversationStateSchema = z.object({
   repAnswers: z.record(z.string(), z.number()).default({}),
   appliedAnswerIds: z.array(z.string()).default([]),
   lastComparison: z.custom<ComparisonView>().optional(),
+  /**
+   * Every comparison the conversation produced, each keyed by the id of the bot message of the turn that produced it (so the UI can
+   * keep it in the timeline). The snapshot is the engine result of that turn. lastComparison stays the latest one.
+   */
+  comparisons: z.array(z.object({ messageId: z.string(), view: z.custom<ComparisonView>() })).default([]),
   escalation: EscalationStateSchema.default(() => EscalationStateSchema.parse({})),
   /** Profile / state fields whose CURRENT value was entered by a representative (the employee can still correct them). */
   fieldSources: z.record(z.string(), z.literal('representative')).default({}),

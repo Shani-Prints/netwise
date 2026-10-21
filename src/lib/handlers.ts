@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ZodType } from 'zod';
-import { buildCarChoices } from '../agent/carChoices';
+import { buildCarChoices, waiverAllowedFor } from '../agent/carChoices';
 import { getRepo } from '../db/repo';
 import {
   clearCookieHeader,
@@ -154,7 +154,9 @@ export const handleGetEmployeeState = (req: Request) =>
     const a = await authenticate(req, 'employee');
     const repo = await getRepo();
     const carChoices = await buildCarChoices(repo, a.actor); // the buttons come back after a refresh; null when nothing is being asked
-    return json({ ...(await getEmployeeState(repo, a.actor)), carChoices }, 200, a.setCookie);
+    // for the action row under the latest result: giving up the car is offered only when the saved occupation allows it
+    const waiverAllowed = await waiverAllowedFor(repo, a.actor);
+    return json({ ...(await getEmployeeState(repo, a.actor)), carChoices, waiverAllowed }, 200, a.setCookie);
   });
 
 export const handlePostEmployeeState = (req: Request) =>

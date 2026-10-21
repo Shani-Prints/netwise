@@ -131,6 +131,14 @@ both are `status: "missing"` with the Hebrew reason and without a net for the de
 * A question with `followUpOf` is a request for clarification: show it as a new question that refers to the earlier one.
 * The representative can answer either with the typed API (`/api/rep/answer`) or in free text (`/api/rep/answer-text`).
 
+## Comparisons in the timeline (`comparisons`)
+
+`GET /api/employee/state` also returns `comparisons: { messageId: string; comparison: ComparisonView }[]`, in the order they were produced. Each comparison belongs right after the bot message with that `messageId` (the UI renders it there, and the chat continues below it). The snapshot is the engine result of the turn that calculated it and is stored in the conversation state JSON (no DB schema change, at most the last 20). The last entry is the live comparison: while it is still about the same alternative it carries the freshly recomputed view (for example after a representative answered). `comparison` (the latest) is unchanged and still returned by the state read and by `POST /api/chat` when a comparison was calculated in that turn; the stored `lastComparison` is kept for the other consumers. A comparison that no chat turn produced (for example `select_alternative` through the API) has no entry: use `comparison`.
+
+The state read also returns `waiverAllowed: boolean` (the saved occupation allows giving up the car) for the action row under the latest result ("השוואה לרכב אחר", and "ויתור על הרכב" only when allowed). Both buttons send a normal chat message.
+
+After a result `carChoices` (purpose "target") comes back while the bot asks for ANOTHER car (the employee asked for another car, or the reply asks which car): the compared car is left out. It is gone after the next choice.
+
 ## Car buttons (`carChoices`)
 
 When the bot waits for the car to compare, the server sends the cars as data so the UI can render buttons. The field is in the `POST /api/chat` response and in `GET /api/employee/state` (so it survives a refresh); it is `null` / absent otherwise.

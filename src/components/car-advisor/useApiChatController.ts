@@ -150,6 +150,8 @@ export function useApiChatController(api: AdvisorApiClient, active: boolean, onU
     messages,
     comparison: state.comparison,
     carChoices: state.carChoices,
+    comparisons: state.comparisons,
+    waiverAllowed: state.waiverAllowed,
     chooseCar,
     questions: state.questions,
     awaiting: state.awaiting,

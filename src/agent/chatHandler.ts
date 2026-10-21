@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getRepo } from '../db/repo';
 import { participationFromRepresentative } from '../lib/flags';
-import { flushEscalations, getEmployeeState, ServiceError, type EmployeeQuestionView } from '../lib/service';
+import { flushEscalations, getEmployeeState, recordComparison, ServiceError, type EmployeeQuestionView } from '../lib/service';
 import { describeError } from '../lib/errorLog';
 import { getSessionSecret, readSession, SessionConfigError } from '../lib/session';
 import type { ComparisonView } from '../lib/view';
@@ -196,7 +196,7 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
     }
     // The reference prompt was shown in an earlier turn and the model did not finish it: the server opens the questions now.
     if (context.pendingAtStart > 0) await flushEscalations(repo, actor);
-    await repo.addMessage(conv.id, 'assistant', turn.assistantText);
+    const botMessage = await repo.addMessage(conv.id, 'assistant', turn.assistantText);
 
     // 5. response per the contract
     const state = await getEmployeeState(repo, actor);
@@ -205,6 +205,8 @@ async function handleChatTurn(req: Request, deps: ChatDeps): Promise<Response> {
     if ((turn.collector.lastView || context.updates.newAnswers) && state.comparison) {
       out.comparison = applyProvisionalPolicy(state.comparison, show);
     }
+    // a comparison calculated in this turn stays in the conversation at THIS bot message (the engine result of the turn)
+    if (turn.collector.lastView && out.comparison?.status === 'ok') await recordComparison(repo, actor, botMessage.id, out.comparison);
     if (open.length > 0) out.pendingQuestions = open;
     if (context.updates.newAnswers) out.updates = { newAnswers: true };
     const carChoices = await buildCarChoices(repo, actor);

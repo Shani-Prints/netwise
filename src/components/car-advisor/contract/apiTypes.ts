@@ -116,6 +116,10 @@ export interface ApiEmployeeState {
   updates: ApiUpdates;
   /** Present while the bot waits for the car to compare (or the current car's model); null otherwise. */
   carChoices?: ApiCarChoices | null;
+  /** The comparisons in the order they were produced; each one belongs right after the bot message with this id. The last one is the live one. */
+  comparisons?: { messageId: string; comparison: ApiComparison }[];
+  /** The saved occupation allows giving up the car (for the action row under the latest result). */
+  waiverAllowed?: boolean;
 }
 
 export interface ApiChatResponse {

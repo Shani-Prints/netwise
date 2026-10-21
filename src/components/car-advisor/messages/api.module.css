@@ -292,3 +292,55 @@
   color: var(--ca-muted);
   cursor: not-allowed;
 }
+
+/* Comparison inside the timeline: older ones collapse to one line */
+[data-car-advisor][data-car-advisor] .comparisonInline {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+[data-car-advisor][data-car-advisor] .comparisonCollapsed {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--ca-line);
+  border-radius: 12px;
+  background: var(--ca-white);
+  color: var(--ca-ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .comparisonCollapsedLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[data-car-advisor][data-car-advisor] .comparisonCollapsedAction {
+  flex: none;
+  color: var(--ca-action);
+}
+[data-car-advisor][data-car-advisor] .comparisonCollapsed:focus-visible,
+[data-car-advisor][data-car-advisor] .comparisonHide:focus-visible {
+  outline: 2px solid var(--ca-action);
+  outline-offset: 2px;
+}
+[data-car-advisor][data-car-advisor] .comparisonHide {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ca-action);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+[data-car-advisor][data-car-advisor] .comparisonActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

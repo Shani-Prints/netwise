@@ -159,3 +159,21 @@ export function stripYearRequests(text: string): string {
   }
   return out.trim();
 }
+
+const PAYSLIP_OFFER_SENTENCE = /(?:לצרף|להעלות|לשלוח|לצלם|העלאת|שליחת)\s[^.?!]*תלוש|תלוש[^.?!]*(?:לצרף|להעלות|לשלוח|לצלם)/u;
+
+/**
+ * The offer to attach a payslip is written by the SERVER (once per conversation). A sentence of the model that also offers it is
+ * removed, so the offer appears exactly once. A sentence that only says the details came from the payslip stays.
+ */
+export function stripPayslipOffers(text: string): string {
+  if (!text.includes('תלוש')) return text;
+  const pieces = text.split(/((?<=[.?!])[ \t]+|\n)/);
+  let out = '';
+  for (let i = 0; i < pieces.length; i += 2) {
+    const p = pieces[i] ?? '';
+    if (PAYSLIP_OFFER_SENTENCE.test(p)) continue;
+    out += p + (pieces[i + 1] ?? '');
+  }
+  return out.trim();
+}

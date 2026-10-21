@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import styles from './ChatWidget.module.css';
 import { he } from './content/he';
 import { MAX_CHAT_CHARS, type AdvisorApiClient } from './contract/apiClient';
@@ -8,7 +8,7 @@ import type { NotificationView } from './contract/types';
 import apiStyles from './messages/api.module.css';
 import { AssistantBubble } from './messages/AssistantBubble';
 import { CarChoices } from './messages/CarChoices';
-import { ComparisonPanel } from './messages/ComparisonPanel';
+import { InlineComparison } from './messages/InlineComparison';
 import { Greeting } from './messages/Greeting';
 import messageStyles from './messages/messages.module.css';
 import { PayslipCard } from './messages/PayslipCard';
@@ -53,7 +53,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
     activeRef.current = active;
   }, [active]);
 
-  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit, carChoices, chooseCar, payslip, attachPayslip, confirmPayslip, cancelPayslip } = useApiChatController(
+  const { messages, comparison, questions, draft, setDraft, busy, error, hasAsked, submit, carChoices, comparisons, waiverAllowed, chooseCar, payslip, attachPayslip, confirmPayslip, cancelPayslip } = useApiChatController(
     api,
     active,
     (notification) => {
@@ -65,6 +65,21 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
   const messagesRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // older comparisons are one line; the employee can expand one (kept per message id)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const lastEntry = comparisons[comparisons.length - 1];
+  const latestInTimeline =
+    lastEntry !== undefined &&
+    comparison !== null &&
+    messages.some((m) => m.id === lastEntry.messageId) &&
+    JSON.stringify(lastEntry.comparison.alternativeRef) === JSON.stringify(comparison.alternativeRef);
 
   function prefill(question: string) {
     setDraft(question);
@@ -72,7 +87,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
   }
 
   // Keep the newest content in view (scrolling happens inside the messages area only).
-  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}|${payslip?.phase ?? ''}|${carChoices?.purpose ?? ''}`;
+  const contentKey = `${messages.length}|${comparison ? 1 : 0}|${questions.length}|${busy ? 1 : 0}|${error ? 1 : 0}|${payslip?.phase ?? ''}|${carChoices?.purpose ?? ''}|${comparisons.length}`;
   useEffect(() => {
     const area = messagesRef.current;
     if (area) area.scrollTop = area.scrollHeight;
@@ -122,26 +137,50 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
         <div ref={messagesRef} className={styles.messages} role="log" aria-label={he.ask.messagesLabel}>
           <Greeting showSuggestions={!hasAsked} onPickSuggestion={prefill} />
           {messages.map((message) => (
-            <div key={message.id} data-message="" data-kind={message.role} className={messageStyles.message}>
-              {message.role === 'user' ? (
-                <UserBubble text={message.content} />
-              ) : message.role === 'assistant' ? (
-                <AssistantBubble text={message.content} />
-              ) : message.content === PAYSLIP_MARKER_TEXT ? (
-                <PayslipMarker text={message.content} />
-              ) : (
-                <SystemNotice text={message.content} />
-              )}
-            </div>
+            <Fragment key={message.id}>
+              <div data-message="" data-kind={message.role} className={messageStyles.message}>
+                {message.role === 'user' ? (
+                  <UserBubble text={message.content} />
+                ) : message.role === 'assistant' ? (
+                  <AssistantBubble text={message.content} />
+                ) : message.content === PAYSLIP_MARKER_TEXT ? (
+                  <PayslipMarker text={message.content} />
+                ) : (
+                  <SystemNotice text={message.content} />
+                )}
+              </div>
+              {/* the comparison stays right after the bot message of the turn that produced it */}
+              {comparisons
+                .filter((entry) => entry.messageId === message.id)
+                .map((entry) => {
+                  const isLatest = entry === lastEntry && latestInTimeline;
+                  return (
+                    <div key={`cmp-${entry.messageId}`} data-message="" data-kind="comparison" className={messageStyles.message}>
+                      <InlineComparison
+                        comparison={entry.comparison}
+                        collapsed={!isLatest && !expanded.has(entry.messageId)}
+                        onToggle={() => toggle(entry.messageId)}
+                        actions={isLatest && !carChoices ? { waiverAllowed, disabled: busy, onSend: chooseCar } : undefined}
+                      />
+                    </div>
+                  );
+                })}
+            </Fragment>
           ))}
           {carChoices ? (
             <div data-message="" data-kind="carChoices" className={messageStyles.message}>
               <CarChoices choices={carChoices} disabled={busy} onChoose={chooseCar} />
             </div>
           ) : null}
-          {comparison ? (
+          {comparison && !latestInTimeline ? (
+            // no snapshot in the timeline for the live comparison (for example a car picked without a chat turn): shown at the end
             <div data-message="" data-kind="comparison" className={messageStyles.message}>
-              <ComparisonPanel comparison={comparison} />
+              <InlineComparison
+                comparison={comparison}
+                collapsed={false}
+                onToggle={() => {}}
+                actions={carChoices ? undefined : { waiverAllowed, disabled: busy, onSend: chooseCar }}
+              />
             </div>
           ) : null}
           {questions.length > 0 ? (

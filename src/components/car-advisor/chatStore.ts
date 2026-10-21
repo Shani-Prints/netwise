@@ -20,6 +20,8 @@ export interface ChatState {
   pending: PendingMessage | null;
   comparison: ApiComparison | null;
   carChoices: ApiCarChoices | null;
+  comparisons: { messageId: string; comparison: ApiComparison }[];
+  waiverAllowed: boolean;
   questions: ApiEmployeeQuestion[];
   awaiting: boolean;
   draft: string;
@@ -33,6 +35,8 @@ export const initialChatState = (): ChatState => ({
   pending: null,
   comparison: null,
   carChoices: null,
+  comparisons: [],
+  waiverAllowed: false,
   questions: [],
   awaiting: false,
   draft: '',
@@ -99,6 +103,8 @@ export function createChatStore(api: AdvisorApiClient, initialOnUpdate?: (n: Not
       serverMessages: s.messages,
       comparison: s.comparison,
       carChoices: s.carChoices ?? null,
+      comparisons: s.comparisons ?? [],
+      waiverAllowed: s.waiverAllowed === true,
       questions: s.questions.filter((q) => q.status === 'open'),
       awaiting: s.awaitingRepresentative,
     });

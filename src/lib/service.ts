@@ -158,6 +158,8 @@ export interface EmployeeStateResponse {
   /** Representative-confirmed values by catalogue car id; they always win over catalogue defaults. */
   repAnswers: Record<string, number>;
   updates: Updates;
+  /** The timeline of comparisons: each one belongs after the bot message with this id. The last one is the live comparison. */
+  comparisons: { messageId: string; comparison: ComparisonView }[];
 }
 
 export interface RepQuestionView {
@@ -447,16 +449,20 @@ async function applyAnsweredQuestions(
   const notice = applied.length === 1 ? applied[0]!.message : repUpdatedManyText(applied.map((u) => u.part));
   await repo.addMessage(conv.id, 'system', notice);
   const view = next.lastComparison;
+  let final = next;
   if (view?.status === 'ok') {
     // Same single-result logic as a normal turn: the bridge line, then ONE headline sentence with the pointer to the panel.
     // The reasons and the assumptions live only in the panel.
     const labels = updatedLabelsOf([notice]);
     const headline = view.today && view.alternative ? resultSummaryText(view as Parameters<typeof resultSummaryText>[0]) : view.explanation.join('\n');
     const closing = view.today && view.alternative ? `\n${closingInviteText(listAllowedOptions(profile).waiverAllowed === true)}` : '';
-    await repo.addMessage(conv.id, 'assistant', `${labels.length > 0 ? `${repBridgeLine(labels)}\n` : ''}${headline}${closing}`);
+    const bot = await repo.addMessage(conv.id, 'assistant', `${labels.length > 0 ? `${repBridgeLine(labels)}\n` : ''}${headline}${closing}`);
+    // the result stays in the timeline at this message
+    final = withComparisonSnapshot(next, bot.id, view);
+    await repo.saveConversationState(conv.id, final);
   }
   const updatedFields: UpdatedField[] = applied.map(({ field, carLabel, value }) => ({ field, carLabel, value }));
-  return { conv: { ...conv, state: next }, profile, updates: { newAnswers: applied.length > 0, updatedFields } };
+  return { conv: { ...conv, state: final }, profile, updates: { newAnswers: applied.length > 0, updatedFields } };
 }
 
 // ---------------------------------------------------------------- employee API
@@ -495,6 +501,36 @@ function profileView(profile: ProfileRecord, state: ConversationState): ProfileV
     currentCar,
     currentParticipation: state.currentParticipation ?? null,
   };
+}
+
+const MAX_TIMELINE_COMPARISONS = 20;
+
+/** Adds the snapshot of a comparison to the state, keyed by the bot message of the turn that produced it. Pure. */
+export function withComparisonSnapshot(state: ConversationState, messageId: string, view: ComparisonView): ConversationState {
+  const list = [...(state.comparisons ?? []), { messageId, view }];
+  return { ...state, comparisons: list.slice(-MAX_TIMELINE_COMPARISONS) };
+}
+
+/**
+ * Saves the snapshot of the comparison a turn calculated, attached to that turn's bot message. The numbers are the engine result of
+ * the turn; nothing is recomputed here.
+ */
+export async function recordComparison(repo: Repo, actor: Actor, messageId: string, view: ComparisonView): Promise<void> {
+  await withLock(actor.userId, async () => {
+    const conv = await repo.findConversationByUser(actor.userId);
+    if (!conv) return;
+    await repo.saveConversationState(conv.id, withComparisonSnapshot(conv.state, messageId, view));
+  });
+}
+
+/** The snapshots in order. The last one shows the live comparison when it is still about the same alternative (a later answer updates it). */
+function timelineOf(state: ConversationState, live: ComparisonView | null): { messageId: string; comparison: ComparisonView }[] {
+  const list = (state.comparisons ?? []).map((c) => ({ messageId: c.messageId, comparison: c.view }));
+  const last = list[list.length - 1];
+  if (last && live && JSON.stringify(last.comparison.alternativeRef) === JSON.stringify(live.alternativeRef) && live.status === 'ok') {
+    list[list.length - 1] = { messageId: last.messageId, comparison: live };
+  }
+  return list;
 }
 
 async function buildStateResponse(repo: Repo, turn: Turn): Promise<EmployeeStateResponse> {
@@ -536,6 +572,7 @@ async function buildStateResponse(repo: Repo, turn: Turn): Promise<EmployeeState
     awaitingRepresentative: open.length > 0,
     repAnswers: conv.state.repAnswers,
     updates,
+    comparisons: timelineOf(conv.state, comparison),
   };
 }
 

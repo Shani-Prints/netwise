@@ -98,13 +98,17 @@ describe('the options list comes with the question "which car to compare"', () =
     expect(r2.text).not.toContain(CHOOSE_CAR_TEXT); // a question about the CURRENT car gets no sentence about the buttons
   });
 
-  it('nothing is added once an alternative was chosen', async () => {
+  it('once an alternative is chosen the buttons are gone, and come back only when ANOTHER car is asked (the compared car is left out)', async () => {
     const e = new Client();
     await e.updateProfile(PROFILE);
     await e.select({ kind: 'car', carId: 'CAR-10' });
-    const r = await send(e, { message: 'שלום' }, say('איזה רכב חשמלי תרצו להשוות?'));
-    expect(r.text).not.toContain(CHOOSE_CAR_TEXT);
-    expect(r.carChoices).toBeUndefined(); // gone once an alternative is chosen
+    const quiet = await send(e, { message: 'שלום' }, say('בסדר, אפשר לשאול כל דבר.'));
+    expect(quiet.text).not.toContain(CHOOSE_CAR_TEXT);
+    expect(quiet.carChoices).toBeUndefined(); // an alternative is chosen and nobody asks for another car
+    const another = await send(e, { message: 'אני רוצה להשוות לרכב אחר' }, say('לאיזה רכב נרצה להשוות הפעם?'));
+    expect(another.carChoices.purpose).toBe('target');
+    expect(another.text).toContain(CHOOSE_CAR_TEXT);
+    expect((another.carChoices.cars as { id: string }[]).map((c) => c.id)).not.toContain('CAR-10');
   });
 
   it('asksWhichCarToCompare tells the target car from the current car', () => {

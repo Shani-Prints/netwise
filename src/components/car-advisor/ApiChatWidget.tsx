@@ -20,7 +20,7 @@ import { UserBubble } from './messages/UserBubble';
 import { PAYSLIP_MARKER_TEXT } from '../../lib/payslipMarker';
 import { ScopeRoot } from './ScopeRoot';
 import { buildTimeline } from './timeline';
-import { CarIcon, CrossIcon, DocumentIcon, PaperclipIcon, SendIcon } from './ui/Icons';
+import { CarBadgeIcon, CrossIcon, DocumentIcon, PaperclipIcon, SendIcon } from './ui/Icons';
 import { NotificationCard } from './ui/NotificationCard';
 import uiStyles from './ui/ui.module.css';
 import { useApiChatController } from './useApiChatController';
@@ -111,7 +111,7 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
         <header className={styles.header}>
           <div className={styles.brand}>
             <div className={styles.tile} role="img" aria-label={he.common.iconLabel}>
-              <CarIcon size={22} />
+              <CarBadgeIcon size={26} />
             </div>
             <div>
               <p className={styles.title}>{he.common.appName}</p>
@@ -252,41 +252,43 @@ export function ApiChatWidget({ api, active = true, onClose, onNotification }: A
               void attachPayslip(picked);
             }}
           />
-          <button
-            type="button"
-            className={styles.attach}
-            disabled={busy || payslip !== null}
-            aria-label={he.api.payslip.attach}
-            title={he.api.payslip.attach}
-            onClick={() => fileRef.current?.click()}
-          >
-            <PaperclipIcon />
-          </button>
-          <textarea
-            id={fieldId}
-            ref={fieldRef}
-            rows={3}
-            maxLength={MAX_CHAT_CHARS}
-            className={styles.field}
-            placeholder={he.ask.placeholder}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                void submit();
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className={styles.send}
-            disabled={busy || draft.trim().length === 0}
-            aria-label={he.ask.send}
-            aria-busy={busy}
-          >
-            <SendIcon className={styles.sendIcon} />
-          </button>
+          <div className={styles.composerBox}>
+            <button
+              type="button"
+              className={styles.attach}
+              disabled={busy || payslip !== null}
+              aria-label={he.api.payslip.attach}
+              title={he.api.payslip.attach}
+              onClick={() => fileRef.current?.click()}
+            >
+              <PaperclipIcon />
+            </button>
+            <textarea
+              id={fieldId}
+              ref={fieldRef}
+              rows={3}
+              maxLength={MAX_CHAT_CHARS}
+              className={styles.field}
+              placeholder={he.ask.placeholder}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  void submit();
+                }
+              }}
+            />
+            <button
+              type="submit"
+              className={styles.send}
+              disabled={busy || draft.trim().length === 0}
+              aria-label={he.ask.send}
+              aria-busy={busy}
+            >
+              <SendIcon className={styles.sendIcon} />
+            </button>
+          </div>
         </form>
       </section>
     </ScopeRoot>

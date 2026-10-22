@@ -69,3 +69,19 @@ export function PaperclipIcon({ size = 20, ...props }: IconProps & { size?: numb
     </svg>
   );
 }
+
+/** Filled car with a small lightning accent, for the header badge. Colours come from the widget's CSS variables. */
+export function CarBadgeIcon({ size = 24, ...props }: IconProps & { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...sized(size)} {...props}>
+      <path
+        d="M2.5 15.5v-2.3c0-.6.2-1.1.6-1.5l2.1-2.7c.5-.9 1.4-1.5 2.4-1.5h8.8c1 0 1.9.6 2.4 1.5l2.1 2.7c.4.4.6.9.6 1.5v2.3c0 .6-.4 1-1 1h-1.2a2.6 2.6 0 0 0-5.1 0H9.8a2.6 2.6 0 0 0-5.1 0H3.5c-.6 0-1-.4-1-1z"
+        fill="currentColor"
+      />
+      <path d="M8.1 8.9h7.8l1.6 2.6H6.5z" fill="var(--ca-action)" opacity="0.9" />
+      <path d="M12.9 9.4l-1.7 1.7h1.2l-.6 1.4 1.9-1.8h-1.2z" fill="currentColor" />
+      <circle cx="7.3" cy="16.6" r="2" fill="currentColor" stroke="var(--ca-action)" strokeWidth="1.2" />
+      <circle cx="16.7" cy="16.6" r="2" fill="currentColor" stroke="var(--ca-action)" strokeWidth="1.2" />
+    </svg>
+  );
+}

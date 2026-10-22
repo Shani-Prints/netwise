@@ -305,3 +305,63 @@
     opacity: 1;
   }
 }
+
+/* Composer with attachment: one rounded container; the attach button is a small icon inside it, the field takes the full width. */
+[data-car-advisor][data-car-advisor] .composerBox {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--ca-line);
+  border-radius: 20px;
+  background: var(--ca-surface);
+}
+[data-car-advisor][data-car-advisor] .composerBox:focus-within {
+  border-color: var(--ca-action);
+  box-shadow: 0 0 0 2px var(--ca-blue);
+}
+[data-car-advisor][data-car-advisor] .composerBox .field {
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  padding: 8px 6px;
+}
+[data-car-advisor][data-car-advisor] .composerBox .field:focus-visible {
+  outline: none;
+}
+[data-car-advisor][data-car-advisor] .composerBox .attach {
+  width: 32px;
+  height: 32px;
+  margin-block-end: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ca-muted);
+}
+[data-car-advisor][data-car-advisor] .composerBox .attach:hover:not(:disabled) {
+  background: var(--ca-tint);
+  color: var(--ca-action);
+}
+[data-car-advisor][data-car-advisor] .composerBox .attach:focus-visible {
+  outline: 2px solid var(--ca-action);
+  outline-offset: 1px;
+}
+[data-car-advisor][data-car-advisor] .composerBox .attach:disabled {
+  opacity: 0.5;
+}
+[data-car-advisor][data-car-advisor] .composerBox .send {
+  width: 36px;
+  height: 36px;
+  margin-block-end: 2px;
+}
+[data-car-advisor][data-car-advisor] .composerBox .send:focus-visible {
+  outline: 2px solid var(--ca-action);
+  outline-offset: 2px;
+}
+
+/* Header badge: rounded square with a soft gradient and shadow (brand variables only). */
+[data-car-advisor][data-car-advisor] .tile {
+  background: linear-gradient(145deg, var(--ca-cyan), var(--ca-action));
+  box-shadow: 0 2px 6px rgba(2, 112, 158, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}

@@ -43,6 +43,7 @@ flowchart LR
 - **Inline comparisons** in the conversation: a short headline sentence in the bubble and the full breakdown in the comparison card.
 - **Representative console** (`/rep`, protected by an access code): open questions, typed answers or free-text answers.
 - **Source labels:** values entered by the representative are marked as such, and values taken from a payslip are shown as coming from it.
+- **Printable summary:** under the latest successful comparison, "שמירת סיכום" opens a one-page summary with the date, both cars, the same breakdown table and difference as the card, the assumptions, the source of the inputs and an "estimate only" note. It is printed or saved as PDF from the browser.
 
 ## 5. Original additions beyond the brief
 
@@ -52,10 +53,13 @@ To be clear about what is ours: the brief already allows an optional payslip and
 2. **Quick actions and a conversation timeline.** After a result there are buttons to compare another car or, when allowed, to give up the car (`InlineComparison.tsx`). Earlier comparisons stay in the conversation and are collapsed; only the latest one is expanded (`timeline.ts`).
 3. **Free-text representative answers.** The representative can answer in plain Hebrew ("אין לה נקודות זיכוי", "הפנסיה 6.5"). The text goes to an isolated model call (`src/agent/interpretRepText.ts`) with no employee data, no conversation and no tools. It returns only a proposal, which the server validates with the same validators as the typed answers before applying it.
 4. **Source labels and the provenance check.** Values entered by the representative are marked as such (and the employee can replace them), and values taken from a payslip are labelled. The provenance check (`src/agent/provenance.ts`) lets the agent save a number only if the employee actually wrote it in the conversation.
+5. **Printable summary ("שמירת סיכום").** The employee decides at home, not in the chat. A dated one-page summary with the assumptions, the source of each input (employee / payslip / representative) and an "estimate only" note can be kept or shared with a spouse. This should reduce repeat questions to the representative and later disputes about what was said. It appears only under the latest comparison that has numbers, shows only values already in that comparison (nothing is recomputed), leaves out the assumption sentences that invite typing in the chat, and carries no name, ID, file name or payslip content (`ComparisonSummary.tsx`).
 
 **Try it (representative):** in the chat, answer "I don't know" (e.g. "אין לי מושג כמה פנסיה") for a missing field. A question is opened for the representative. Open the representative screen (`/rep`, log in with your `REP_ACCESS_CODE`) and reply in free text. The employee screen then shows what was updated and continues.
 
 **Try it (buttons and family track):** give an occupation, pay details and a current car. When the bot asks which car to compare, the eligible cars appear as buttons grouped by drive type; the give-up button appears only for an occupation that allows it. Repeat with 4 children to see the family-track cars added to the list, and with fewer children to see them missing. After a result, use the quick actions to compare another car.
+
+**Try it (printable summary):** reach a comparison result and click "שמירת סיכום", then "הדפסה / שמירה כ-PDF".
 
 ## 6. Run locally
 
@@ -77,7 +81,7 @@ Environment variable **names** (see `.env.example` for comments):
 - Behaviour: `PARTICIPATION_FROM_REPRESENTATIVE`, `SHOW_PROVISIONAL_ALTERNATIVE`, `CHAT_RATE_LIMIT_PER_MIN`, `REP_TEXT_RATE_LIMIT_PER_MIN`
 - Data paths: `NETWISE_DATA_DIR`, `USAGE_CSV_PATH`, `RULES_PATH`
 
-The payslip file is sent to Google's Gemini API for extraction; its handling there is governed by Google's terms. Use fictional payslips only.
+The payslip file is sent to Google's Gemini API for extraction; its handling there is governed by Google's terms. Use fictional payslips only. The printable summary is generated in the browser, is printed or saved as PDF by the user, and is not sent to the server or stored.
 
 ## 7. Tests
 

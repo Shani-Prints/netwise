@@ -18,6 +18,15 @@ export function canSummarize(comparison: ApiComparison): boolean {
   return comparison.status === 'ok' && comparison.today !== undefined && comparison.alternative !== undefined;
 }
 
+// A sentence that invites the reader to type something in the chat ("אם זו לא השנה הנכונה, אפשר לכתוב את השנה") means nothing on paper.
+const INVITATION = /אפשר|ניתן ל/u;
+
+/** The factual part of an assumption: the sentences that invite a reply in the chat are dropped (the card keeps them). */
+export function withoutInvitation(text: string): string {
+  const sentences = text.match(/[^.!?]+[.!?]*/gu) ?? [text];
+  return sentences.filter((sentence) => !INVITATION.test(sentence)).join('').trim();
+}
+
 /**
  * The one-page summary of a comparison. It re-presents what the card shows, from the same ApiComparison of the turn:
  * nothing is computed here, and nothing personal (name, ID, file name, payslip content) is part of that object.
@@ -26,6 +35,7 @@ export function ComparisonSummary({ comparison, date }: { comparison: ApiCompari
   const c = comparison;
   const rows = comparisonRows(c);
   const lines = c.explanation.slice(1);
+  const assumptions = c.assumptions.map(withoutInvitation).filter((a) => a !== '');
   const provenance = [
     ...(c.payslipEntered && c.payslipEntered.length > 0 ? [`${L.fromPayslipTitle}: ${c.payslipEntered.join(', ')}`] : []),
     ...(c.representativeEntered ?? []).map((item) => `${L.enteredByRepTitle}: ${item.label}`),
@@ -76,11 +86,11 @@ export function ComparisonSummary({ comparison, date }: { comparison: ApiCompari
           {line}
         </p>
       ))}
-      {c.assumptions.length > 0 ? (
+      {assumptions.length > 0 ? (
         <>
           <h2 className={styles.sectionTitle}>{L.assumptionsTitle}</h2>
           <ul className={styles.list}>
-            {c.assumptions.map((item, index) => (
+            {assumptions.map((item, index) => (
               <li key={`${index}-${item}`}>{item}</li>
             ))}
           </ul>

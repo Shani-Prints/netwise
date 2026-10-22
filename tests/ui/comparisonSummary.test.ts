@@ -76,3 +76,18 @@ describe('comparison summary', () => {
     expect(items.filter((i) => i.kind === 'comparison').map((i) => i.kind === 'comparison' && i.latest)).toEqual([false, true]);
   });
 });
+
+describe('summary assumptions', () => {
+  const invite = 'הנחתי שנת רישום 2021 עבור דגם בדוי א לפי הקטלוג. אם זו לא השנה הנכונה, אפשר לכתוב את השנה.';
+  const withInvite = { ...ok, assumptions: [invite, 'השתתפות ברירת מחדל מהקטלוג.'] };
+
+  it('keeps the factual part and drops the invitation to write in the chat, only in the summary', () => {
+    const summary = renderToStaticMarkup(createElement(ComparisonSummary, { comparison: withInvite, date: '22.10.2026' }));
+    expect(summary).toContain('הנחתי שנת רישום 2021 עבור דגם בדוי א לפי הקטלוג.');
+    expect(summary).toContain('השתתפות ברירת מחדל מהקטלוג.');
+    expect(summary).not.toContain('אפשר לכתוב');
+    expect(summary).not.toContain('לא השנה הנכונה');
+    const card = renderToStaticMarkup(createElement(ComparisonPanel, { comparison: withInvite }));
+    expect(card).toContain('אפשר לכתוב את השנה');
+  });
+});

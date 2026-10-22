@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { fill } from '../content/fill';
 import { he } from '../content/he';
 import type { ApiComparison } from '../contract/types';
+import { DocumentIcon } from '../ui/Icons';
 import styles from './summary.module.css';
 import apiStyles from './api.module.css';
 import { comparisonRows, differenceText, formatShekel } from './comparisonFormat';
@@ -104,7 +105,8 @@ export function SummaryAction({ comparison }: { comparison: ApiComparison }) {
   if (!canSummarize(comparison)) return null;
   return (
     <>
-      <button type="button" className={apiStyles.carChoiceButton} onClick={() => setOpen(true)}>
+      <button type="button" className={`${apiStyles.carChoiceButton} ${apiStyles.carChoiceButtonPrimary}`} onClick={() => setOpen(true)}>
+        <DocumentIcon size={16} />
         {S.button}
       </button>
       {open

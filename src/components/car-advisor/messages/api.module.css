@@ -344,3 +344,22 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* The primary action of the row ("save summary"): filled with the action colour, same size and shape as the outlined buttons. */
+[data-car-advisor][data-car-advisor] .carChoiceButtonPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ca-action);
+  color: var(--ca-white);
+  font-weight: 600;
+}
+[data-car-advisor][data-car-advisor] .carChoiceButtonPrimary:hover:not(:disabled) {
+  background: var(--ca-action);
+  color: var(--ca-white);
+  filter: brightness(0.88);
+}
+[data-car-advisor][data-car-advisor] .carChoiceButtonPrimary:focus-visible {
+  outline: 3px solid var(--ca-action);
+  outline-offset: 3px;
+}

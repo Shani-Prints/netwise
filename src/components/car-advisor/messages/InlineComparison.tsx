@@ -3,6 +3,7 @@ import { he } from '../content/he';
 import type { ApiComparison } from '../contract/types';
 import styles from './api.module.css';
 import { ComparisonPanel } from './ComparisonPanel';
+import { SummaryAction } from './ComparisonSummary';
 import { differenceText } from './comparisonFormat';
 
 const L = he.api.comparison;
@@ -70,6 +71,7 @@ export function InlineComparison({ comparison, collapsed, onToggle, actions }: I
               {he.api.carChoices.waiver}
             </button>
           ) : null}
+          <SummaryAction comparison={comparison} />
         </div>
       ) : (
         <button type="button" className={styles.comparisonHide} aria-expanded onClick={onToggle}>
